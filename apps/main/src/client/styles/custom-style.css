@@ -1,0 +1,152 @@
+/*
+    * scroll-fade-x / scroll-fade-y 사용 가이드
+    *
+    * 공통:
+    * - 가장자리 페이드 마스크를 적용해 스크롤의 시작/끝을 자연스럽게 표시합니다.
+    * - 스크롤바를 숨기려면 'scrollbar-hide' 유틸과 함께 사용하세요.
+    * - 페이드 폭은 CSS 변수 '--mask-fade-x' / '--mask-fade-y'로 조절 가능합니다.
+    *   예) <div style={{ '--mask-fade-x': '16px' }}>...
+    *
+    * 수평(.scroll-fade-x):
+    * - 컨테이너에 'scrollbar-hide scroll-fade-x' 클래스를 추가합니다.
+    * - Grid/Flex 레이아웃에서 중앙 칼럼처럼 사용할 경우, 컨테이너에
+    *   min-width: 0; width: 100%;(또는 해당 레이아웃에서 shrink 가능) 보장 필요.
+    * - inline 항목 또는 한 줄 유지가 필요하면 white-space: nowrap 을 유지하세요
+    *   (본 유틸에서 기본으로 설정됨).
+    *
+    * 수직(.scroll-fade-y):
+    * - 컨테이너에 'scroll-fade-y' 클래스를 추가하고, 별도로 overflow-y: auto;를 설정하세요
+    *   (본 유틸은 마스크만 제공, 스크롤 동작은 직접 지정).
+    * - 스크롤이 나타나도록 고정/최대 높이를 지정하세요 (예: max-height).
+    */
+.scroll-fade-x {
+    padding-inline: calc(var(--mask-fade-x) / 4);
+    -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    rgba(0,0,0,1) var(--mask-fade-x),
+    rgba(0,0,0,1) calc(100% - var(--mask-fade-x)),
+    transparent
+    );
+    mask-image: linear-gradient(
+    to right,
+    transparent,
+    rgba(0,0,0,1) var(--mask-fade-x),
+    rgba(0,0,0,1) calc(100% - var(--mask-fade-x)),
+    transparent
+    );
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+.scroll-fade-y {
+    padding-block: calc(var(--mask-fade-y) / 2);
+    -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0,0,0,1) var(--mask-fade-y),
+    rgba(0,0,0,1) calc(100% - var(--mask-fade-y)),
+    transparent
+    );
+    mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0,0,0,1) var(--mask-fade-y),
+    rgba(0,0,0,1) calc(100% - var(--mask-fade-y)),
+    transparent
+    );
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+}
+
+/* Brand gradient text utility */
+.brand-text {
+    background: linear-gradient(180deg,
+    var(--color-foreground) 0%,
+    color-mix(in oklab, var(--color-foreground) 60%, var(--color-background) 40%) 80%,
+    color-mix(in oklab, var(--color-foreground) 50%, var(--color-background) 50%) 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+/* AI stroke gradient text utility */
+.ai-stroke-text {
+    background: linear-gradient(90deg, var(--ai-from) 0%, var(--ai-to) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* AI gradient border utility */
+.ai-stroke-border {
+    border: 1px solid transparent;
+    background:
+    linear-gradient(var(--color-background), var(--color-background)) padding-box,
+    linear-gradient(90deg, var(--ai-from), var(--ai-to)) border-box;
+}
+
+/* AI gradient shadow utility (filter-based, shadow only) */
+.ai-stroke-shadow {
+    /* Note: This sets filter. Combine with other filters by composing at usage-site if needed */
+    filter:
+    drop-shadow(var(--ai-shadow-offset-x, 0px) var(--ai-shadow-offset-y, 6px) var(--ai-shadow-blur, 9px)
+        color-mix(in oklab, var(--ai-from) var(--ai-shadow-opacity, 35%), transparent))
+    drop-shadow(calc(var(--ai-shadow-offset-x, 0px) * -1) calc(var(--ai-shadow-offset-y, 6px) * -1) var(--ai-shadow-blur, 9px)
+        color-mix(in oklab, var(--ai-to) var(--ai-shadow-opacity, 35%), transparent));
+}
+
+/* Point variant gradient button styling */
+.point-gradient {
+    background: linear-gradient(135deg, var(--color-foreground), color-mix(in oklab, var(--color-foreground) 85%, var(--color-neutral-800)));
+    color: var(--color-background);
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow:
+    0 4px 12px -4px color-mix(in oklab, var(--color-foreground) 25%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-white) 15%, transparent);
+}
+.point-gradient:disabled {
+    filter: grayscale(0.15);
+}
+.point-gradient:hover:not(:disabled) {
+    box-shadow:
+    0 8px 20px -6px color-mix(in oklab, var(--color-foreground) 35%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-white) 20%, transparent);
+}
+
+/* Glassmorphism effect for input components */
+.point-glass {
+    background-color: color-mix(in oklab, var(--color-background) 85%, transparent);
+    backdrop-filter: blur(var(--blur-md));
+    border: 1px solid var(--color-border);
+}
+
+.brand-wave {
+    /* 중앙 하이라이트를 더 밝게(불투명하게) 하고 범위를 약간 넓힘 */
+    /*
+    * 무한 루프 정합성: mask-size = 180% (imageWidth = 1.8 * elementWidth)
+    * 배경/마스크 퍼센트 오프셋은 (elementWidth - imageWidth)를 기준으로 계산됨.
+    * 한 타일(imageWidth) 만큼 이동하려면 percent = -imageWidth/(elementWidth - imageWidth)*100 = -225%
+    * => @keyframes alpha-wave 100% 지점은 -225%로 설정
+    */
+    -webkit-mask-image: linear-gradient(90deg,
+    rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.6) 28%,
+    rgba(0,0,0,0.9) 55%, rgba(0,0,0,1) 72%,
+    rgba(0,0,0,0.9) 88%, rgba(0,0,0,0.6) 100%);
+    mask-image: linear-gradient(90deg,
+    rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.6) 28%,
+    rgba(0,0,0,0.9) 55%, rgba(0,0,0,1) 72%,
+    rgba(0,0,0,0.9) 88%, rgba(0,0,0,0.6) 100%);
+    -webkit-mask-size: 180% 100%;
+    mask-size: 180% 100%;
+    -webkit-mask-repeat: repeat;
+    mask-repeat: repeat;
+    -webkit-mask-position: 0% 50%;
+    mask-position: 0% 50%;
+    animation: alpha-wave 1.5s linear infinite;
+    will-change: -webkit-mask-position, mask-position;
+}

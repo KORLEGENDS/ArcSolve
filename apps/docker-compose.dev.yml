@@ -1,0 +1,131 @@
+services:
+  # --- PostgreSQL (순정 최신) ---
+  postgres:
+    image: postgres:18-bookworm
+    container_name: postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data
+      # 초기화 시부터 SCRAM 적용(운영 보안 권장)
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      TZ: Asia/Seoul
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- PgBouncer (트랜잭션 풀링) ---
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.24.1-p1
+    container_name: pgbouncer-dev
+    restart: unless-stopped
+    environment:
+      # edoburu 표준 키
+      LISTEN_ADDR: "0.0.0.0"
+      LISTEN_PORT: "6432"
+      POOL_MODE: "transaction"
+      MAX_CLIENT_CONN: "2000"
+      DEFAULT_POOL_SIZE: "50"
+      AUTH_TYPE: "scram-sha-256"
+      ADMIN_USERS: ${POSTGRES_USER}
+      DATABASES: "* = host=postgres port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}"
+      # 엔트리포인트용 편의 키(유저리스트 자동 생성)
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "6432:6432"
+
+  # --- Redis (보안/메모리 정책 보강) ---
+  redis:
+    image: redis:8.2.3-alpine
+    container_name: redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      - redis_data_dev:/data
+    command:
+      - redis-server
+      - --port
+      - "6379"
+      - --protected-mode
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - ""
+      - --maxmemory
+      - "256mb"
+      - --maxmemory-policy
+      - allkeys-lru
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 -p 6379 -a ${REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- uWebSockets.js Gateway (WS 서버) ---
+  uws-gateway:
+    build:
+      context: ..
+      dockerfile: docker/apps/uws-gateway/Dockerfile
+    container_name: uws-gateway-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      # DB는 PgBouncer 경유로 전환
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      PORT: "8080"
+      TZ: Asia/Seoul
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  # --- Outbox Worker (DB Outbox → Redis 발행) ---
+  outbox-worker:
+    build:
+      context: ..
+      dockerfile: docker/apps/outbox-worker/Dockerfile
+    container_name: outbox-worker-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      TZ: Asia/Seoul
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data_dev: {}
+  redis_data_dev: {}

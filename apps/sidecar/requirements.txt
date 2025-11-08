@@ -1,0 +1,56 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+pydantic
+
+# Database
+psycopg[binary]
+redis
+
+# HTTP Clients
+httpx
+requests
+
+# Observability
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-grpc
+
+# Cloud Storage
+boto3
+
+# LangChain & AI
+langchain
+langchain-text-splitters
+langgraph
+langgraph-checkpoint-postgres
+sentence-transformers
+numpy
+tiktoken
+
+
+
+
+# Utilities
+python-dotenv
+
+# Development
+pytest
+pytest-asyncio
+black
+mypy
+ruff
+
+
+# parse
+marker-pdf==1.10.1
+transformers==4.57.0
+
+# Speech-to-text (로컬 엔진 제거됨)
+# (faster-whisper/ctranslate2/librosa/soundfile 제거)
+yt-dlp                   # 유튜브 오디오 다운로드
+youtube-transcript-api   # 유튜브 자막 JSON API
+
+
+# Fireworks Build SDK
+fireworks-ai
