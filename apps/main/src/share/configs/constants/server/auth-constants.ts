@@ -44,21 +44,7 @@ export const RATE_LIMIT = {
 // ==================== 세션 보안 설정 ====================
 // JWT 전략 사용으로 DB 세션 관리 불필요 - 제거됨
 
-// ==================== 사용자 역할 및 권한 (보안 중요) ====================
-
-/**
- * 서버에서 검증하는 사용자 역할 (3단계 시스템)
- */
-export const USER_ROLES = {
-  USER: 'user',
-  MANAGER: 'manager',
-  ADMIN: 'admin',
-} as const;
-
-export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
-
-// ROLE_PERMISSIONS 제거됨 - 사용되지 않음
-// 현재는 단순한 role 기반 인증만 사용
+// 사용자 역할/권한 관련 상수 제거됨 (전역 role 미사용 정책)
 
 // ==================== 파일 보안 설정 ====================
 // FILE_SECURITY 제거됨 - 사용되지 않음

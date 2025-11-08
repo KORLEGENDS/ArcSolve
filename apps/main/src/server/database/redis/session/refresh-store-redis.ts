@@ -1,5 +1,5 @@
-import { CACHE_TTL } from '@/share/configs/constants';
-import { CacheKey, getRedis } from '../connection/client-redis';
+import { CACHE_TTL, CacheKey } from '@/share/configs/constants';
+import { getRedis } from '../connection/client-redis';
 
 const DEFAULT_TTL_SEC: number = CACHE_TTL.SESSION.REFRESH_TOKEN;
 
@@ -13,14 +13,14 @@ export async function saveRefreshToken(
   if (!redis) {
     return;
   }
-  await redis.set(CacheKey.FILE_STATUS_CHANNEL(id), token, 'EX', ttlSec);
+  await redis.set(CacheKey.session.refreshToken(id), token, 'EX', ttlSec);
 }
 
 /** Load refresh token; null if not found */
 export async function loadRefreshToken(id: string): Promise<string | null> {
   const redis = getRedis();
   if (!redis) return null;
-  return redis.get(CacheKey.FILE_STATUS_CHANNEL(id));
+  return redis.get(CacheKey.session.refreshToken(id));
 }
 
 /** Rotate refresh token: delete old, save new */
@@ -32,9 +32,9 @@ export async function rotateRefreshToken(
   const redis = getRedis();
   if (!redis) return;
   const multi = redis.multi();
-  multi.del(CacheKey.FILE_STATUS_CHANNEL(oldId));
+  multi.del(CacheKey.session.refreshToken(oldId));
   multi.set(
-    CacheKey.FILE_STATUS_CHANNEL(newId),
+    CacheKey.session.refreshToken(newId),
     newToken,
     'EX',
     DEFAULT_TTL_SEC
@@ -46,5 +46,5 @@ export async function rotateRefreshToken(
 export async function deleteRefreshToken(id: string): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
-  await redis.del(CacheKey.FILE_STATUS_CHANNEL(id));
+  await redis.del(CacheKey.session.refreshToken(id));
 }

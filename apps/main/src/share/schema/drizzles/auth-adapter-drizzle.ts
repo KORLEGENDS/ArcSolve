@@ -1,17 +1,17 @@
 import type { AdapterAccountType } from '@auth/core/adapters';
 import {
-  boolean,
   integer,
-  pgTable,
+  pgSchema,
   primaryKey,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-// Auth.js DrizzleAdapter 공식 예시를 따른 Postgres 스키마
-// 테이블 이름은 어댑터 기본값에 맞춤: user, account, session, verificationToken, authenticator
+// Auth.js DrizzleAdapter용 테이블을 auth 스키마로 격리
+const auth = pgSchema('auth');
 
-export const authUsers = pgTable('user', {
+// 어댑터가 기대하는 최소 컬럼만 유지 (id, name, email, emailVerified, image)
+export const authUsers = auth.table('user', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
@@ -21,7 +21,9 @@ export const authUsers = pgTable('user', {
   image: text('image'),
 });
 
-export const authAccounts = pgTable(
+// 계정 테이블도 어댑터 필수 컬럼만 유지 (userId, type, provider, providerAccountId)
+// 토큰 관련 컬럼은 선택 사항이므로 필요한 것만 남김
+export const authAccounts = auth.table(
   'account',
   {
     userId: text('userId')
@@ -40,46 +42,5 @@ export const authAccounts = pgTable(
   },
   (account) => [
     primaryKey({ columns: [account.provider, account.providerAccountId] }),
-  ]
-);
-
-export const authSessions = pgTable('session', {
-  sessionToken: text('sessionToken').primaryKey(),
-  userId: text('userId')
-    .notNull()
-    .references(() => authUsers.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { mode: 'date' }).notNull(),
-});
-
-export const authVerificationTokens = pgTable(
-  'verificationToken',
-  {
-    identifier: text('identifier').notNull(),
-    token: text('token').notNull(),
-    expires: timestamp('expires', { mode: 'date' }).notNull(),
-  },
-  (verificationToken) => [
-    primaryKey({
-      columns: [verificationToken.identifier, verificationToken.token],
-    }),
-  ]
-);
-
-export const authAuthenticators = pgTable(
-  'authenticator',
-  {
-    credentialID: text('credentialID').notNull().unique(),
-    userId: text('userId')
-      .notNull()
-      .references(() => authUsers.id, { onDelete: 'cascade' }),
-    providerAccountId: text('providerAccountId').notNull(),
-    credentialPublicKey: text('credentialPublicKey').notNull(),
-    counter: integer('counter').notNull(),
-    credentialDeviceType: text('credentialDeviceType').notNull(),
-    credentialBackedUp: boolean('credentialBackedUp').notNull(),
-    transports: text('transports'),
-  },
-  (authenticator) => [
-    primaryKey({ columns: [authenticator.userId, authenticator.credentialID] }),
   ]
 );

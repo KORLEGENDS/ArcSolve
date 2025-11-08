@@ -13,14 +13,8 @@ import {
   deleteRefreshToken,
   saveRefreshToken,
 } from '@/server/database/redis/session/refresh-store-redis';
-// 간단 검증용 no-op 스키마 (기존 zod 검증 대체)
-const createUserSchemaEventSchema = { parse: (v: unknown) => v } as const;
-const jwtCallbackSchema = { parse: (v: unknown) => v } as const;
-const sessionCallbackSchema = { parse: (v: unknown) => v } as const;
-const signInCallbackSchema = { parse: (v: unknown) => v } as const;
-const signOutCallbackSchema = { parse: (v: unknown) => v } as const;
 
-import { TIME_UNITS, USER_ROLES } from '@/share/configs/constants';
+import { TIME_UNITS } from '@/share/configs/constants';
 import { env, isProduction } from '@/share/configs/environments/server-constants';
 import {
   authAccounts as adapterAccounts,
@@ -55,7 +49,6 @@ const providers = [
             email: profile.kakao_account?.email ?? '',
             name: profile.kakao_account?.profile?.nickname ?? '',
             image: profile.kakao_account?.profile?.profile_image_url,
-            role: USER_ROLES.USER,
           }),
         }),
       ]
@@ -73,7 +66,6 @@ const providers = [
               email: r.email ?? '',
               name: r.name ?? r.nickname ?? '',
               image: r.profile_image ?? undefined,
-              role: USER_ROLES.USER,
             };
           },
         }),
@@ -84,22 +76,13 @@ const providers = [
 // ==================== 역할별 세션 설정 ====================
 
 /**
- * 🎯 역할별 세션 설정 생성 함수
- * Auth.js 권장사항에 따른 역할별 차등 적용
+ * 🎯 세션 설정 생성 함수 (역할 제거)
  */
-export function getSessionConfigByRole(role?: string): {
+export function getSessionConfig(): {
   maxAge: number;
 } {
-  // 관리자: 더 엄격한 보안 정책
-  if (role === USER_ROLES.ADMIN || role === USER_ROLES.MANAGER) {
-    return {
-      maxAge: 7 * TIME_UNITS.DAY, // 7일 만료 (보안 강화)
-    };
-  }
-
-  // 일반 사용자: Auth.js 기본 권장값
   return {
-    maxAge: 30 * TIME_UNITS.DAY, // 30일 만료 (Auth.js 권장)
+    maxAge: 30 * TIME_UNITS.DAY,
   };
 }
 
@@ -146,12 +129,7 @@ export const authConfig = {
      */
     async createUser({ user }: { user: any }) {
       try {
-        // role 기본값 보정 후 검증
-        const normalizedUser = {
-          ...user,
-          role: user.role ?? USER_ROLES.USER,
-        };
-        createUserSchemaEventSchema.parse({ user: normalizedUser });
+        const normalizedUser = { ...user };
 
         if (
           TypeGuards.isString(normalizedUser.id) &&
@@ -172,8 +150,7 @@ export const authConfig = {
                 id: normalizedUser.id,
                 email: normalizedUser.email,
                 name: normalizedUser.name ?? '',
-                image: normalizedUser.image,
-                role: normalizedUser.role ?? USER_ROLES.USER,
+                imageUrl: (normalizedUser as any).image ?? undefined,
               });
           } else {
             // 기존 사용자 업데이트 (필요한 필드만)
@@ -181,7 +158,7 @@ export const authConfig = {
               .update(appUsers)
               .set({
                 name: normalizedUser.name ?? '',
-                image: normalizedUser.image,
+                imageUrl: (normalizedUser as any).image ?? undefined,
                 updatedAt: new Date(),
               })
               .where(eq(appUsers.email, normalizedUser.email));
@@ -199,7 +176,7 @@ export const authConfig = {
      */
     async signOut(params: unknown) {
       try {
-        const validatedParams = signOutCallbackSchema.parse(params) as { session?: { user?: { id?: string } }, token?: { sub?: string } };
+        const validatedParams = params as { session?: { user?: { id?: string } }, token?: { sub?: string } };
         const userId =
           validatedParams.session?.user?.id ?? validatedParams.token?.sub;
 
@@ -220,21 +197,11 @@ export const authConfig = {
      */
     async jwt({ token, user, account, trigger }) {
       try {
-        // role 기본값 보정 후 검증
-        const normalizedUser = user
-          ? { ...user, role: user.role ?? USER_ROLES.USER }
-          : undefined;
-        jwtCallbackSchema.parse({
-          token,
-          user: normalizedUser,
-          account,
-          trigger,
-        });
+        const normalizedUser = user ? { ...user } : undefined;
 
         // 최초 로그인: 사용자 정보를 토큰에 저장
         if (normalizedUser && TypeGuards.isString(normalizedUser.id)) {
           token.sub = normalizedUser.id;
-          token.role = normalizedUser.role ?? USER_ROLES.USER;
           token.email = normalizedUser.email;
           token.name = normalizedUser.name;
           token.image = normalizedUser.image;
@@ -242,8 +209,8 @@ export const authConfig = {
             token.provider = account.provider as 'kakao' | 'naver';
           }
 
-          // 역할별 토큰 만료 시간 설정
-          const sessionConfig = getSessionConfigByRole(normalizedUser.role);
+          // 토큰 만료 시간 설정 (고정 TTL)
+          const sessionConfig = getSessionConfig();
           token.iat = Math.floor(Date.now() / 1000);
           token.exp = token.iat + sessionConfig.maxAge;
 
@@ -309,11 +276,8 @@ export const authConfig = {
      */
     async session({ session, token }: { session: Session; token: JWT }) {
       try {
-        sessionCallbackSchema.parse({ session, token });
-
         if (token && TypeGuards.isString(token.sub) && session.user) {
           session.user.id = token.sub;
-          session.user.role = (token.role as 'user' | 'manager' | 'admin' | undefined) ?? USER_ROLES.USER;
 
           if (TypeGuards.isString(token.email)) {
             session.user.email = token.email;
@@ -345,13 +309,10 @@ export const authConfig = {
           user: {
             ...user,
             id: user.id ?? generateUUID(),
-            role: user.role ?? USER_ROLES.USER,
           },
           account,
           profile,
         };
-
-        signInCallbackSchema.parse(normalizedData);
 
         // 필수 정보 확인
         const email = (normalizedData.user as { email?: string }).email;

@@ -25,10 +25,7 @@ export const userSchema = baseSchema.extend({
   // 기본 프로필 정보
   email: z.email(),
   name: z.string().min(1).max(100),
-  image: z.url().nullable().optional(),
-
-  // 권한 및 상태 (단일 소스 스키마)
-  role: z.enum(['user', 'manager', 'admin']).default('user'),
+  imageUrl: z.string().url().nullable().optional(),
 
   // 개인화 설정
   preferences: userPreferencesSchema.nullable().optional(),
@@ -38,8 +35,5 @@ export type UserSchema = z.infer<typeof userSchema>;
 
 // ==================== 재사용 가능한 파생 스키마/타입 ====================
 
-export const userRoleSchema = userSchema.shape.role;
-export type UserSchemaRole = z.infer<typeof userRoleSchema>;
-
 // 서버/응답 메타 등에서 사용하는 경량 사용자 메타 타입
-export type UserMeta = { id?: string; email?: string; role?: string } | undefined;
+export type UserMeta = { id?: string; email?: string } | undefined;

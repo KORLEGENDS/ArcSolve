@@ -9,8 +9,8 @@
 import { enableMapSet } from 'immer';
 enableMapSet();
 
-import { TooltipProvider } from '@/client/components/ui-base/tooltip';
-import { useSystemStore } from '@/client/states/zustand/system-store';
+import { TooltipProvider } from '@/client/components/ui/tooltip';
+import { useSystemStore } from '@/client/states/stores/system-store';
 import { useTheme } from 'next-themes';
 import { type ComponentType, type ReactNode, Suspense, useEffect, useMemo, useRef } from 'react';
 import { toast as sonnerToast, Toaster } from 'sonner';

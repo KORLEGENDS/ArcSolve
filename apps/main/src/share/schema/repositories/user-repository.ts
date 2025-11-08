@@ -28,19 +28,14 @@ export class UserRepository {
       search?: string; // email/name 검색
       sortBy?: 'createdAt' | 'updatedAt' | 'email' | 'name';
       sortOrder?: 'asc' | 'desc';
-      role?: 'user' | 'manager' | 'admin';
     }
   ): Promise<PageResult<User>> {
     const { page = 1, limit = 20 } = params;
     const { offset } = getPaginationOptions(page, limit);
 
-    const extra: any[] = [];
-    if (params.role) extra.push(eq(users.role, params.role));
-
     const conditions = buildAndConditions([
       isNull(users.deletedAt),
       params.search ? buildSearchConditions(params.search, [users.email, users.name]) : undefined,
-      ...extra,
     ]);
 
     const totalRows = await this.database
@@ -72,10 +67,8 @@ export class UserRepository {
       .set({
         email: patch.email,
         name: patch.name,
-        role: patch.role,
         preferences: patch.preferences as any,
-        emailVerified: patch.emailVerified ?? undefined,
-        image: patch.image ?? undefined,
+        imageUrl: (patch as any).imageUrl ?? undefined,
         updatedAt: sql`now()`,
       })
       .where(and(eq(users.id, id), isNull(users.deletedAt)))

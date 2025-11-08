@@ -1,11 +1,7 @@
-import { TIME_UNITS } from '@/share/configs/constants';
-import { getRedis } from '../connection/client-redis';
+import { CACHE_TTL, CacheKey, RATE_LIMIT } from '@/share/configs/constants';
+import { consumeFixedWindow, RateLimitResult } from './window-redis';
 
-export async function consumeIpLimit(ip: string): Promise<boolean> {
-  const redis = getRedis();
-  const key = `ratelimit:ip:${ip}`;
-  const ttlSeconds = Math.floor(TIME_UNITS.MINUTE / 1000);
-  const res = await redis.multi().incr(key).expire(key, ttlSeconds).exec();
-  const count = Number(res?.[0]?.[1] ?? 0);
-  return count <= 60;
+export async function consumeIpLimit(ip: string): Promise<RateLimitResult> {
+  const key = CacheKey.rateLimit.ip(ip);
+  return consumeFixedWindow(key, CACHE_TTL.RATE_LIMIT.WINDOW, RATE_LIMIT.IP.MAX_REQUESTS);
 }

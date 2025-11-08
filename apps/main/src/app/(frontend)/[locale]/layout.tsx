@@ -1,9 +1,9 @@
 import { createPageMetadata } from '@/client/metadata';
 import '@/client/styles/index.css';
-// import { AppProviders } from '@/share/providers/client/client-providers';
-// import { InitProviders } from '@/share/providers/server/server-providers';
+import { AppProviders } from '@/share/providers/client/client-providers';
+import { InitProviders } from '@/share/providers/server/server-providers';
 import type { Metadata } from 'next';
-// import { getLocale, getMessages } from 'next-intl/server';
+import { getLocale, getMessages } from 'next-intl/server';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = createPageMetadata({
@@ -21,11 +21,10 @@ interface RootLayoutProps {
  * - metadata export를 위해 서버 컴포넌트로 유지
  */
 export default async function RootLayout({ children }: RootLayoutProps): Promise<ReactNode> {
-  // const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
 
   return (
-    <html lang="ko" suppressHydrationWarning>
-    {/* <html lang={locale} suppressHydrationWarning> */}
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <link rel='preconnect' href='https://fonts.googleapis.com' />
         <link
@@ -39,11 +38,11 @@ export default async function RootLayout({ children }: RootLayoutProps): Promise
         />
       </head>
       <body>
-        {/* <InitProviders> */}
-          {/* <AppProviders intl={{ locale, messages, timeZone: 'Asia/Seoul', now: new Date().toISOString() }}> */}
+        <InitProviders>
+          <AppProviders intl={{ locale, messages, timeZone: 'Asia/Seoul', now: new Date().toISOString() }}>
             {children}
-          {/* </AppProviders> */}
-        {/* </InitProviders> */}
+          </AppProviders>
+        </InitProviders>
       </body>
     </html>
   );

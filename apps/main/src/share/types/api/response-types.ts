@@ -3,11 +3,7 @@
  * 실제 사용되는 표준 API 응답 타입만 유지
  */
 
-import { userRoleSchema } from '@/share/schema/zod/user-zod';
-import { z } from 'zod';
 import type { StandardApiErrorResponse } from './error-types';
-
-type UserSchemaRole = z.infer<typeof userRoleSchema>;
 
 // ==================== 기본 API 응답 구조 ====================
 
@@ -19,7 +15,6 @@ export interface ApiResponseMeta {
   user?: {
     id: string;
     email: string;
-    role: UserSchemaRole;
   };
 }
 

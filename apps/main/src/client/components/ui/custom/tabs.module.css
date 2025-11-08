@@ -1,0 +1,77 @@
+/* tabs.module.css - ArcEventPanel 탭 디자인/동작 이식 전용 */
+
+/* 루트 컨테이너 (포지셔닝 컨텍스트) */
+.tabsRoot {
+  position: relative;
+}
+
+/* 탭 리스트 컨테이너 */
+.tabsContainer {
+  width: 100%;
+  position: relative;
+  display: inline-flex;
+  height: 2.35rem; /* h-9 */
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing); /* p-[3px] 대체 */
+  background: var(--color-tab);
+}
+
+/* 트리거 버튼 */
+.tabButton {
+  display: inline-flex;
+  height: 100%;
+  flex: 1 1 0%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md); /* gap-1.5 */
+  border-radius: var(--radius-md);
+  padding: var(--spacing) var(--spacing-md); /* py-1 px-3 → px-0.75rem (12px) */
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  transition: color 300ms var(--ease-in-out);
+  z-index: 10; /* z-10 */
+  color: var(--color-muted-foreground);
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.tabButton[aria-selected="false"]:hover {
+  color: var(--color-foreground);
+}
+
+.tabButton[aria-selected="true"] {
+  color: var(--color-foreground);
+}
+
+.tabButton:disabled,
+.tabButton[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* 인디케이터 (선택된 탭 뒤 강조 배경) */
+.tabIndicator {
+  position: absolute;
+  height: 1.75rem; /* h-7 */
+  top: var(--spacing);
+  border-radius: var(--radius-md);
+  background: var(--color-tab-foreground);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  /* padding 고려한 정확한 계산 */
+  width: calc((100% - 2 * var(--spacing)) / var(--tab-count));
+  left: calc(
+    var(--spacing) + 
+    var(--active-index) * ((100% - 2 * var(--spacing)) / var(--tab-count))
+  );
+  transition: none;
+  will-change: left, width;
+}
+
+.tabIndicatorTransition {
+  transition: left 300ms var(--ease-in-out), width 300ms var(--ease-in-out);
+}

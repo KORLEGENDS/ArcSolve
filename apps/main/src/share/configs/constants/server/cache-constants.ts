@@ -1,6 +1,6 @@
 /**
  * 서버 전용 캐시 관련 상수 정의
- * 캐시 TTL 설정, 네임스페이스, 키 패턴 및 무효화 관리
+ * 캐시 TTL 설정 및 캐시 키 빌더
  *
  * ⚠️  클라이언트 번들에 포함되지 않음
  */
@@ -30,61 +30,33 @@ export const CACHE_TTL = {
   },
 } as const;
 
-// ==================== 캐시 네임스페이스 ====================
+// ==================== Rate Limit 설정 ====================
 
-export const CACHE_NAMESPACES = {
-  RATE_LIMIT: 'rl',
-  AUTH: 'au',
-  LOCK: 'lk',
-  UPLOAD: 'up',
-  CHAT: 'c',
-  R2: 'r2',
+export const RATE_LIMIT = {
+  USER: {
+    MAX_REQUESTS: 60, // 사용자당 최대 요청 수
+  },
+  IP: {
+    MAX_REQUESTS: 60, // IP당 최대 요청 수
+  },
 } as const;
 
-// ==================== 캐시 키 빌더 패턴 ====================
+// ==================== 캐시 키 빌더 ====================
 
-export const CACHE_KEYS = {
-  // 실제 사용되는 캐시 키만 유지
-  rateLimit: {
-    ip: (ip: string) => `${CACHE_NAMESPACES.RATE_LIMIT}:ip:${ip}`,
-    user: (uid: string) => `${CACHE_NAMESPACES.RATE_LIMIT}:uid:${uid}`,
-  },
-  chat: {
-    messages: (chatId: string) => `${CACHE_NAMESPACES.CHAT}:messages:${chatId}`,
-  },
-
+export const CacheKey = {
+  // Session-related keys
   session: {
-    refreshToken: (id: string) => `${CACHE_NAMESPACES.AUTH}:rt:${id}`, // JWT Refresh Token용
-    // 확장 프로그램 전용 Refresh Token
-    extensionRefreshToken: (userId: string, extensionId: string) =>
-      `${CACHE_NAMESPACES.AUTH}:ext:rt:${userId}:${extensionId}`,
-    extensionRefreshOwnerMap: (refreshToken: string) =>
-      `${CACHE_NAMESPACES.AUTH}:ext:rtmap:${refreshToken}`,
+    refreshToken: (userId: string) => `session:refresh:${userId}`,
   },
-
+  // Security-related keys
   security: {
-    csrf: (id: string) => `${CACHE_NAMESPACES.AUTH}:ct:${id}`,
-    pkce: (id: string) => `${CACHE_NAMESPACES.AUTH}:pk:${id}`,
-    lock: (id: string) => `${CACHE_NAMESPACES.LOCK}:${id}`,
+    csrf: (tokenId: string) => `security:csrf:${tokenId}`,
+    pkce: (codeVerifierId: string) => `security:pkce:${codeVerifierId}`,
+    lock: (id: string) => `security:lock:${id}`,
   },
-
-  upload: {
-    process: () => `${CACHE_NAMESPACES.UPLOAD}:process`,
-    dailyCount: () => `${CACHE_NAMESPACES.UPLOAD}:dailyCount`,
-  },
-
-  r2: {
-    downloadUrl: (
-      storageKey: string,
-      options?: { filename?: string; mimeType?: string; inline?: boolean }
-    ): string => {
-      const base = `${CACHE_NAMESPACES.R2}:dlurl:${storageKey}`;
-      if (!options || (!options.filename && !options.mimeType)) return base;
-      const disposition = options.inline ? 'inline' : 'attachment';
-      return `${base}:${options.filename ?? ''}:${options.mimeType ?? ''}:${disposition}`;
-    },
+  // Rate limit keys
+  rateLimit: {
+    user: (userId: string) => `ratelimit:user:${userId}`,
+    ip: (ip: string) => `ratelimit:ip:${ip}`,
   },
 } as const;
-
-// ==================== 캐시 무효화 패턴 ====================
-// 현재 사용되지 않음 - 필요시 구현 예정

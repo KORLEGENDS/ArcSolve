@@ -1,6 +1,6 @@
-import { CACHE_TTL } from '@/share/configs/constants';
+import { CACHE_TTL, CacheKey } from '@/share/configs/constants';
 import { v4 as uuidv4 } from 'uuid';
-import { CacheKey, getRedis } from './client-redis';
+import { getRedis } from './client-redis';
 
 const DEFAULT_TTL_SEC = CACHE_TTL.SECURITY.LOCK;
 

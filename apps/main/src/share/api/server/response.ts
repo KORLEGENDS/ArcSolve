@@ -14,7 +14,7 @@ function buildMeta(input?: BuildMetaInput): ApiResponseMeta {
     requestId: generateUUID(),
     correlationId: input?.correlationId,
     user: input?.user?.id && input.user.email
-      ? { id: input.user.id, email: input.user.email, role: (input.user.role ?? 'user') as never }
+      ? { id: input.user.id, email: input.user.email }
       : undefined,
   };
 }

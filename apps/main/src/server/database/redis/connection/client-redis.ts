@@ -1,86 +1,46 @@
-import { env, isDevelopment } from '@/share/configs/environments/server-constants';
+import { env } from '@/share/configs/environments/server-constants';
 import Redis from 'ioredis';
 
 // ==================== Redis 클라이언트 싱글턴 ====================
 
-let redisSingleton: Redis | null = null;
+// 전역 캐시 (HMR/장수 프로세스 안전 재사용)
+declare global {
+  var __arcsolveRedisClient: Redis | undefined;
+}
+
+// 공통 Redis 설정 (환경 무관)
+const commonRedisConfig = {
+  enableAutoPipelining: true,
+  maxRetriesPerRequest: 5,
+  connectionName: 'arcsolve-main',
+  keepAlive: 30000,
+} as const;
 
 function createRedisClient(): Redis {
-  // 개발: 환경변수 미설정 시 평문 로컬 6379
-  if (isDevelopment && !env.REDIS_HOST) {
-    const client = new Redis('redis://127.0.0.1:6379', {
-      enableAutoPipelining: true,
-      maxRetriesPerRequest: 5,
-      connectionName: 'arcsolve-main',
-      keepAlive: 30000,
-    });
-    client.on('error', (error) => {
-      // Redis 연결 에러는 로깅하지 않음 (의도적 무시)
-      console.warn('Redis client error (ignored):', error.message);
-    });
-    return client;
-  }
+  // env 값 그대로 사용 (기본값 없음 - env 검증 단계에서 필수값 검증)
+  const tls = env.REDIS_TLS_ENABLED
+    ? { servername: env.REDIS_TLS_SERVERNAME }
+    : undefined;
 
-  const host = env.REDIS_HOST ?? '127.0.0.1';
-  const port = Number(env.REDIS_PORT ?? 16380);
-  const password = env.REDIS_PASSWORD ?? undefined;
-  const tlsEnabled = env.REDIS_TLS_ENABLED;
-  const servername = env.REDIS_TLS_SERVERNAME ?? 'redis.arcsolve.ai';
-
-  const tls = tlsEnabled ? { servername } : undefined;
-  
   const client = new Redis({
-    host,
-    port,
-    password,
-    enableAutoPipelining: true,
-    maxRetriesPerRequest: 5,
-    connectionName: 'arcsolve-main',
-    keepAlive: 30000,
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    password: env.REDIS_PASSWORD,
     tls,
+    ...commonRedisConfig,
   });
+
   client.on('error', (error) => {
     // Redis 연결 에러는 로깅하지 않음 (의도적 무시)
-    console.warn('Redis subscriber error (ignored):', error.message);
+    console.warn('Redis client error (ignored):', error.message);
   });
+
   return client;
 }
 
 export function getRedis(): Redis {
-  // 항상 Redis를 사용한다고 가정하고 즉시 생성/반환
-  redisSingleton ??= createRedisClient();
-  return redisSingleton as Redis;
+  if (!globalThis.__arcsolveRedisClient) {
+    globalThis.__arcsolveRedisClient = createRedisClient();
+  }
+  return globalThis.__arcsolveRedisClient;
 }
-
-// ==================== 캐시 키 (중앙화된 상수 사용) ====================
-
-export const CacheKey = {
-  FILE_STATUS_CHANNEL: (id: string) => `file:status:${id}`,
-  // Session-related keys
-  session: {
-    refreshToken: (userId: string) => `session:refresh:${userId}`,
-  },
-  // Security-related keys
-  security: {
-    csrf: (tokenId: string) => `security:csrf:${tokenId}`,
-    pkce: (codeVerifierId: string) => `security:pkce:${codeVerifierId}`,
-    lock: (id: string) => `security:lock:${id}`,
-  },
-  // Rate limit keys
-  rateLimit: {
-    user: (userId: string) => `ratelimit:user:${userId}`,
-    ip: (ip: string) => `ratelimit:ip:${ip}`,
-  },
-  // Chat/history keys (for compatibility)
-  chat: {
-    messages: (chatId: string) => `chat:${chatId}:messages`,
-  },
-  // R2 cache keys
-  r2: {
-    downloadUrl: (
-      storageKey: string,
-      options?: { filename?: string; mimeType?: string; inline?: boolean }
-    ) =>
-      `r2:download:${storageKey}:${options?.filename ?? ''}:${options?.mimeType ?? ''}:${options?.inline ? '1' : '0'}`,
-  },
-} as const;

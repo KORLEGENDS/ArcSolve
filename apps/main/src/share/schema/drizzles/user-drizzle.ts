@@ -1,14 +1,5 @@
 import type { UserPreferences } from '@/share/schema/zod/user-zod';
-import {
-  jsonb,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  varchar,
-} from 'drizzle-orm/pg-core';
-
-export const userRoleEnum = pgEnum('user_role', ['user', 'manager', 'admin']);
+import { jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
@@ -22,11 +13,8 @@ export const users = pgTable('users', {
 
   email: varchar('email', { length: 255 }).notNull().unique(),
   name: varchar('name', { length: 100 }).notNull(),
-  role: userRoleEnum('role').default('user').notNull(),
+  imageUrl: text('image_url'),
   preferences: jsonb('preferences').$type<UserPreferences>(),
-
-  emailVerified: timestamp('email_verified', { withTimezone: true }),
-  image: text('image'),
 });
 
 export type User = typeof users.$inferSelect;

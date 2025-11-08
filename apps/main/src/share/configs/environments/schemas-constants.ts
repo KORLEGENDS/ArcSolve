@@ -75,18 +75,18 @@ export const serverEnvSchema = z
     [ENV_KEYS.COMMON.NODE_ENV]: nodeEnvSchema,
 
     // ===== 데이터베이스 =====
-    // PG URL 제거: 세분화된 키만 사용
-    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.HOST]: z.string().optional(),
-    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.PORT]: z.coerce.number().optional(),
-    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.USER]: z.string().optional(),
-    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.PASSWORD]: z.string().optional(),
-    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.DATABASE]: z.string().optional(),
+    // PG URL 제거: 세분화된 키만 사용 (필수값)
+    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.HOST]: z.string().min(1, 'POSTGRES_HOST is required'),
+    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.PORT]: z.coerce.number().int().positive('POSTGRES_PORT must be a positive integer'),
+    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.USER]: z.string().min(1, 'POSTGRES_USER is required'),
+    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.PASSWORD]: z.string().min(1, 'POSTGRES_PASSWORD is required'),
+    [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.DATABASE]: z.string().min(1, 'POSTGRES_DB is required'),
     [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.TLS.ENABLED]: envBooleanSchema.optional(),
     [ENV_KEYS.SERVER.DATABASE.POSTGRESQL.TLS.SERVERNAME]: z.string().optional(),
-    // REDIS URL 제거: 세분화된 키만 사용
-    [ENV_KEYS.SERVER.DATABASE.REDIS.HOST]: z.string().optional(),
-    [ENV_KEYS.SERVER.DATABASE.REDIS.PORT]: z.coerce.number().optional(),
-    [ENV_KEYS.SERVER.DATABASE.REDIS.PASSWORD]: z.string().optional(),
+    // REDIS URL 제거: 세분화된 키만 사용 (필수값)
+    [ENV_KEYS.SERVER.DATABASE.REDIS.HOST]: z.string().min(1, 'REDIS_HOST is required'),
+    [ENV_KEYS.SERVER.DATABASE.REDIS.PORT]: z.coerce.number().int().positive('REDIS_PORT must be a positive integer'),
+    [ENV_KEYS.SERVER.DATABASE.REDIS.PASSWORD]: z.string().min(1, 'REDIS_PASSWORD is required'),
     [ENV_KEYS.SERVER.DATABASE.REDIS.TLS.ENABLED]: envBooleanSchema.optional(),
     [ENV_KEYS.SERVER.DATABASE.REDIS.TLS.SERVERNAME]: z.string().optional(),
 
