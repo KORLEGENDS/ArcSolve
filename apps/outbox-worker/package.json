@@ -1,5 +1,5 @@
 {
-  "name": "outbox-worker",
+  "name": "arcsolve-outbox-worker",
   "version": "0.1.0",
   "private": true,
   "scripts": {

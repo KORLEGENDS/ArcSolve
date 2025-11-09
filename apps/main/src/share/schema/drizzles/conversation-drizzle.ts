@@ -7,6 +7,7 @@ import {
 export const conversations = pgTable('conversations', {
   id: uuid('id')
     .primaryKey()
+    .notNull()
     .defaultRandom(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()

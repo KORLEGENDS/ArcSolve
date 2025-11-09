@@ -9,7 +9,7 @@ import NextAuth, { type NextAuthConfig, type Session } from 'next-auth';
 import { type NextRequest, NextResponse } from 'next/server';
 
 // ==================== 공개 경로 / 공개 API 경로 ====================
-export const PUBLIC_PATHS = ['/login', '/docs'] as const;
+export const PUBLIC_PATHS = ['/login', '/docs', '/components', '/default'] as const;
 
 export const PUBLIC_API_PATHS = [
   '/api/auth',
@@ -36,10 +36,11 @@ export async function authMiddleware(
 ): Promise<NextResponse | Response> {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
+  const pathnameWithoutLocale = removeLocaleFromPathname(pathname);
 
   // API 경로 보호 (먼저 처리하여 페이지 리다이렉트와 구분)
-  if (pathname.startsWith('/api/')) {
-    const isPublicApi = isPublicApiPath(pathname);
+  if (pathnameWithoutLocale.startsWith('/api/')) {
+    const isPublicApi = isPublicApiPath(pathnameWithoutLocale);
     if (!isPublicApi) {
       if (!isLoggedIn) {
         return getMiddlewareErrorResponse(ERROR_CODES.AUTH.UNAUTHORIZED);
@@ -96,7 +97,6 @@ export async function authMiddleware(
 
   // 로그인된 사용자가 로그인 페이지 접근 시 홈으로 리다이렉트
   const locale = extractLocaleFromPathname(pathname);
-  const pathnameWithoutLocale = removeLocaleFromPathname(pathname);
 
   if (pathnameWithoutLocale === '/login' && isLoggedIn) {
     const localizedHomePath = getLocalizedPath(locale, '/');

@@ -2,7 +2,7 @@ import type { UserPreferences } from '@/share/schema/zod/user-zod';
 import { jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

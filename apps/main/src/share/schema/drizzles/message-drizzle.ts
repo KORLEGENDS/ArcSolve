@@ -8,7 +8,7 @@ import {
 import { conversations } from './conversation-drizzle';
 
 export const messages = pgTable('messages', {
-  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
   conversationId: uuid('conversation_id')
     .notNull()
     .references(() => conversations.id, { onDelete: 'cascade' }),

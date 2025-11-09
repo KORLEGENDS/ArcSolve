@@ -14,6 +14,7 @@ const auth = pgSchema('auth');
 export const authUsers = auth.table('user', {
   id: text('id')
     .primaryKey()
+    .notNull()
     .$defaultFn(() => crypto.randomUUID()),
   name: text('name'),
   email: text('email').unique(),

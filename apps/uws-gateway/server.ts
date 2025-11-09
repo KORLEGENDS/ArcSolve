@@ -9,12 +9,12 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
     return;
   }
   res.writeHead(200, { 'content-type': 'text/plain' });
-  res.end('uws-gateway placeholder running\n');
+  res.end('arcsolve-uws-gateway placeholder running\n');
 });
 
 server.listen(port, '0.0.0.0', () => {
   // eslint-disable-next-line no-console
-  console.log(`[uws-gateway] listening on ${port}`);
+  console.log(`[arcsolve-uws-gateway] listening on ${port}`);
 });
 
 

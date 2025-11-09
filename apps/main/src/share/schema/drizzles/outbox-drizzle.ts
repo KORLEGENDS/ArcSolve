@@ -10,7 +10,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const outbox = pgTable('outbox', {
-  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
   type: text('type').notNull(),
   conversationId: uuid('conversation_id').notNull(),
   payload: jsonb('payload').notNull(),

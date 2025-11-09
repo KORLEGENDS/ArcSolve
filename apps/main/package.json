@@ -10,8 +10,10 @@
     "lint:ci": "eslint \"app/**/*.{ts,tsx}\" --max-warnings=0",
     "type-check": "tsc --noEmit",
     "ci:check": "pnpm run lint:ci && pnpm run type-check",
-    "drizzle:gen": "drizzle-kit generate",
-    "drizzle:migrate": "drizzle-kit push"
+    "drizzle:dev:gen": "bash -lc 'set -a; source .env.development; set +a; pnpm exec drizzle-kit generate'",
+    "drizzle:dev:migrate": "bash -lc 'set -a; source .env.development; set +a; PGPASSWORD=\"$POSTGRES_PASSWORD\" psql -h \"${POSTGRES_HOST}\" -p \"${POSTGRES_PORT}\" -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -v ON_ERROR_STOP=1 -c \"CREATE SCHEMA IF NOT EXISTS auth;\"; pnpm exec drizzle-kit migrate'",
+    "drizzle:production:gen": "bash -lc 'set -a; source .env.production; set +a; pnpm exec drizzle-kit generate'",
+    "drizzle:production:migrate": "bash -lc 'set -a; source .env.production; set +a; PGPASSWORD=\"$POSTGRES_PASSWORD\" psql -h \"${POSTGRES_HOST}\" -p \"${POSTGRES_PORT}\" -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -v ON_ERROR_STOP=1 -c \"CREATE SCHEMA IF NOT EXISTS auth;\"; pnpm exec drizzle-kit migrate'"
   },
   "dependencies": {
     "@auth/core": "^0.34.3",
@@ -51,6 +53,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "drizzle-kit": "^0.31.6",
     "drizzle-orm": "^0.44.7",
     "embla-carousel-react": "^8.6.0",
     "immer": "^10.2.0",

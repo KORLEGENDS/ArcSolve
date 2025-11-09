@@ -1,0 +1,40 @@
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2);
+  width: 100%;
+}
+
+/* Modifier classes for combination selectors - these are used in className strings */
+/* .left {
+  Used in combination: .headerRow.left.expanded, .headerRow.left.collapsed
+} */
+
+/* .right {
+  Used in combination: .headerRow.right
+} */
+
+/* .collapsed {
+  Used in combination: .headerRow.left.collapsed
+} */
+
+/* .expanded {
+  Used in combination: .headerRow.left.expanded
+} */
+
+.headerRow.left.expanded {
+  justify-content: space-between;
+}
+
+.headerRow.left.collapsed {
+  justify-content: flex-start;
+}
+
+.headerRow.right {
+  justify-content: flex-end;
+}
+
+.trigger {
+  flex: 0 0 auto;
+}
+

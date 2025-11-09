@@ -19,10 +19,10 @@ const buttonVariants = cva(
       layout: {
         default: '',
         icon: 'rounded-full p-0',
-        item: 'grid grid-cols-[auto_1fr_auto] items-center gap-3 w-full my-1 px-3 py-2 rounded-md justify-start whitespace-normal [&>*:nth-child(1)]:shrink-0 [&>*:nth-child(2)]:min-w-0 [&>*:nth-child(2)]:truncate [&>*:nth-child(3)]:shrink-0 [&>*:nth-child(3)]:ml-auto',
+        item: 'grid grid-cols-[auto_1fr_auto] items-center gap-3 w-full my-1 px-3 py-1 rounded-md justify-start whitespace-normal [&>*:nth-child(1)]:shrink-0 [&>*:nth-child(2)]:min-w-0 [&>*:nth-child(2)]:truncate [&>*:nth-child(3)]:shrink-0 [&>*:nth-child(3)]:ml-auto',
       },
       size: {
-        default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+        default: 'h-9 px-4 py-1 has-[>svg]:px-3',
         sm: 'h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-9',
