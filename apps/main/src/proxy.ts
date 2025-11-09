@@ -1,4 +1,4 @@
-import { routing } from '@/share/i18n/routing';
+import { routing } from '@/share/libs/i18n/routing';
 import createMiddleware from 'next-intl/middleware';
 import type { NextRequest } from 'next/server';
 import { authMiddleware, edgeAuth } from './server/auth/edge-auth';

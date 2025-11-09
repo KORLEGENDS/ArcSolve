@@ -6,8 +6,9 @@
 
 'use client';
 
-import { ArcState } from '@/client/components/ui-core/Feedback/ArcState';
-import { useSystemShowError } from '@/client/states/zustand/system-store';
+import { ArcState } from '@/client/components/arc/ArcState';
+import { useSystemShowError } from '@/client/states/stores/system-store';
+import { isDevelopment } from '@/share/configs/environments/client-constants';
 import { AlertCircle } from 'lucide-react';
 import React, { Component, type ReactNode, useEffect } from 'react';
 
@@ -48,7 +49,7 @@ function ErrorBridge({
     );
 
     // 개발 환경에서는 콘솔에도 출력
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       console.error(`[ErrorBoundary - ${providerName}]`, error);
     }
   }, [error, providerName, showError]);

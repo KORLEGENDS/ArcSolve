@@ -21,3 +21,5 @@ export function getClientEnv() {
 }
 
 export const clientEnv = getClientEnv();
+export const isDevelopment = clientEnv.NODE_ENV === 'development';
+export const isProduction = clientEnv.NODE_ENV === 'production';

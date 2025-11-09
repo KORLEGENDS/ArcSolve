@@ -1,6 +1,6 @@
 'use client';
 
-import { createQueryClient } from '@/client/states/react-query/query-client';
+import { createQueryClient } from '@/share/libs/react-query/query-client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 

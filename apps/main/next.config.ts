@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from 'next-intl/plugin';
 
 const nextConfig: NextConfig = {
     // 🔧 React StrictMode 비활성화 (로깅 중복 방지)
@@ -14,4 +15,7 @@ const nextConfig: NextConfig = {
     poweredByHeader: false, // 보안상 X-Powered-By 헤더 제거
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin(
+    './src/share/libs/i18n/request.ts'
+);
+export default withNextIntl(nextConfig);

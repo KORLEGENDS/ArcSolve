@@ -1,5 +1,6 @@
 'use client';
 
+import { isDevelopment } from '@/share/configs/environments/client-constants';
 import { useCallback, useState } from 'react';
 
 /**
@@ -36,7 +37,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       }
     }
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       console.error('클립보드 복사 실패:', error);
     }
     return false;

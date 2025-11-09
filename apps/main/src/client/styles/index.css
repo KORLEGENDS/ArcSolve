@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 
 @import "./custom-style.css" layer(base);
-@import "./width-fix.css" layer(utilities);
+@import "./fix-style.css" layer(utilities);
 
 @import "./shadcn-style.css";
 

@@ -4,7 +4,7 @@ import {
   extractLocaleFromPathname,
   getLocalizedPath,
   removeLocaleFromPathname,
-} from '@/share/i18n/routing';
+} from '@/share/libs/i18n/routing';
 import NextAuth, { type NextAuthConfig, type Session } from 'next-auth';
 import { type NextRequest, NextResponse } from 'next/server';
 

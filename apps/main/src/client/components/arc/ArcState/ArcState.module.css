@@ -1,0 +1,332 @@
+.container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: color-mix(in oklab, var(--color-card) 95%, var(--color-background));
+  backdrop-filter: blur(8px);
+  color: var(--color-card-foreground);
+  overflow: hidden;
+  border-radius: var(--radius);
+  transition: all 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 
+    0 1px 3px 0 color-mix(in oklab, var(--color-foreground) 8%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-foreground) 6%, transparent);
+}
+
+.content {
+  min-width: 0;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  max-width: min(480px, 100%);
+  padding: 24px 20px;
+  animation: fadeIn 300ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  line-height: 1;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px color-mix(in oklab, var(--color-foreground) 15%, transparent));
+  animation: iconFloat 2s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+  color: var(--color-card-foreground);
+  text-shadow: 0 1px 2px color-mix(in oklab, var(--color-foreground) 8%, transparent);
+}
+
+.description {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: color-mix(in oklab, var(--color-muted-foreground) 85%, var(--color-card-foreground));
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.metaItem {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  background: color-mix(in oklab, var(--color-muted) 80%, var(--color-background));
+  color: var(--color-muted-foreground);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  backdrop-filter: blur(4px);
+  border: 1px solid color-mix(in oklab, var(--color-border) 40%, transparent);
+  transition: all 200ms ease-out;
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--color-foreground) 4%, transparent);
+}
+
+.metaItem:hover {
+  background: color-mix(in oklab, var(--color-muted) 85%, var(--color-background));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px color-mix(in oklab, var(--color-foreground) 8%, transparent);
+}
+
+.metaLabel {
+  opacity: 0.7;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.metaValue {
+  font-weight: var(--font-weight-medium);
+  color: color-mix(in oklab, var(--color-muted-foreground) 90%, var(--color-foreground));
+}
+
+.details {
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  background: color-mix(in oklab, var(--color-muted) 70%, var(--color-background));
+  color: var(--color-muted-foreground);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  overflow: auto;
+  backdrop-filter: blur(4px);
+  border: 1px solid color-mix(in oklab, var(--color-border) 30%, transparent);
+  box-shadow: 
+    inset 0 1px 2px color-mix(in oklab, var(--color-foreground) 4%, transparent),
+    0 1px 3px color-mix(in oklab, var(--color-foreground) 6%, transparent);
+  max-height: 200px;
+  scrollbar-width: thin;
+}
+
+/* details 내 pre가 긴 문자열일 때 줄바꿈/스크롤 처리 */
+.details pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  color: color-mix(in oklab, var(--color-muted-foreground) 90%, var(--color-foreground));
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.primaryButton {
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-primary), color-mix(in oklab, var(--color-primary) 85%, var(--color-foreground)));
+  color: var(--color-primary-foreground);
+  border: none;
+  font-weight: var(--font-weight-medium);
+  font-size: 14px;
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+  box-shadow: 
+    0 2px 4px color-mix(in oklab, var(--color-primary) 25%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-primary) 20%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+.primaryButton::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, color-mix(in oklab, var(--color-white) 15%, transparent));
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 8px color-mix(in oklab, var(--color-primary) 30%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-primary) 25%, transparent);
+}
+
+.primaryButton:hover::before {
+  opacity: 1;
+}
+
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--color-muted) 60%, transparent);
+  backdrop-filter: blur(4px);
+  border: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent);
+  color: var(--color-foreground);
+  font-weight: var(--font-weight-medium);
+  font-size: 14px;
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--color-foreground) 6%, transparent);
+}
+
+.secondaryButton:hover {
+  background: color-mix(in oklab, var(--color-muted) 70%, transparent);
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--color-border) 80%, transparent);
+  box-shadow: 0 2px 4px color-mix(in oklab, var(--color-foreground) 10%, transparent);
+}
+
+/* variants */
+.isInline {
+  min-height: 100%;
+  height: 100%;
+  box-shadow: none;
+  backdrop-filter: none;
+  background: transparent;
+}
+
+.isInline .content {
+  padding: 16px 12px;
+}
+
+.isCard {
+  height: 100%;
+  border: 1px solid color-mix(in oklab, var(--color-border) 50%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  background: color-mix(in oklab, var(--color-card) 90%, var(--color-background));
+  backdrop-filter: blur(12px);
+  box-shadow: 
+    0 4px 12px color-mix(in oklab, var(--color-foreground) 8%, transparent),
+    0 1px 3px color-mix(in oklab, var(--color-foreground) 10%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-white) 8%, transparent);
+}
+
+.isCard:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px color-mix(in oklab, var(--color-foreground) 12%, transparent),
+    0 2px 6px color-mix(in oklab, var(--color-foreground) 15%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-white) 10%, transparent);
+}
+
+/* overlay 변형 제거됨 - 관련 스타일 삭제 */
+
+/* severity tones with modern gradients and effects */
+.sevCritical {
+  border-color: var(--color-destructive);
+  background: color-mix(in oklab, var(--color-card) 80%, color-mix(in oklab, var(--color-destructive) 10%, transparent));
+  box-shadow: 
+    0 1px 3px 0 color-mix(in oklab, var(--color-destructive) 20%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-destructive) 40%, transparent) inset,
+    0 0 12px color-mix(in oklab, var(--color-destructive) 8%, transparent);
+}
+
+.sevWarning {
+  border-color: var(--color-amber-500);
+  background: color-mix(in oklab, var(--color-card) 80%, color-mix(in oklab, var(--color-amber-500) 10%, transparent));
+  box-shadow: 
+    0 1px 3px 0 color-mix(in oklab, var(--color-amber-500) 20%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-amber-500) 40%, transparent) inset,
+    0 0 12px color-mix(in oklab, var(--color-amber-500) 8%, transparent);
+}
+
+.sevInfo {
+  border-color: var(--color-blue-700);
+  background: color-mix(in oklab, var(--color-card) 80%, color-mix(in oklab, var(--color-blue-700) 10%, transparent));
+  box-shadow: 
+    0 1px 3px 0 color-mix(in oklab, var(--color-blue-700) 20%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-blue-700) 40%, transparent) inset,
+    0 0 12px color-mix(in oklab, var(--color-blue-700) 8%, transparent);
+}
+
+.sevSuccess {
+  border-color: var(--color-emerald-500);
+  background: color-mix(in oklab, var(--color-card) 80%, color-mix(in oklab, var(--color-emerald-500) 10%, transparent));
+  box-shadow: 
+    0 1px 3px 0 color-mix(in oklab, var(--color-emerald-500) 20%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-emerald-500) 40%, transparent) inset,
+    0 0 12px color-mix(in oklab, var(--color-emerald-500) 8%, transparent);
+}
+
+
+/* state-based subtle borders and shadows */
+.container:not([data-severity])[data-state="loading"] {
+  border: 1px solid color-mix(in oklab, var(--color-accent) 45%, transparent);
+  box-shadow:
+    0 1px 3px 0 color-mix(in oklab, var(--color-foreground) 10%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-accent) 25%, transparent) inset;
+}
+
+.container:not([data-severity])[data-state="success"] {
+  border: 1px solid color-mix(in oklab, var(--color-emerald-500) 45%, transparent);
+  box-shadow:
+    0 1px 3px 0 color-mix(in oklab, var(--color-emerald-500) 16%, transparent),
+    0 0 10px color-mix(in oklab, var(--color-emerald-500) 10%, transparent);
+}
+
+.container:not([data-severity])[data-state="error"] {
+  border: 1px solid color-mix(in oklab, var(--color-destructive) 45%, transparent);
+  box-shadow:
+    0 1px 3px 0 color-mix(in oklab, var(--color-destructive) 18%, transparent),
+    0 0 10px color-mix(in oklab, var(--color-destructive) 10%, transparent);
+}
+
+.container:not([data-severity])[data-state="empty"],
+.container:not([data-severity])[data-state="offline"],
+.container:not([data-severity])[data-state="maintenance"] {
+  border: 1px solid color-mix(in oklab, var(--color-border) 55%, transparent);
+  box-shadow:
+    0 1px 2px 0 color-mix(in oklab, var(--color-foreground) 6%, transparent);
+}
+
+/* card variant slight emphasis per state */
+.isCard:not([data-severity])[data-state="loading"] {
+  border-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
+}
+
+.isCard:not([data-severity])[data-state="success"] {
+  border-color: color-mix(in oklab, var(--color-emerald-500) 50%, transparent);
+}
+
+.isCard:not([data-severity])[data-state="error"] {
+  border-color: color-mix(in oklab, var(--color-destructive) 50%, transparent);
+}
+

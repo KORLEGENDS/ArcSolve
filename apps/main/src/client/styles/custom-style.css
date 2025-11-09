@@ -100,6 +100,24 @@
         color-mix(in oklab, var(--ai-to) var(--ai-shadow-opacity, 35%), transparent));
 }
 
+/* Point variant gradient button styling */
+.point-gradient {
+    background: linear-gradient(135deg, var(--color-accent), color-mix(in oklab, var(--color-accent) 85%, var(--color-neutral-800)));
+    color: var(--color-accent-foreground);
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow:
+    0 4px 12px -4px color-mix(in oklab, var(--color-accent) 25%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-white) 15%, transparent);
+}
+.point-gradient:disabled {
+    filter: grayscale(0.15);
+}
+.point-gradient:hover:not(:disabled) {
+    box-shadow:
+    0 8px 20px -6px color-mix(in oklab, var(--color-accent) 35%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-white) 20%, transparent);
+}
+
 /* Glassmorphism effect for input components */
 .point-glass {
     background-color: color-mix(in oklab, var(--color-background) 85%, transparent);

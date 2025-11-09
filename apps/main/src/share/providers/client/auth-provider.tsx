@@ -35,7 +35,8 @@
 
 'use client';
 
-import { extractLocaleFromPathname, getLocalizedPath, usePathname } from '@/share/i18n/routing';
+import { isDevelopment } from '@/share/configs/environments/client-constants';
+import { extractLocaleFromPathname, getLocalizedPath, usePathname } from '@/share/libs/i18n/routing';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { signOut } from 'next-auth/react';
 import { useLocale } from 'next-intl';
@@ -74,7 +75,7 @@ export async function logoutWithCacheClear(
       });
     }
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       console.error('Failed to logout:', error);
     }
     window.location.href = finalCallbackUrl;

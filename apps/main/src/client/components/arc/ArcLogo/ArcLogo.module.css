@@ -1,0 +1,121 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  padding: 4px 8px;
+  transition: transform 0.15s ease;
+}
+
+/* 위치는 사용처에서 제어. 예: fixed top-4 left-4 등 */
+
+.logoImageOnly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  transition: transform 0.15s ease;
+}
+
+.logoImageCircular {
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+
+.tagline {
+  font-size: 0.875rem;
+  line-height: 1.25;
+  text-align: center;
+  /* font-weight: 400; */
+}
+
+/* Business Info Styles */
+.businessInfoContainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 0.75rem; /* row x column */
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+
+.businessInfoItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.businessInfoLabel {
+  font-weight: 600;
+  color: inherit;
+}
+
+.businessInfoValue {
+  font-weight: 500;
+  color: inherit;
+}
+
+.businessInfoSeparator {
+  opacity: 0.6;
+}
+
+.businessInfoLink {
+  text-decoration: none;
+}
+
+.businessInfoLink:hover {
+  text-decoration: underline;
+}
+
+
+
+/* AI Button Styles */
+.aiButton {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-xs); /* rounded-md */
+  padding: 0.25rem; /* p-1 */
+}
+
+.aiButtonText {
+  background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(to right, var(--ai-from), var(--ai-to));
+}
+
+.copyrightContainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+
+.copyrightText {
+  font-weight: 500;
+  color: inherit;
+}
+
+/* Plan Badge Styles */
+.planBadge {
+  font-size: 12px;
+  padding: 0 6px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+}
+
+.planBadgeLarge {
+  font-size: 14px;
+  padding: 2px 8px;
+  font-weight: 700;
+}

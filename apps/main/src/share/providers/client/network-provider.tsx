@@ -1,6 +1,6 @@
 'use client';
 
-import { useSystemSetNetworkStatus } from '@/client/states/zustand/system-store';
+import { useSystemSetNetworkStatus } from '@/client/states/stores/system-store';
 import { type ReactNode, useEffect } from 'react';
 
 interface NetworkProviderProps {

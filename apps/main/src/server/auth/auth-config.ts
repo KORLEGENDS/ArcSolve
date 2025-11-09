@@ -15,7 +15,7 @@ import {
 } from '@/server/database/redis/session/refresh-store-redis';
 
 import { TIME_UNITS } from '@/share/configs/constants';
-import { env, isProduction } from '@/share/configs/environments/server-constants';
+import { env, isDevelopment, isProduction } from '@/share/configs/environments/server-constants';
 import {
   authAccounts as adapterAccounts,
   authUsers as adapterUsers,
@@ -165,7 +165,7 @@ export const authConfig = {
           }
         }
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDevelopment) {
           console.error('Failed to create user:', error);
         }
       }
@@ -219,7 +219,7 @@ export const authConfig = {
             try {
               await saveRefreshToken(normalizedUser.id, account.refresh_token);
             } catch (error) {
-              if (process.env.NODE_ENV === 'development') {
+              if (isDevelopment) {
                 console.error('Failed to save refresh token:', error);
               }
             }
@@ -248,14 +248,14 @@ export const authConfig = {
                 token.accessToken = accessToken;
                 token.exp = expiresAt;
               } catch (error) {
-                if (process.env.NODE_ENV === 'development') {
+                if (isDevelopment) {
                   console.error('Token refresh failed:', error);
                 }
                 return null;
               }
             }
           } catch (error) {
-            if (process.env.NODE_ENV === 'development') {
+            if (isDevelopment) {
               console.error('User fetch on update failed:', error);
             }
             return null;
@@ -264,7 +264,7 @@ export const authConfig = {
 
         return token;
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDevelopment) {
           console.error('JWT callback error:', error);
         }
         return null;
@@ -292,7 +292,7 @@ export const authConfig = {
 
         return session;
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDevelopment) {
           console.error('Session callback error:', error);
         }
         return session;
@@ -321,7 +321,7 @@ export const authConfig = {
           TypeGuards.isString(email)
         );
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDevelopment) {
           console.error('SignIn callback error:', error);
         }
         return false;

@@ -1,6 +1,10 @@
 {
   "files.exclude": {
-
+    "**/node_modules": true,
+    "**/next-env.d.ts": true,
+    "**/pnpm-lock.yaml": true,
+    "**/tsconfig.tsbuildinfo": true,
+    "**/postcss.config.mjs": true
   }
 }
 

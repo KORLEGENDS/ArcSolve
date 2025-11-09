@@ -12,7 +12,7 @@ const buttonVariants = cva(
         ghost:
           'bg-neutral text-neutral-foreground hover:bg-neutral/80 active:bg-neutral/60',
         point:
-          'bg-accent text-accent-foreground hover:bg-accent/90 active:bg-accent/80 shadow-xs',
+          'point-gradient',
         brand:
           'bg-brand text-brand-foreground hover:bg-brand/90 active:bg-brand/80 shadow-xs',
       },
