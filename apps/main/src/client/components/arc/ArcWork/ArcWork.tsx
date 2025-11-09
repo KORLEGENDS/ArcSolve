@@ -1,28 +1,27 @@
 'use client';
 
 import type {
-    Action,
-    BorderNode,
-    DragRectRenderCallback,
-    Node as FlexLayoutNode,
-    I18nLabel,
-    IGlobalAttributes,
-    IIcons,
-    IJsonModel,
-    ITabRenderValues,
-    ITabSetRenderValues,
-    NodeMouseEvent,
-    ShowOverflowMenuCallback,
-    TabNode,
-    TabSetNode,
-    TabSetPlaceHolderCallback,
+  Action,
+  BorderNode,
+  DragRectRenderCallback,
+  Node as FlexLayoutNode,
+  I18nLabel,
+  IGlobalAttributes,
+  IIcons,
+  IJsonModel,
+  ITabRenderValues,
+  ITabSetRenderValues,
+  NodeMouseEvent,
+  ShowOverflowMenuCallback,
+  TabNode,
+  TabSetNode,
+  TabSetPlaceHolderCallback,
 } from 'flexlayout-react';
 import { Layout, Model } from 'flexlayout-react';
-// 테마 CSS는 동적으로 로드되므로 기본 light.css만 import
-import 'flexlayout-react/style/light.css';
+// combined.css에는 모든 테마(light, dark)가 포함되어 있으며 클래스명으로 활성화됩니다
+import 'flexlayout-react/style/combined.css';
 import * as React from 'react';
-
-export type ArcWorkTheme = 'light' | 'dark';
+import { ARCWORK_DEFAULT_THEME, type ArcWorkTheme } from './ArcWork-config';
 
 export interface ArcWorkGlobalOptions extends Partial<IGlobalAttributes> {
   /**
@@ -45,10 +44,6 @@ export interface ArcWorkGlobalOptions extends Partial<IGlobalAttributes> {
    * 엣지 도킹 활성화 (기본값: true)
    */
   enableEdgeDock?: boolean;
-  /**
-   * 테마 클래스명 (기본값: 'flexlayout__theme_light')
-   */
-  theme?: ArcWorkTheme;
 }
 
 export interface ArcWorkProps {
@@ -56,6 +51,11 @@ export interface ArcWorkProps {
    * 컨테이너 클래스명
    */
   className?: string;
+  /**
+   * 초기 테마 (서버에서 쿠키를 읽어 전달)
+   * 기본값: 'light'
+   */
+  initialTheme?: ArcWorkTheme;
   /**
    * 기본 레이아웃 모델 또는 JSON 모델 (필수)
    */
@@ -166,6 +166,7 @@ const defaultFactory = (node: TabNode): React.ReactNode => {
 
 export function ArcWork({
   className,
+  initialTheme,
   defaultLayout,
   onModelChange,
   globalOptions,
@@ -207,11 +208,11 @@ export function ArcWork({
     return Model.fromJson(jsonModel);
   });
 
-  // 테마 클래스명 결정
+  // 테마 클래스명 결정: 외부에서 주입된 테마 사용
   const themeClass = React.useMemo(() => {
-    const theme = globalOptions?.theme || 'light';
+    const theme = initialTheme ?? ARCWORK_DEFAULT_THEME;
     return `flexlayout__theme_${theme}`;
-  }, [globalOptions?.theme]);
+  }, [initialTheme]);
 
   // 반응형 레이아웃: ResizeObserver를 사용하여 컨테이너 크기 변경 감지
   React.useEffect(() => {

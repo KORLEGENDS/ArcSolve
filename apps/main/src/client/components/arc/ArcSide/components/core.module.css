@@ -34,15 +34,6 @@
   }
 }
 
-.sidebarStatic {
-  display: flex;
-  height: 100%;
-  width: var(--sidebar-width);
-  flex-direction: column;
-  background-color: var(--color-card);
-  color: var(--color-foreground);
-}
-
 .sidebarGap {
   position: relative;
   height: 100svh;
@@ -53,20 +44,11 @@
   transition-timing-function: linear;
 }
 
-.sidebarRoot[data-collapsible="offcanvas"] .sidebarGap {
-  width: 0;
-}
 .sidebarRoot[data-side="right"] .sidebarGap {
   transform: rotate(180deg);
 }
-.sidebarRoot[data-collapsible="icon"] .sidebarGap {
+.sidebarRoot[data-state="collapsed"] .sidebarGap {
   width: var(--sidebar-width-icon);
-}
-.sidebarRoot[data-variant="floating"][data-collapsible="icon"] .sidebarGap {
-  width: calc(var(--sidebar-width-icon) + (var(--spacing) * 4));
-}
-.sidebarRoot[data-dragging="true"] .sidebarGap {
-  transition-duration: 0ms !important;
 }
 
 .sidebarContainer {
@@ -95,42 +77,18 @@
   right: 0;
   left: auto;
 }
-.sidebarRoot[data-collapsible="offcanvas"][data-side="left"] .sidebarContainer {
-  left: calc(var(--sidebar-width) * -1);
-}
-.sidebarRoot[data-collapsible="offcanvas"][data-side="right"]
   .sidebarContainer {
-  right: calc(var(--sidebar-width) * -1);
-}
-.sidebarRoot[data-collapsible="icon"][data-side="left"] .sidebarContainer {
-  left: 0;
-}
-.sidebarRoot[data-collapsible="icon"][data-side="right"] .sidebarContainer {
-  right: 0;
-}
-.sidebarRoot[data-variant="floating"] .sidebarContainer {
-  padding: calc(var(--spacing) * 2);
-}
-.sidebarRoot[data-variant="floating"][data-collapsible="icon"]
-  .sidebarContainer {
-  width: calc(var(--sidebar-width-icon) + (var(--spacing) * 4) + 2px);
-}
-.sidebarRoot[data-variant="sidebar"] .sidebarContainer {
   border: 0;
   width: var(--sidebar-width);
 }
-.sidebarRoot[data-variant="sidebar"][data-collapsible="icon"]
-  .sidebarContainer {
+.sidebarRoot[data-state="collapsed"] .sidebarContainer {
   width: var(--sidebar-width-icon);
 }
-.sidebarRoot[data-variant="sidebar"][data-side="left"] .sidebarContainer {
+.sidebarRoot[data-side="left"] .sidebarContainer {
   border-right: 1px solid var(--color-neutral-700);
 }
-.sidebarRoot[data-variant="sidebar"][data-side="right"] .sidebarContainer {
+.sidebarRoot[data-side="right"] .sidebarContainer {
   border-left: 1px solid var(--color-neutral-700);
-}
-.sidebarRoot[data-dragging="true"] .sidebarContainer {
-  transition-duration: 0ms !important;
 }
 
 .sidebarSurface {
@@ -145,17 +103,6 @@
   display: none;
 }
 
-.rail {
-  position: absolute;
-  inset-block: 0;
-  z-index: 60;
-  display: none;
-  width: 1rem;
-  transform: translateX(-50%);
-  transition: all 200ms linear;
-}
-
-/* Trigger icon transition */
 .triggerIcon {
   display: inline-flex;
   align-items: center;
@@ -165,6 +112,32 @@
 }
 .triggerIconOpen {
   opacity: 1;
+}
+
+.content {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 0 var(--spacing-sm);
+  overflow: auto;
+}
+
+.sidebarRoot[data-state="collapsed"] .content {
+  overflow: hidden;
+  padding: var(--spacing-sm) var(--spacing-sm);
+}
+
+.rail {
+  position: absolute;
+  inset-block: 0;
+  z-index: 60;
+  display: none;
+  width: 1rem;
+  transform: translateX(-50%);
+  transition: all 200ms linear;
 }
 
 @media (min-width: 640px) {
@@ -192,12 +165,6 @@
   left: 0;
   right: auto;
 }
-.sidebarRoot[data-collapsible="offcanvas"] .rail {
-  transform: translateX(0);
-}
-.sidebarRoot[data-collapsible="offcanvas"] .rail::after {
-  left: 100%;
-}
 [data-side="left"] .rail {
   cursor: w-resize;
 }
@@ -211,22 +178,12 @@
   cursor: w-resize;
 }
 
-
-
-.content {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  align-items: center;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  padding: 0 var(--spacing-sm);
-  overflow: auto;
+.sidebarRoot[data-dragging="true"] .sidebarGap {
+  transition-duration: 0ms !important;
 }
 
-.sidebarRoot[data-collapsible="icon"] .content {
-  overflow: hidden;
-  padding: var(--spacing-sm) var(--spacing-sm);
+.sidebarRoot[data-dragging="true"] .sidebarContainer {
+  transition-duration: 0ms !important;
 }
 
  

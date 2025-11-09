@@ -4,15 +4,12 @@ import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/client/components/ui/button';
-// Separator and Sheet imports removed
-// Tooltip removed
-// useIsMobile removed
 import { cn } from '@/client/components/ui/utils';
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
   SIDEBAR_WIDTH,
-  SIDEBAR_WIDTH_ICON,
+  SIDEBAR_WIDTH_ICON
 } from '../ArcSide-config';
 import { useSidebarResize } from '../hooks/useSidebarResize';
 import { useSidebarState } from '../hooks/useSidebarState';
@@ -23,19 +20,14 @@ interface SidebarContext {
   state: 'expanded' | 'collapsed';
   open: boolean;
   setOpen: (open: boolean) => void;
-  // mobile off-canvas removed
   toggleSidebar: () => void;
-  //* new properties for sidebar resizing
   width: string;
   setWidth: (width: string) => void;
-  //* new properties for tracking is dragging rail
   isDraggingRail: boolean;
   setIsDraggingRail: (isDraggingRail: boolean) => void;
-  //* cookie names (state/width) and max-age for parallel sidebars
   stateCookieName: string;
   widthCookieName: string;
   widthCookieMaxAge: number;
-  //* compact state (collapsed OR narrow)
   isCompact: boolean;
 }
 
@@ -116,31 +108,24 @@ const SidebarProvider = React.forwardRef<
         state,
         open,
         setOpen,
-        // mobile off-canvas removed
         toggleSidebar,
-        //* new context for sidebar resizing
         width,
         setWidth,
-        //* new context for tracking is dragging rail
         isDraggingRail,
         setIsDraggingRail,
-        //* expose cookie config for children like SidebarRail
         stateCookieName: derivedStateCookieName,
         widthCookieName: derivedWidthCookieName,
         widthCookieMaxAge: derivedWidthCookieMaxAge,
-        //* compact state
         isCompact,
       }),
       [
         state,
         open,
         setOpen,
-        // mobile off-canvas removed
         toggleSidebar,
-        //* add width to dependencies
         width,
-        //* add isDraggingRail to dependencies
         isDraggingRail,
+        setIsDraggingRail,
         derivedStateCookieName,
         derivedWidthCookieName,
         derivedWidthCookieMaxAge,
@@ -153,7 +138,6 @@ const SidebarProvider = React.forwardRef<
         <div
           style={
             {
-              // * update '--sidebar-width' to use the new width state
               '--sidebar-width': width,
               '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
               ...style,
@@ -175,15 +159,11 @@ const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<'div'> & {
     side?: 'left' | 'right';
-    variant?: 'sidebar' | 'floating' | 'inset';
-    collapsible?: 'offcanvas' | 'icon' | 'none';
   }
 >(
   (
     {
       side = 'left',
-      variant = 'sidebar',
-      collapsible = 'offcanvas',
       className,
       children,
       ...props
@@ -192,34 +172,15 @@ const Sidebar = React.forwardRef<
   ) => {
     const {
       state,
-      //* new property for tracking is dragging rail
       isDraggingRail,
-      //* width for narrow-state derivation
-      // width,
       isCompact,
     } = useSidebar();
-
-    if (collapsible === 'none') {
-      return (
-        <div
-          className={cn(styles.sidebarStatic, className)}
-          ref={ref}
-          {...props}
-        >
-          {children}
-        </div>
-      );
-    }
-
-    // mobile off-canvas removed
 
     return (
       <div
         ref={ref}
         className={cn('group peer', styles.sidebarRoot)}
         data-state={state}
-        data-collapsible={state === 'collapsed' ? collapsible : ''}
-        data-variant={variant}
         data-side={side}
         data-dragging={isDraggingRail}
         data-compact={isCompact ? 'true' : undefined}
@@ -265,64 +226,6 @@ const SidebarTrigger = React.forwardRef<
   );
 });
 SidebarTrigger.displayName = 'SidebarTrigger';
-
-const SidebarRail = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<'button'> & {
-    //* new prop for enabling drag
-    enableDrag?: boolean;
-    //* direction of the resize handle depending on sidebar side
-    direction?: 'left' | 'right';
-  }
->(({ className, enableDrag = true, direction = 'right', ...props }, ref) => {
-  const {
-    toggleSidebar,
-    setWidth,
-    state,
-    width,
-    setIsDraggingRail,
-    widthCookieName,
-    widthCookieMaxAge,
-  } = useSidebar();
-
-  const { dragRef, handlePointerDown } = useSidebarResize({
-    direction,
-    enableDrag,
-    onResize: setWidth,
-    onToggle: toggleSidebar,
-    currentWidth: width,
-    isCollapsed: state === 'collapsed',
-    minResizeWidth: MIN_SIDEBAR_WIDTH,
-    maxResizeWidth: MAX_SIDEBAR_WIDTH,
-    setIsDraggingRail,
-    widthCookieName,
-    widthCookieMaxAge, // from context
-  });
-
-  //* Merge external ref with our dragRef
-  const combinedRef = React.useMemo(
-    () => mergeButtonRefs([ref, dragRef]),
-    [ref, dragRef]
-  );
-
-  return (
-    <button
-      //* updated ref to use combinedRef
-      ref={combinedRef}
-      data-sidebar='rail'
-      aria-label='Toggle Sidebar'
-      tabIndex={-1}
-      //* use pointer events with global resize overlay
-      onPointerDown={handlePointerDown}
-      title='Toggle Sidebar'
-      className={cn(styles.rail, className)}
-      {...props}
-    />
-  );
-});
-SidebarRail.displayName = 'SidebarRail';
-
-// Removed SidebarInset & SidebarInput (not needed for layout logic)
 
 const SidebarHeader = React.forwardRef<
   HTMLDivElement,
@@ -370,6 +273,57 @@ const SidebarContent = React.forwardRef<
   );
 });
 SidebarContent.displayName = 'SidebarContent';
+
+const SidebarRail = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<'button'> & {
+    enableDrag?: boolean;
+    direction?: 'left' | 'right';
+  }
+>(({ className, enableDrag = true, direction = 'right', ...props }, ref) => {
+  const {
+    toggleSidebar,
+    setWidth,
+    state,
+    width,
+    setIsDraggingRail,
+    widthCookieName,
+    widthCookieMaxAge,
+  } = useSidebar();
+
+  const { dragRef, handlePointerDown } = useSidebarResize({
+    direction,
+    enableDrag,
+    onResize: setWidth,
+    onToggle: toggleSidebar,
+    currentWidth: width,
+    isCollapsed: state === 'collapsed',
+    minResizeWidth: MIN_SIDEBAR_WIDTH,
+    maxResizeWidth: MAX_SIDEBAR_WIDTH,
+    setIsDraggingRail,
+    widthCookieName,
+    widthCookieMaxAge,
+  });
+
+  const combinedRef = React.useMemo(
+    () => mergeButtonRefs([ref, dragRef]),
+    [ref, dragRef]
+  );
+
+  return (
+    <button
+      ref={combinedRef}
+      data-sidebar='rail'
+      aria-label='Toggle Sidebar'
+      tabIndex={-1}
+      onPointerDown={handlePointerDown}
+      title='Toggle Sidebar'
+      className={cn(styles.rail, className)}
+      {...props}
+    />
+  );
+});
+SidebarRail.displayName = 'SidebarRail';
 
 // 네임스페이스 패턴 적용: Sidebar.Header, Sidebar.Content 등으로 사용 가능
 // 런타임에 속성 추가

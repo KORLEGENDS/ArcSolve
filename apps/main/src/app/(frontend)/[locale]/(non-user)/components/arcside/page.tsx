@@ -11,7 +11,7 @@ export default function ArcSideDemoPage() {
         defaultOpen={true}
         cookieKeyPrefix="demo-left"
       >
-        <Sidebar.Left />
+        <Sidebar.Left expanded={<div />} />
       </SidebarProvider>
 
       <main
@@ -31,7 +31,7 @@ export default function ArcSideDemoPage() {
         defaultOpen={true}
         cookieKeyPrefix="demo-right"
       >
-        <Sidebar.Right />
+        <Sidebar.Right expanded={<div />} />
       </SidebarProvider>
     </div>
   );

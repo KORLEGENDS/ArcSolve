@@ -1,0 +1,102 @@
+import { SidebarWrapper } from '@/client/components/arc/ArcSide';
+import { ArcWork, ARCWORK_THEME_COOKIE_NAME, type ArcWorkTheme } from '@/client/components/arc/ArcWork';
+import type { IJsonModel } from 'flexlayout-react';
+import { cookies } from 'next/headers';
+import type { ReactNode } from 'react';
+import { SidebarContent } from './components/SidebarContent';
+
+interface UserLayoutProps {
+  children: ReactNode;
+}
+
+export default async function Layout({ children }: UserLayoutProps): Promise<ReactNode> {
+  const cookieStore = await cookies();
+
+  const leftState = cookieStore.get('sidebar:left:state')?.value;
+  const leftWidth = cookieStore.get('sidebar:left:width')?.value;
+  const rightState = cookieStore.get('sidebar:right:state')?.value;
+  const rightWidth = cookieStore.get('sidebar:right:width')?.value;
+
+  const leftDefaultOpen = leftState ? leftState === 'true' : true;
+  const rightDefaultOpen = rightState ? rightState === 'true' : true;
+
+  // ArcWork 테마 쿠키 읽기
+  const arcWorkTheme = cookieStore.get(ARCWORK_THEME_COOKIE_NAME)?.value;
+  const arcWorkInitialTheme: ArcWorkTheme = arcWorkTheme === 'dark' ? 'dark' : 'light';
+
+  // ArcWork 기본 레이아웃 설정
+  const defaultJson: IJsonModel = {
+    global: {},
+    borders: [],
+    layout: {
+      type: 'row',
+      weight: 100,
+      children: [
+        {
+          type: 'tabset',
+          weight: 50,
+          children: [
+            {
+              type: 'tab',
+              name: 'Work 1',
+              component: 'placeholder',
+            },
+          ],
+        },
+        {
+          type: 'tabset',
+          weight: 50,
+          children: [
+            {
+              type: 'tab',
+              name: 'Work 2',
+              component: 'placeholder',
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100svh', width: '100%' }}>
+        <SidebarWrapper
+          side="left"
+          expanded={<SidebarContent />}
+          defaultOpen={leftDefaultOpen}
+          defaultWidth={leftWidth}
+          cookieKeyPrefix="left"
+        />
+
+        <main
+          style={{
+            position: 'relative',
+            display: 'flex',
+            minHeight: '100svh',
+            flex: '1 1 auto',
+            minWidth: 0,
+            flexDirection: 'column',
+            backgroundColor: 'var(--color-background)',
+            overflowX: 'hidden',
+          }}
+        >
+          <div className='relative h-full w-full'>
+            <ArcWork
+              className="absolute inset-0 z-48"
+              initialTheme={arcWorkInitialTheme}
+              defaultLayout={defaultJson}
+            />
+            {children}
+          </div>
+        </main>
+
+        <SidebarWrapper
+          side="right"
+          expanded={<SidebarContent />}
+          defaultOpen={rightDefaultOpen}
+          defaultWidth={rightWidth}
+          cookieKeyPrefix="right"
+        />
+      </div>
+  );
+}

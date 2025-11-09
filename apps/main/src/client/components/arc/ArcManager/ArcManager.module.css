@@ -1,0 +1,23 @@
+/* ArcManager.module.css - 세로 레이아웃 컨테이너 */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.tabs {
+  flex: 0 0 auto;
+}
+
+.toolbar {
+  flex: 0 0 auto;
+}
+
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+

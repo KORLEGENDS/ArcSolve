@@ -1,8 +1,12 @@
 'use client';
 
+import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
 import { ArcManagerList, type ArcManagerListItem } from '@/client/components/arc/ArcManager/components/list';
 import { ArcManagerTree, type ArcManagerTreeItem } from '@/client/components/arc/ArcManager/components/tree';
 import { Card, CardContent, CardHeader, CardTitle } from '@/client/components/ui/card';
+import { Input } from '@/client/components/ui/input';
+import { FolderOpenDot, MessageSquare, Notebook } from 'lucide-react';
+import * as React from 'react';
 
 export default function ArcManagerDemoPage() {
   const now = new Date();
@@ -246,6 +250,15 @@ export default function ArcManagerDemoPage() {
     },
   ];
 
+  const tabs = React.useMemo(
+    () => [
+      { value: 'notes', icon: Notebook, label: '노트' },
+      { value: 'files', icon: FolderOpenDot, label: '파일' },
+      { value: 'chat', icon: MessageSquare, label: '채팅' },
+    ],
+    []
+  );
+
   return (
     <main className="min-h-screen w-full p-6 space-y-8">
       <div className="max-w-7xl mx-auto">
@@ -272,6 +285,34 @@ export default function ArcManagerDemoPage() {
                 <div className="p-4 border rounded-lg">
                   <ArcManagerTree items={treeItems} />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="mb-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>ArcManager 통합 컴포넌트</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[600px] border rounded-lg">
+                <ArcManager
+                  className="h-full"
+                  tabs={tabs}
+                  defaultTab="notes"
+                  toolbar={<Input type="search" placeholder="검색..." />}
+                >
+                  <ArcManager.TabPanel value="notes">
+                    <ArcManagerTree items={treeItems} />
+                  </ArcManager.TabPanel>
+                  <ArcManager.TabPanel value="files">
+                    <ArcManagerTree items={treeItems} />
+                  </ArcManager.TabPanel>
+                  <ArcManager.TabPanel value="chat">
+                    <ArcManagerTree items={treeItems} />
+                  </ArcManager.TabPanel>
+                </ArcManager>
               </div>
             </CardContent>
           </Card>

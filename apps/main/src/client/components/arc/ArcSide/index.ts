@@ -1,2 +1,2 @@
-export { Sidebar } from './ArcSide';
+export { Sidebar, SidebarWrapper } from './ArcSide';
 
