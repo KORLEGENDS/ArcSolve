@@ -5,7 +5,8 @@
   gap: var(--spacing-md);
   justify-content: space-between;
   width: 100%;
-  padding: 10px;
+  height: 56px;
+  padding: var(--spacing-sm);
 }
 
 .footerBlock {

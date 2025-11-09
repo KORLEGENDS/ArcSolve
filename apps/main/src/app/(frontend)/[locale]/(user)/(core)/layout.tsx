@@ -3,7 +3,9 @@ import { ArcWork, ARCWORK_THEME_COOKIE_NAME, type ArcWorkTheme } from '@/client/
 import type { IJsonModel } from 'flexlayout-react';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { RightSidebarHeader } from './components/RightSidebarHeader';
 import { SidebarContent } from './components/SidebarContent';
+import { SidebarHeader } from './components/SidebarHeader';
 
 interface UserLayoutProps {
   children: ReactNode;
@@ -63,6 +65,7 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
         <SidebarWrapper
           side="left"
           expanded={<SidebarContent />}
+          header={<SidebarHeader />}
           defaultOpen={leftDefaultOpen}
           defaultWidth={leftWidth}
           cookieKeyPrefix="left"
@@ -93,6 +96,7 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
         <SidebarWrapper
           side="right"
           expanded={<SidebarContent />}
+          header={<RightSidebarHeader />}
           defaultOpen={rightDefaultOpen}
           defaultWidth={rightWidth}
           cookieKeyPrefix="right"

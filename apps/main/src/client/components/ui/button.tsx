@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         ghost:
-          'bg-neutral text-neutral-foreground hover:bg-neutral/80 active:bg-neutral/60',
+          'bg-neutral text-neutral-foreground hover:bg-muted-foreground active:bg-accent',
         point:
           'point-gradient',
         brand:

@@ -7,17 +7,23 @@ import { Sidebar as SidebarBase, SidebarProvider, useSidebar } from './component
 function LeftSidebar({
   expanded,
   collapsed,
+  header,
 }: {
   expanded: React.ReactNode;
   collapsed?: React.ReactNode;
+  header?: React.ReactNode;
 }): React.ReactElement {
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
+  const sidebarState = useSidebar();
+  const isCollapsed = sidebarState.state === 'collapsed';
+
   return (
     <SidebarBase side='left'>
       <SidebarBase.Header>
-        <div className={`${s.headerRow} ${s.left} ${isCollapsed ? s.collapsed : s.expanded}`}>
+        <div className={`${s.headerRow} ${s.left} ${!isCollapsed ? s.open : ''}`}>
+          <div className={s.headerTrigger}>
           <SidebarBase.Trigger className={s.trigger} />
+          </div>
+          {header && !isCollapsed && <div className={s.headerContent}>{header}</div>}
         </div>
       </SidebarBase.Header>
       <SidebarBase.Content>
@@ -31,17 +37,23 @@ function LeftSidebar({
 function RightSidebar({
   expanded,
   collapsed,
+  header,
 }: {
   expanded: React.ReactNode;
   collapsed?: React.ReactNode;
+  header?: React.ReactNode;
 }): React.ReactElement {
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
+  const sidebarState = useSidebar();
+  const isCollapsed = sidebarState.state === 'collapsed';
+
   return (
     <SidebarBase side='right'>
       <SidebarBase.Header>
-        <div className={`${s.headerRow} ${s.right} ${isCollapsed ? s.collapsed : s.expanded}`}>
+        <div className={`${s.headerRow} ${s.right} ${!isCollapsed ? s.open : ''}`}>
+          {header && !isCollapsed && <div className={s.headerContent}>{header}</div>}
+          <div className={s.headerTrigger}>
           <SidebarBase.Trigger className={s.trigger} />
+          </div>
         </div>
       </SidebarBase.Header>
       <SidebarBase.Content>
@@ -70,6 +82,7 @@ interface SidebarWrapperProps {
   side: 'left' | 'right';
   expanded: React.ReactNode;
   collapsed?: React.ReactNode;
+  header?: React.ReactNode;
   defaultOpen?: boolean;
   defaultWidth?: string;
   cookieKeyPrefix: string;
@@ -79,6 +92,7 @@ export function SidebarWrapper({
   side,
   expanded,
   collapsed,
+  header,
   defaultOpen,
   defaultWidth,
   cookieKeyPrefix,
@@ -91,9 +105,9 @@ export function SidebarWrapper({
       cookieKeyPrefix={cookieKeyPrefix}
     >
       {side === 'left' ? (
-        <Sidebar.Left expanded={expanded} collapsed={collapsed} />
+        <Sidebar.Left expanded={expanded} collapsed={collapsed} header={header} />
       ) : (
-        <Sidebar.Right expanded={expanded} collapsed={collapsed} />
+        <Sidebar.Right expanded={expanded} collapsed={collapsed} header={header} />
       )}
     </SidebarProvider>
   );

@@ -1,37 +1,39 @@
 .headerRow {
-  display: flex;
+  display: grid;
   align-items: center;
-  gap: calc(var(--spacing) * 2);
   width: 100%;
 }
 
-/* Modifier classes for combination selectors - these are used in className strings */
-/* .left {
-  Used in combination: .headerRow.left.expanded, .headerRow.left.collapsed
-} */
-
-/* .right {
-  Used in combination: .headerRow.right
-} */
-
-/* .collapsed {
-  Used in combination: .headerRow.left.collapsed
-} */
-
-/* .expanded {
-  Used in combination: .headerRow.left.expanded
-} */
-
-.headerRow.left.expanded {
-  justify-content: space-between;
+/* 좌측 사이드바: 첫 번째 열에 트리거, 두 번째 열에 주입 컴포넌트 */
+.headerRow.left {
+  grid-template-columns: auto 1fr;
 }
 
-.headerRow.left.collapsed {
-  justify-content: flex-start;
-}
-
+/* 우측 사이드바: 첫 번째 열에 주입 컴포넌트, 두 번째 열에 트리거 */
 .headerRow.right {
-  justify-content: flex-end;
+  grid-template-columns: 1fr auto;
+}
+
+.headerRow.open {
+  column-gap: var(--spacing);
+}
+
+.headerTrigger {
+  display: flex;
+  align-items: center;
+  min-width: 35px; /* 트리거 버튼 크기(h-7 w-7 = 28px)에 맞춤 */
+  justify-content: center;
+}
+
+/* 우측 사이드바의 트리거는 항상 두 번째 열에 배치 */
+.headerRow.right .headerTrigger {
+  grid-column: 2;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .trigger {
