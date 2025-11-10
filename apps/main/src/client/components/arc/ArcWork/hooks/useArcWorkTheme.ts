@@ -65,9 +65,23 @@ export function useArcWorkTheme({
   // 테마 변경 시 쿠키에 기록
   React.useEffect(() => {
     // resolvedTheme이 있을 때만 쿠키에 기록 (초기 렌더링 시 undefined일 수 있음)
-    if (resolvedTheme === 'dark' || resolvedTheme === 'light') {
-      document.cookie = `${cookieName}=${theme}; path=/; max-age=${cookieMaxAge}`;
+    if (resolvedTheme !== 'dark' && resolvedTheme !== 'light') {
+      return;
     }
+
+    // 현재 쿠키 값과 동일하면 재기록 방지
+    const current = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith(`${cookieName}=`));
+    const currentValue = current?.split('=')[1];
+    if (currentValue === theme) {
+      return;
+    }
+
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const secureAttr = isHttps ? '; Secure' : '';
+    // 표준 속성 표기 사용(SameSite=Lax)
+    document.cookie = `${cookieName}=${theme}; Path=/; Max-Age=${cookieMaxAge}; SameSite=Lax${secureAttr}`;
   }, [theme, resolvedTheme, cookieName, cookieMaxAge]);
 
   return {

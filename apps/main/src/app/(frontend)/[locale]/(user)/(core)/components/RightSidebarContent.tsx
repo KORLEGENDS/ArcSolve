@@ -119,7 +119,7 @@ export function RightSidebarContent() {
       {/* 검색 바 */}
         <Input type="search" placeholder="채팅방 검색..." className="w-full" />
       {/* 채팅방 목록 */}
-      <div className="flex-1 overflow-y-auto p-2 w-full">
+      <div className="flex-1 overflow-y-auto py-2 w-full">
         <ArcYouChatRoomList rooms={rooms} />
       </div>
     </div>

@@ -22,6 +22,18 @@ import { Layout, Model } from 'flexlayout-react';
 import 'flexlayout-react/style/combined.css';
 import * as React from 'react';
 import { type ArcWorkTheme } from './ArcWork-config';
+import {
+  createClassNameMapper,
+  createDragRectRenderCallback,
+  createFactory,
+  createI18nMapper,
+  createIconsConfig,
+  createOverflowMenuCallback,
+  createTabRenderCallback,
+  createTabSetPlaceholderCallback,
+  createTabSetRenderCallback,
+  defaultArcWorkFactory,
+} from './components';
 import { useArcWorkTheme } from './hooks/useArcWorkTheme';
 
 export interface ArcWorkGlobalOptions extends Partial<IGlobalAttributes> {
@@ -156,23 +168,13 @@ export interface ArcWorkProps {
   responsive?: boolean;
 }
 
-const defaultFactory = (node: TabNode): React.ReactNode => {
-  const component = node.getComponent();
-
-  if (component === 'placeholder') {
-    return <div className="p-4">{node.getName()}</div>;
-  }
-
-  return null;
-};
-
 export function ArcWork({
   className,
   initialTheme,
   defaultLayout,
   onModelChange,
   globalOptions,
-  factory = defaultFactory,
+  factory,
   realtimeResize = true,
   onAction,
   onRenderTab,
@@ -243,8 +245,48 @@ export function ArcWork({
     };
   }, [responsive]);
 
-  // 팩토리 함수 메모이제이션
-  const factoryCallback = React.useCallback(factory, [factory]);
+  // 커스텀 컴포넌트 콜백 생성
+  const factoryCallback = React.useCallback(
+    createFactory(factory || defaultArcWorkFactory),
+    [factory]
+  );
+
+  const tabRenderCallback = React.useCallback(
+    createTabRenderCallback(onRenderTab),
+    [onRenderTab]
+  );
+
+  const tabSetRenderCallback = React.useCallback(
+    createTabSetRenderCallback(onRenderTabSet),
+    [onRenderTabSet]
+  );
+
+  const dragRectRenderCallback = React.useCallback(
+    createDragRectRenderCallback(onRenderDragRect),
+    [onRenderDragRect]
+  );
+
+  const tabSetPlaceholderCallback = React.useCallback(
+    createTabSetPlaceholderCallback(onTabSetPlaceHolder),
+    [onTabSetPlaceHolder]
+  );
+
+  const overflowMenuCallback = React.useCallback(
+    createOverflowMenuCallback(onShowOverflowMenu),
+    [onShowOverflowMenu]
+  );
+
+  const iconsConfig = React.useMemo(() => createIconsConfig(icons), [icons]);
+
+  const classNameMapperCallback = React.useCallback(
+    createClassNameMapper(classNameMapper),
+    [classNameMapper]
+  );
+
+  const i18nMapperCallback = React.useCallback(
+    createI18nMapper(i18nMapper),
+    [i18nMapper]
+  );
 
   return (
     <div ref={containerRef} className={`${themeClass} ${className || ''}`} style={{ width: '100%', height: '100%' }}>
@@ -255,21 +297,21 @@ export function ArcWork({
         onModelChange={onModelChange}
         realtimeResize={realtimeResize}
         onAction={onAction}
-        onRenderTab={onRenderTab}
-        onRenderTabSet={onRenderTabSet}
+        onRenderTab={tabRenderCallback}
+        onRenderTabSet={tabSetRenderCallback}
         onExternalDrag={onExternalDrag}
-        icons={icons}
-        classNameMapper={classNameMapper}
-        i18nMapper={i18nMapper}
+        icons={iconsConfig}
+        classNameMapper={classNameMapperCallback}
+        i18nMapper={i18nMapperCallback}
         supportsPopout={supportsPopout}
         popoutURL={popoutURL}
         popoutClassName={popoutClassName}
         popoutWindowName={popoutWindowName}
-        onRenderDragRect={onRenderDragRect}
+        onRenderDragRect={dragRectRenderCallback}
         onContextMenu={onContextMenu}
         onAuxMouseClick={onAuxMouseClick}
-        onShowOverflowMenu={onShowOverflowMenu}
-        onTabSetPlaceHolder={onTabSetPlaceHolder}
+        onShowOverflowMenu={overflowMenuCallback}
+        onTabSetPlaceHolder={tabSetPlaceholderCallback}
       />
     </div>
   );
