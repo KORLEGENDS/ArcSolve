@@ -8,6 +8,7 @@
   flex-direction: column;
   gap: 0.5rem;
   padding-bottom: 120px; /* input height + spacing */
+  padding-top: var(--spacing-md);
 }
 
 .messagesWrapper {
