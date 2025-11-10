@@ -1,12 +1,11 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../main/tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": ".",
     "module": "CommonJS",
     "target": "ES2022",
     "moduleResolution": "node",
-    "types": ["node"],
     "skipLibCheck": true,
     "noEmit": false,
     "esModuleInterop": true

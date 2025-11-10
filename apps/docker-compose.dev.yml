@@ -98,6 +98,7 @@ services:
       # DB는 PgBouncer 경유로 전환
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      PUBSUB_MODE: ${PUBSUB_MODE:-global}
       PORT: "8080"
       TZ: Asia/Seoul
     depends_on:
@@ -119,6 +120,7 @@ services:
       NODE_ENV: development
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      PUBSUB_MODE: ${PUBSUB_MODE:-global}
       TZ: Asia/Seoul
     depends_on:
       pgbouncer:
