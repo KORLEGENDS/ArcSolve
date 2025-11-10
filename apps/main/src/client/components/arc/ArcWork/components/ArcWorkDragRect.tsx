@@ -18,7 +18,11 @@ export function ArcWorkDragRect({ style }: ArcWorkDragRectProps) {
   return (
     <div
       style={{
-        ...style,
+        position: 'absolute',
+        left: typeof style.left === 'number' ? `${style.left}px` : style.left,
+        top: typeof style.top === 'number' ? `${style.top}px` : style.top,
+        width: typeof style.width === 'number' ? `${style.width}px` : style.width,
+        height: typeof style.height === 'number' ? `${style.height}px` : style.height,
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         border: '2px dashed rgba(59, 130, 246, 0.5)',
         borderRadius: '4px',

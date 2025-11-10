@@ -26,13 +26,15 @@ export function ArcYouChatMessageList({
       role="log"
     >
       <StickToBottom.Content className={styles.content}>
-        {messages.map((message) => (
-          <ArcYouChatMessage
-            key={message.id}
-            message={message}
-            isOwnMessage={message.userId === currentUserId}
-          />
-        ))}
+        <div className={styles.messagesWrapper}>
+          {messages.map((message) => (
+            <ArcYouChatMessage
+              key={message.id}
+              message={message}
+              isOwnMessage={message.userId === currentUserId}
+            />
+          ))}
+        </div>
       </StickToBottom.Content>
     </StickToBottom>
   );

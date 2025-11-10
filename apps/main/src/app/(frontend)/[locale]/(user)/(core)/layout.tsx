@@ -1,8 +1,9 @@
 import { SidebarWrapper } from '@/client/components/arc/ArcSide';
-import { ArcWork, ARCWORK_THEME_COOKIE_NAME, type ArcWorkTheme } from '@/client/components/arc/ArcWork';
+import { ARCWORK_THEME_COOKIE_NAME, type ArcWorkTheme } from '@/client/components/arc/ArcWork';
 import type { IJsonModel } from 'flexlayout-react';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { ArcWorkWithChatRoom } from './components/ArcWorkWithChatRoom';
 import { RightSidebarContent } from './components/RightSidebarContent';
 import { RightSidebarHeader } from './components/RightSidebarHeader';
 import { SidebarContent } from './components/SidebarContent';
@@ -52,8 +53,8 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
           children: [
             {
               type: 'tab',
-              name: 'Work 2',
-              component: 'placeholder',
+              name: 'Chat Room',
+              component: 'arcyou-chat-room',
             },
           ],
         },
@@ -85,7 +86,7 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
           }}
         >
           <div className='relative h-full w-full'>
-            <ArcWork
+            <ArcWorkWithChatRoom
               className="absolute inset-0 z-48"
               initialTheme={arcWorkInitialTheme}
               defaultLayout={defaultJson}
