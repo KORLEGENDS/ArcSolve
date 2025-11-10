@@ -21,7 +21,8 @@ import { Layout, Model } from 'flexlayout-react';
 // combined.css에는 모든 테마(light, dark)가 포함되어 있으며 클래스명으로 활성화됩니다
 import 'flexlayout-react/style/combined.css';
 import * as React from 'react';
-import { ARCWORK_DEFAULT_THEME, type ArcWorkTheme } from './ArcWork-config';
+import { type ArcWorkTheme } from './ArcWork-config';
+import { useArcWorkTheme } from './hooks/useArcWorkTheme';
 
 export interface ArcWorkGlobalOptions extends Partial<IGlobalAttributes> {
   /**
@@ -53,6 +54,7 @@ export interface ArcWorkProps {
   className?: string;
   /**
    * 초기 테마 (서버에서 쿠키를 읽어 전달)
+   * next-themes의 resolvedTheme이 없을 때만 사용됩니다 (초기 렌더링 fallback)
    * 기본값: 'light'
    */
   initialTheme?: ArcWorkTheme;
@@ -171,7 +173,7 @@ export function ArcWork({
   onModelChange,
   globalOptions,
   factory = defaultFactory,
-  realtimeResize = false,
+  realtimeResize = true,
   onAction,
   onRenderTab,
   onRenderTabSet,
@@ -192,6 +194,9 @@ export function ArcWork({
 }: ArcWorkProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const layoutRef = React.useRef<Layout | null>(null);
+  
+  // 테마 관리: next-themes와 동기화 및 쿠키 기록
+  const { themeClass } = useArcWorkTheme({ initialTheme });
 
   // 모델 초기화
   const [model] = React.useState<Model>(() => {
@@ -208,11 +213,17 @@ export function ArcWork({
     return Model.fromJson(jsonModel);
   });
 
-  // 테마 클래스명 결정: 외부에서 주입된 테마 사용
-  const themeClass = React.useMemo(() => {
-    const theme = initialTheme ?? ARCWORK_DEFAULT_THEME;
-    return `flexlayout__theme_${theme}`;
-  }, [initialTheme]);
+  // 테마 변경 시 컨테이너 className 업데이트
+  React.useEffect(() => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    // 기존 테마 클래스 제거
+    containerRef.current.classList.remove('flexlayout__theme_light', 'flexlayout__theme_dark');
+    // 새로운 테마 클래스 추가
+    containerRef.current.classList.add(themeClass);
+  }, [themeClass]);
 
   // 반응형 레이아웃: ResizeObserver를 사용하여 컨테이너 크기 변경 감지
   React.useEffect(() => {
