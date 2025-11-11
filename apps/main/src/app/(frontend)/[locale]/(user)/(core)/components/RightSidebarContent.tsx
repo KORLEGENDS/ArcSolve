@@ -49,8 +49,13 @@ export function RightSidebarContent() {
     if (!roomsData) return [];
 
     return roomsData.map((room) => ({
-      title: room.name,
+      id: room.id,
+      name: room.name,
       description: room.description || undefined,
+      lastMessageId: room.lastMessageId,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+      deletedAt: null, // API 응답에 없지만 타입 호환성을 위해 null 설정
       onClick: () => {
         console.log(`채팅방 선택: ${room.name} (${room.id})`);
         // TODO: 채팅방 선택 로직 구현

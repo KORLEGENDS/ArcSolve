@@ -33,13 +33,33 @@ export interface ArcYouChatRoomMenuOption {
 
 export interface ArcYouChatRoomListItemProps {
   /**
-   * 아이템 제목
+   * 채팅방 고유 ID
    */
-  title: string;
+  id: string;
   /**
-   * 아이템 설명 (연한 글씨로 표시)
+   * 채팅방 이름
+   */
+  name: string;
+  /**
+   * 채팅방 설명 (연한 글씨로 표시)
    */
   description?: string;
+  /**
+   * 마지막 메시지 ID
+   */
+  lastMessageId?: number | null;
+  /**
+   * 생성일시
+   */
+  createdAt?: string | null;
+  /**
+   * 수정일시
+   */
+  updatedAt?: string | null;
+  /**
+   * 삭제일시
+   */
+  deletedAt?: string | null;
   /**
    * 우측 끝에 표시할 아이콘
    */
@@ -59,8 +79,13 @@ export interface ArcYouChatRoomListItemProps {
 }
 
 export function ArcYouChatRoomListItem({
-  title,
+  id,
+  name,
   description,
+  lastMessageId,
+  createdAt,
+  updatedAt,
+  deletedAt,
   icon,
   className,
   onClick,
@@ -78,8 +103,8 @@ export function ArcYouChatRoomListItem({
     >
       {/* 좌측 열: 위아래 2행 구조 */}
       <div className="flex flex-col gap-0.5 min-w-0">
-        {/* 위쪽 행: 제목 */}
-        <div className="text-sm font-medium truncate">{title}</div>
+        {/* 위쪽 행: 이름 */}
+        <div className="text-sm font-medium truncate">{name}</div>
         {/* 아래쪽 행: 간략한 설명 (연한 글씨) */}
         {description && (
           <div className="text-xs text-muted-foreground truncate">
