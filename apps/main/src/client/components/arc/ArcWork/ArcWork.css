@@ -138,7 +138,7 @@
 
 .flexlayout__tab_button {
   /* 탭 버튼 */
-  width: 150px;
+  min-width: 160px;
   gap: var(--spacing-sm);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
@@ -167,6 +167,8 @@
 
 .flexlayout__tab_button_textbox {
   /* 탭 버튼 텍스트 박스 (편집 모드) */
+  border-radius: var(--radius-sm);
+  padding: 0 var(--spacing-sm);
 }
 
 .flexlayout__tab_button_stretch {

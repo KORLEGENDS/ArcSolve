@@ -1,9 +1,8 @@
 'use client';
 
 import { ArcWorkDynamic, type ArcWorkProps } from '@/client/components/arc/ArcWork';
-import { ArcYouChatRoom, type ArcyouChatMessage } from '@/client/components/arc/ArcYou/ArcYouChat';
+import { ArcYouChatRoom } from '@/client/components/arc/ArcYou/ArcYouChat';
 import { useServiceRestoreLayout } from '@/client/states/stores/service-store';
-import { useArcYouWebSocket } from '@/client/states/queries/useArcYouWebSocket';
 import { Model, type IJsonModel, type TabNode } from 'flexlayout-react';
 import { useCallback, useMemo } from 'react';
 
@@ -12,26 +11,18 @@ interface ArcWorkWithChatRoomProps extends Omit<ArcWorkProps, 'factory' | 'defau
 }
 
 export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
-  const { messages, currentUserId, sendMessage } = useArcYouWebSocket();
-
-  const handleSubmit = useCallback((message: string) => {
-    if (message.trim()) {
-      sendMessage(message);
-    }
-  }, [sendMessage]);
 
   const factory = useCallback(
     (node: TabNode) => {
       const component = node.getComponent();
 
       if (component === 'arcyou-chat-room') {
+        const cfg = node.getConfig?.() as { content?: { roomId?: string } } | undefined;
+        const roomId = cfg?.content?.roomId;
+        if (!roomId) return <div className="p-4">채팅방 정보가 없습니다.</div>;
         return (
           <div className="h-full w-full">
-            <ArcYouChatRoom
-              messages={messages}
-              currentUserId={currentUserId ?? 'unknown-user'}
-              onSubmit={handleSubmit}
-            />
+            <ArcYouChatRoom id={roomId} />
           </div>
         );
       }
@@ -43,7 +34,7 @@ export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
 
       return null;
     },
-    [messages, handleSubmit]
+    []
   );
 
   // 저장본 우선 로드, 없으면 최소 fallback
