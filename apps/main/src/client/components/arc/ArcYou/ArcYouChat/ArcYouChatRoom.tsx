@@ -69,7 +69,7 @@ export function ArcYouChatRoom({
     (async () => {
       try {
         console.log('[ArcYouChatRoom] fetching token for room', { roomId: id });
-        const r = await fetch('/api/ws/token', { method: 'GET' });
+        const r = await fetch('/api/arcyou/chat/ws/token', { method: 'GET' });
         if (!r.ok) {
           console.error('[ArcYouChatRoom] token fetch failed', { status: r.status });
           return;

@@ -2,7 +2,7 @@
 
 import { ArcUserProfile } from '@/client/components/arc/ArcUser';
 
-export function SidebarFooter() {
+export function LeftSidebarFooter() {
   return <ArcUserProfile />;
 }
 

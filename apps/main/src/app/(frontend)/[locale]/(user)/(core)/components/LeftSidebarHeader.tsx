@@ -10,7 +10,7 @@ interface Project {
   description?: string;
 }
 
-export function SidebarHeader() {
+export function LeftSidebarHeader() {
   // 프로젝트 목록 (실제로는 API나 상태 관리에서 가져와야 함)
   const projects: Project[] = React.useMemo(
     () => [

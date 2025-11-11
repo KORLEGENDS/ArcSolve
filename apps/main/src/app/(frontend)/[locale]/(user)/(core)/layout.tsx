@@ -1,12 +1,12 @@
 import { SidebarWrapper } from '@/client/components/arc/ArcSide';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
-import { ArcWorkWithChatRoom } from './components/ArcWorkWithChatRoom';
+import { ArcWorkContent } from './components/ArcWorkContent';
+import { LeftSidebarContent } from './components/LeftSidebarContent';
+import { LeftSidebarFooter } from './components/LeftSidebarFooter';
+import { LeftSidebarHeader } from './components/LeftSidebarHeader';
 import { RightSidebarContent } from './components/RightSidebarContent';
 import { RightSidebarHeader } from './components/RightSidebarHeader';
-import { SidebarContent } from './components/SidebarContent';
-import { SidebarFooter } from './components/SidebarFooter';
-import { SidebarHeader } from './components/SidebarHeader';
 
 interface UserLayoutProps {
   children: ReactNode;
@@ -27,9 +27,9 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
     <div style={{ display: 'flex', minHeight: '100svh', width: '100%' }}>
         <SidebarWrapper
           side="left"
-          expanded={<SidebarContent />}
-          header={<SidebarHeader />}
-          footer={<SidebarFooter />}
+          expanded={<LeftSidebarContent />}
+          header={<LeftSidebarHeader />}
+          footer={<LeftSidebarFooter />}
           defaultOpen={leftDefaultOpen}
           defaultWidth={leftWidth}
           cookieKeyPrefix="left"
@@ -48,7 +48,7 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
           }}
         >
           <div className='relative h-full w-full'>
-            <ArcWorkWithChatRoom
+            <ArcWorkContent
               className="absolute inset-0 z-48"
             />
             {children}

@@ -6,7 +6,7 @@ import { Input } from '@/client/components/ui/input';
 import { FolderOpenDot, MessageSquare, Notebook } from 'lucide-react';
 import * as React from 'react';
 
-export function SidebarContent() {
+export function LeftSidebarContent() {
   const now = React.useMemo(() => new Date(), []);
   const yesterday = React.useMemo(() => {
     const date = new Date(now);

@@ -6,12 +6,11 @@ import { useServiceRestoreLayout } from '@/client/states/stores/service-store';
 import { Model, type IJsonModel, type TabNode } from 'flexlayout-react';
 import { useCallback, useMemo } from 'react';
 
-interface ArcWorkWithChatRoomProps extends Omit<ArcWorkProps, 'factory' | 'defaultLayout'> {
+interface ArcWorkContentProps extends Omit<ArcWorkProps, 'factory' | 'defaultLayout'> {
   // ArcWork의 factory, defaultLayout prop을 제외한 모든 props
 }
 
-export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
-
+export function ArcWorkContent(props: ArcWorkContentProps) {
   const factory = useCallback(
     (node: TabNode) => {
       const component = node.getComponent();
@@ -25,11 +24,6 @@ export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
             <ArcYouChatRoom id={roomId} />
           </div>
         );
-      }
-
-      // 기본 placeholder 처리
-      if (component === 'placeholder') {
-        return <div className="p-4">{node.getName()}</div>;
       }
 
       return null;
