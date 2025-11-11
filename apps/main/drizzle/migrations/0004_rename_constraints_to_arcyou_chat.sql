@@ -1,0 +1,40 @@
+-- 마이그레이션: user_chat_* 제약조건명을 arcyou_chat_*로 변경
+-- 실행 전 백업 권장
+
+BEGIN;
+
+-- 1. Primary Key 제약조건명 변경
+ALTER TABLE arcyou_chat_rooms RENAME CONSTRAINT user_chat_rooms_pkey TO arcyou_chat_rooms_pkey;
+ALTER TABLE arcyou_chat_members RENAME CONSTRAINT user_chat_members_pkey TO arcyou_chat_members_pkey;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_pkey TO arcyou_chat_messages_pkey;
+
+-- 2. Foreign Key 제약조건명 변경
+ALTER TABLE arcyou_chat_members RENAME CONSTRAINT user_chat_members_room_id_user_chat_rooms_id_fk TO arcyou_chat_members_room_id_arcyou_chat_rooms_id_fk;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_room_id_user_chat_rooms_id_fk TO arcyou_chat_messages_room_id_arcyou_chat_rooms_id_fk;
+
+-- 3. 시퀀스명 변경 (arcyou_chat_messages.id는 bigserial이므로 시퀀스가 있음)
+ALTER SEQUENCE user_chat_messages_id_seq RENAME TO arcyou_chat_messages_id_seq;
+
+-- 4. NOT NULL 제약조건명 변경 (PostgreSQL은 자동 생성된 제약조건명이 있음)
+-- user_chat_rooms
+ALTER TABLE arcyou_chat_rooms RENAME CONSTRAINT user_chat_rooms_id_not_null TO arcyou_chat_rooms_id_not_null;
+ALTER TABLE arcyou_chat_rooms RENAME CONSTRAINT user_chat_rooms_name_not_null TO arcyou_chat_rooms_name_not_null;
+ALTER TABLE arcyou_chat_rooms RENAME CONSTRAINT user_chat_rooms_created_at_not_null TO arcyou_chat_rooms_created_at_not_null;
+
+-- user_chat_members
+ALTER TABLE arcyou_chat_members RENAME CONSTRAINT user_chat_members_room_id_not_null TO arcyou_chat_members_room_id_not_null;
+ALTER TABLE arcyou_chat_members RENAME CONSTRAINT user_chat_members_user_id_not_null TO arcyou_chat_members_user_id_not_null;
+ALTER TABLE arcyou_chat_members RENAME CONSTRAINT user_chat_members_role_not_null TO arcyou_chat_members_role_not_null;
+ALTER TABLE arcyou_chat_members RENAME CONSTRAINT user_chat_members_created_at_not_null TO arcyou_chat_members_created_at_not_null;
+
+-- user_chat_messages
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_id_not_null TO arcyou_chat_messages_id_not_null;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_room_id_not_null TO arcyou_chat_messages_room_id_not_null;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_user_id_not_null TO arcyou_chat_messages_user_id_not_null;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_type_not_null TO arcyou_chat_messages_type_not_null;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_content_not_null TO arcyou_chat_messages_content_not_null;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_status_not_null TO arcyou_chat_messages_status_not_null;
+ALTER TABLE arcyou_chat_messages RENAME CONSTRAINT user_chat_messages_created_at_not_null TO arcyou_chat_messages_created_at_not_null;
+
+COMMIT;
+

@@ -4,7 +4,7 @@ import {
   ArcYouChatRoom,
   ArcYouChatRoomList,
   type ArcYouChatRoomListItemProps,
-  type UserChatMessage,
+  type ArcyouChatMessage,
 } from '@/client/components/arc/ArcYou/ArcYouChat';
 import { Card, CardContent, CardHeader, CardTitle } from '@/client/components/ui/card';
 import { useState } from 'react';
@@ -17,7 +17,7 @@ export default function ArcYouDemoPage() {
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
   // 채팅방별 메시지 데이터
-  const [roomMessages, setRoomMessages] = useState<Record<string, UserChatMessage[]>>({
+  const [roomMessages, setRoomMessages] = useState<Record<string, ArcyouChatMessage[]>>({
     'room-1': [
       {
         id: 3,
@@ -169,7 +169,7 @@ export default function ArcYouDemoPage() {
   const currentMessages = roomMessages[selectedRoomId] || [];
 
   const handleSubmit = (message: string) => {
-    const newMessage: UserChatMessage = {
+    const newMessage: ArcyouChatMessage = {
       id: Date.now(),
       roomId: selectedRoomId,
       userId: 'user-1',

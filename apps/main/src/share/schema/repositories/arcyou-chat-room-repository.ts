@@ -1,9 +1,9 @@
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
-import { userChatMembers, userChatRooms } from '@/share/schema/drizzles';
+import { arcyouChatMembers, arcyouChatRooms } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { DB } from './base-repository';
 
-export type UserChatRoomWithMemberInfo = {
+export type ArcyouChatRoomWithMemberInfo = {
   id: string;
   name: string;
   description: string | null;
@@ -19,7 +19,7 @@ export type CreateChatRoomInput = {
   description?: string | null;
 };
 
-export class UserChatRoomRepository {
+export class ArcyouChatRoomRepository {
   constructor(private readonly database: DB = defaultDb) {}
 
   /**
@@ -27,27 +27,27 @@ export class UserChatRoomRepository {
    * @param userId 사용자 ID
    * @returns 채팅방 목록 (최신 업데이트 순)
    */
-  async listByUserId(userId: string): Promise<UserChatRoomWithMemberInfo[]> {
+  async listByUserId(userId: string): Promise<ArcyouChatRoomWithMemberInfo[]> {
     const rooms = await this.database
       .select({
-        id: userChatRooms.id,
-        name: userChatRooms.name,
-        description: userChatRooms.description,
-        lastMessageId: userChatRooms.lastMessageId,
-        createdAt: userChatRooms.createdAt,
-        updatedAt: userChatRooms.updatedAt,
-        role: userChatMembers.role,
-        lastReadMessageId: userChatMembers.lastReadMessageId,
+        id: arcyouChatRooms.id,
+        name: arcyouChatRooms.name,
+        description: arcyouChatRooms.description,
+        lastMessageId: arcyouChatRooms.lastMessageId,
+        createdAt: arcyouChatRooms.createdAt,
+        updatedAt: arcyouChatRooms.updatedAt,
+        role: arcyouChatMembers.role,
+        lastReadMessageId: arcyouChatMembers.lastReadMessageId,
       })
-      .from(userChatMembers)
-      .innerJoin(userChatRooms, eq(userChatMembers.roomId, userChatRooms.id))
+      .from(arcyouChatMembers)
+      .innerJoin(arcyouChatRooms, eq(arcyouChatMembers.roomId, arcyouChatRooms.id))
       .where(
         and(
-          eq(userChatMembers.userId, userId),
-          isNull(userChatMembers.deletedAt)
+          eq(arcyouChatMembers.userId, userId),
+          isNull(arcyouChatMembers.deletedAt)
         )
       )
-      .orderBy(desc(sql`COALESCE(${userChatRooms.updatedAt}, ${userChatRooms.createdAt})`));
+      .orderBy(desc(sql`COALESCE(${arcyouChatRooms.updatedAt}, ${arcyouChatRooms.createdAt})`));
 
     return rooms;
   }
@@ -58,11 +58,11 @@ export class UserChatRoomRepository {
    * @param creatorId 생성자 사용자 ID
    * @returns 생성된 채팅방 정보 (멤버 정보 포함)
    */
-  async create(input: CreateChatRoomInput, creatorId: string): Promise<UserChatRoomWithMemberInfo> {
+  async create(input: CreateChatRoomInput, creatorId: string): Promise<ArcyouChatRoomWithMemberInfo> {
     return await this.database.transaction(async (tx) => {
       // 채팅방 생성
       const [room] = await tx
-        .insert(userChatRooms)
+        .insert(arcyouChatRooms)
         .values({
           name: input.name,
           description: input.description ?? null,
@@ -74,7 +74,7 @@ export class UserChatRoomRepository {
       }
 
       // 생성자를 owner로 추가
-      await tx.insert(userChatMembers).values({
+      await tx.insert(arcyouChatMembers).values({
         roomId: room.id,
         userId: creatorId,
         role: 'owner',
@@ -83,21 +83,21 @@ export class UserChatRoomRepository {
       // 생성된 채팅방 정보 반환 (멤버 정보 포함)
       const [member] = await tx
         .select({
-          id: userChatRooms.id,
-          name: userChatRooms.name,
-          description: userChatRooms.description,
-          lastMessageId: userChatRooms.lastMessageId,
-          createdAt: userChatRooms.createdAt,
-          updatedAt: userChatRooms.updatedAt,
-          role: userChatMembers.role,
-          lastReadMessageId: userChatMembers.lastReadMessageId,
+          id: arcyouChatRooms.id,
+          name: arcyouChatRooms.name,
+          description: arcyouChatRooms.description,
+          lastMessageId: arcyouChatRooms.lastMessageId,
+          createdAt: arcyouChatRooms.createdAt,
+          updatedAt: arcyouChatRooms.updatedAt,
+          role: arcyouChatMembers.role,
+          lastReadMessageId: arcyouChatMembers.lastReadMessageId,
         })
-        .from(userChatMembers)
-        .innerJoin(userChatRooms, eq(userChatMembers.roomId, userChatRooms.id))
+        .from(arcyouChatMembers)
+        .innerJoin(arcyouChatRooms, eq(arcyouChatMembers.roomId, arcyouChatRooms.id))
         .where(
           and(
-            eq(userChatMembers.roomId, room.id),
-            eq(userChatMembers.userId, creatorId)
+            eq(arcyouChatMembers.roomId, room.id),
+            eq(arcyouChatMembers.userId, creatorId)
           )
         )
         .limit(1);

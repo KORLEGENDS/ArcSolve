@@ -6,7 +6,7 @@ export { ArcYouChatRoomList } from './ArcYouChatRoomList';
 
 // Types
 export type {
-  ArcYouChatMessageProps, MessageStatus, MessageType, UserChatMessage
+  ArcYouChatMessageProps, MessageStatus, MessageType, ArcyouChatMessage
 } from './components/ArcYouChatMessage/ArcYouChatMessage';
 export type { ArcYouChatMessageListProps } from './components/ArcYouChatMessageList/ArcYouChatMessageList';
 export type { ArcYouChatRoomProps } from './ArcYouChatRoom';

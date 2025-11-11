@@ -3,11 +3,11 @@
 import { cn } from '@/client/components/ui/utils';
 import { useRef, useState } from 'react';
 import { Input } from './components/ArcYouChatInput/ArcYouChatInput';
-import type { UserChatMessage } from './components/ArcYouChatMessage/ArcYouChatMessage';
+import type { ArcyouChatMessage } from './components/ArcYouChatMessage/ArcYouChatMessage';
 import { ArcYouChatMessageList } from './components/ArcYouChatMessageList/ArcYouChatMessageList';
 
 export interface ArcYouChatRoomProps {
-  messages: UserChatMessage[];
+  messages: ArcyouChatMessage[];
   currentUserId: string;
   onSubmit?: (message: string) => void;
   className?: string;

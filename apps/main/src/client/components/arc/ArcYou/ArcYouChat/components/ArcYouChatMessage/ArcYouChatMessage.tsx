@@ -8,7 +8,7 @@ export type MessageType = 'text' | 'image' | 'file' | 'system';
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
-export interface UserChatMessage {
+export interface ArcyouChatMessage {
   id: string | number;
   roomId: string;
   userId: string;
@@ -22,7 +22,7 @@ export interface UserChatMessage {
 }
 
 export interface ArcYouChatMessageProps {
-  message: UserChatMessage;
+  message: ArcyouChatMessage;
   isOwnMessage?: boolean;
   className?: string;
 }

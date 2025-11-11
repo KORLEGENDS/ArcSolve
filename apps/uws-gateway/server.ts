@@ -63,20 +63,20 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 
 // ====== SCHEMA ======
 
-const userChatMemberRoleEnum = pgEnum('user_chat_member_role', [
+const arcyouChatMemberRoleEnum = pgEnum('arcyou_chat_member_role', [
   'owner',
   'manager',
   'participant',
 ]);
 
-const userChatMessageTypeEnum = pgEnum('user_chat_message_type', [
+const arcyouChatMessageTypeEnum = pgEnum('arcyou_chat_message_type', [
   'text',
   'image',
   'file',
   'system',
 ]);
 
-const userChatMessageStatusEnum = pgEnum('user_chat_message_status', [
+const arcyouChatMessageStatusEnum = pgEnum('arcyou_chat_message_status', [
   'sent',
   'delivered',
   'read',
@@ -90,7 +90,7 @@ const outboxStatusEnum = pgEnum('outbox_status', [
   'dead',
 ]);
 
-const userChatRooms = pgTable('user_chat_rooms', {
+const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
   id: uuid('id')
     .primaryKey()
     .notNull()
@@ -104,22 +104,22 @@ const userChatRooms = pgTable('user_chat_rooms', {
   updatedAt: timestamp('updated_at', { withTimezone: true }),
 });
 
-const userChatMessages = pgTable('user_chat_messages', {
+const arcyouChatMessages = pgTable('arcyou_chat_messages', {
   id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
 
   roomId: uuid('room_id')
     .notNull()
-    .references(() => userChatRooms.id, { onDelete: 'cascade' }),
+    .references(() => arcyouChatRooms.id, { onDelete: 'cascade' }),
 
   userId: uuid('user_id').notNull(),
 
-  type: userChatMessageTypeEnum('type').default('text').notNull(),
+  type: arcyouChatMessageTypeEnum('type').default('text').notNull(),
 
   content: jsonb('content').notNull(),
 
   replyToMessageId: bigint('reply_to_message_id', { mode: 'number' }),
 
-  status: userChatMessageStatusEnum('status').default('sent').notNull(),
+  status: arcyouChatMessageStatusEnum('status').default('sent').notNull(),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 
@@ -128,17 +128,17 @@ const userChatMessages = pgTable('user_chat_messages', {
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
-const userChatMembers = pgTable(
-  'user_chat_members',
+const arcyouChatMembers = pgTable(
+  'arcyou_chat_members',
 
   {
     roomId: uuid('room_id')
       .notNull()
-      .references(() => userChatRooms.id, { onDelete: 'cascade' }),
+      .references(() => arcyouChatRooms.id, { onDelete: 'cascade' }),
 
     userId: uuid('user_id').notNull(),
 
-    role: userChatMemberRoleEnum('role').default('participant').notNull(),
+    role: arcyouChatMemberRoleEnum('role').default('participant').notNull(),
 
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
@@ -194,7 +194,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 
-const db = drizzle(pool, { schema: { userChatRooms, userChatMessages, userChatMembers, outbox } });
+const db = drizzle(pool, { schema: { arcyouChatRooms, arcyouChatMessages, arcyouChatMembers, outbox } });
 
 // ====== Redis ======
 
@@ -341,13 +341,13 @@ async function backfillSince(
   const p = await db
     .select()
 
-    .from(userChatMembers)
+    .from(arcyouChatMembers)
 
     .where(
       and(
-        eq(userChatMembers.roomId, roomId),
-        eq(userChatMembers.userId, userId),
-        sql`${userChatMembers.deletedAt} IS NULL`,
+        eq(arcyouChatMembers.roomId, roomId),
+        eq(arcyouChatMembers.userId, userId),
+        sql`${arcyouChatMembers.deletedAt} IS NULL`,
       ),
     )
 
@@ -357,26 +357,26 @@ async function backfillSince(
 
   const rows = await db
     .select({
-      id: userChatMessages.id,
+      id: arcyouChatMessages.id,
 
-      userId: userChatMessages.userId,
+      userId: arcyouChatMessages.userId,
 
-      content: userChatMessages.content,
+      content: arcyouChatMessages.content,
 
-      createdAt: userChatMessages.createdAt,
+      createdAt: arcyouChatMessages.createdAt,
     })
 
-    .from(userChatMessages)
+    .from(arcyouChatMessages)
 
     .where(
       and(
-        eq(userChatMessages.roomId, roomId),
-        gt(userChatMessages.id, lastRead),
-        sql`${userChatMessages.deletedAt} IS NULL`,
+        eq(arcyouChatMessages.roomId, roomId),
+        gt(arcyouChatMessages.id, lastRead),
+        sql`${arcyouChatMessages.deletedAt} IS NULL`,
       ),
     )
 
-    .orderBy(userChatMessages.id)
+    .orderBy(arcyouChatMessages.id)
 
     .limit(limit);
 
@@ -482,13 +482,13 @@ wss.on('connection', (ws: WebSocket) => {
       const p = await db
         .select()
 
-        .from(userChatMembers)
+        .from(arcyouChatMembers)
 
         .where(
           and(
-            eq(userChatMembers.roomId, roomId),
-            eq(userChatMembers.userId, ci.userId),
-            sql`${userChatMembers.deletedAt} IS NULL`,
+            eq(arcyouChatMembers.roomId, roomId),
+            eq(arcyouChatMembers.userId, ci.userId),
+            sql`${arcyouChatMembers.deletedAt} IS NULL`,
           ),
         )
 
@@ -594,13 +594,13 @@ wss.on('connection', (ws: WebSocket) => {
       const isP = await db
         .select()
 
-        .from(userChatMembers)
+        .from(arcyouChatMembers)
 
         .where(
           and(
-            eq(userChatMembers.roomId, roomId),
-            eq(userChatMembers.userId, ci.userId),
-            sql`${userChatMembers.deletedAt} IS NULL`,
+            eq(arcyouChatMembers.roomId, roomId),
+            eq(arcyouChatMembers.userId, ci.userId),
+            sql`${arcyouChatMembers.deletedAt} IS NULL`,
           ),
         )
 
@@ -613,12 +613,12 @@ wss.on('connection', (ws: WebSocket) => {
           error: 'Forbidden: not a member',
         });
 
-      // 트랜잭션: userChatMessages + outbox(pending)
+      // 트랜잭션: arcyouChatMessages + outbox(pending)
 
       try {
         const result = await db.transaction(async (tx) => {
           const [m] = await tx
-            .insert(userChatMessages)
+            .insert(arcyouChatMessages)
 
             .values({ 
               roomId, 
@@ -629,13 +629,13 @@ wss.on('connection', (ws: WebSocket) => {
 
             .returning();
 
-          if (!m) throw new Error('insert userChatMessages failed');
+          if (!m) throw new Error('insert arcyouChatMessages failed');
 
           // lastMessageId 업데이트
           await tx
-            .update(userChatRooms)
+            .update(arcyouChatRooms)
             .set({ lastMessageId: m.id, updatedAt: new Date() })
-            .where(eq(userChatRooms.id, roomId));
+            .where(eq(arcyouChatRooms.id, roomId));
 
           // outbox payload는 게이트웨이가 그대로 팬아웃 가능한 형태
 
@@ -717,7 +717,7 @@ wss.on('connection', (ws: WebSocket) => {
         await pool.query(
           `
 
-          UPDATE user_chat_members
+          UPDATE arcyou_chat_members
 
           SET last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), $1)
 

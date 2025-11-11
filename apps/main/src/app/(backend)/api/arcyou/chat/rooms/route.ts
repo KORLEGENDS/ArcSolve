@@ -1,5 +1,5 @@
 import { error, ok } from '@/share/api/server/response';
-import { UserChatRoomRepository } from '@/share/schema/repositories/user-chat-room-repository';
+import { ArcyouChatRoomRepository } from '@/share/schema/repositories/arcyou-chat-room-repository';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 
@@ -21,7 +21,7 @@ export async function GET() {
     const userId = session.user.id;
 
     // 사용자가 멤버인 채팅방 조회
-    const repository = new UserChatRoomRepository();
+    const repository = new ArcyouChatRoomRepository();
     const rooms = await repository.listByUserId(userId);
 
     return ok(
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 채팅방 생성
-    const repository = new UserChatRoomRepository();
+    const repository = new ArcyouChatRoomRepository();
     const room = await repository.create(
       {
         name: name.trim(),

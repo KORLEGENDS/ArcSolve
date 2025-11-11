@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
  * 
  * @example
  * ```tsx
- * const { data: rooms, isLoading, error } = useUserChat();
+ * const { data: rooms, isLoading, error } = useArcyouChat();
  * 
  * if (isLoading) return <div>로딩 중...</div>;
  * if (error) return <div>오류: {error.message}</div>;
@@ -26,7 +26,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
  * );
  * ```
  */
-export function useUserChat() {
+export function useArcyouChat() {
   const queryClient = useQueryClient();
 
   const query = useQuery(chatRoomQueryOptions.list());

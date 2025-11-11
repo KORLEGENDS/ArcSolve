@@ -105,7 +105,7 @@ export const userQueryOptions = {
 /**
  * 채팅방 관련 타입 정의
  */
-export type UserChatRoom = {
+export type ArcyouChatRoom = {
   id: string;
   name: string;
   description: string | null;
@@ -117,7 +117,7 @@ export type UserChatRoom = {
 };
 
 export type ChatRoomsListResponse = {
-  rooms: UserChatRoom[];
+  rooms: ArcyouChatRoom[];
 };
 
 /**
@@ -129,7 +129,7 @@ export interface CreateChatRoomMutationVariables {
 }
 
 export type CreateChatRoomResponse = {
-  room: UserChatRoom;
+  room: ArcyouChatRoom;
 };
 
 /**

@@ -16,12 +16,12 @@ import {
 } from '@/client/components/ui/dialog';
 import { Input } from '@/client/components/ui/input';
 import { Label } from '@/client/components/ui/label';
-import { useUserChat } from '@/client/states/queries/useUserChat';
+import { useArcyouChat } from '@/client/states/queries/useArcyouChat';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
 
 export function RightSidebarContent() {
-  const { data: roomsData, isLoading, error, createRoom, isCreating } = useUserChat();
+  const { data: roomsData, isLoading, error, createRoom, isCreating } = useArcyouChat();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [roomName, setRoomName] = React.useState('');
   const [roomDescription, setRoomDescription] = React.useState('');

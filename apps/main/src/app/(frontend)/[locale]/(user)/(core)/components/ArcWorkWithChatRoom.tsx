@@ -1,7 +1,7 @@
 'use client';
 
 import { ArcWork, type ArcWorkProps } from '@/client/components/arc/ArcWork';
-import { ArcYouChatRoom, type UserChatMessage } from '@/client/components/arc/ArcYou/ArcYouChat';
+import { ArcYouChatRoom, type ArcyouChatMessage } from '@/client/components/arc/ArcYou/ArcYouChat';
 import type { TabNode } from 'flexlayout-react';
 import { useCallback, useState } from 'react';
 
@@ -15,7 +15,7 @@ export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
   const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
   const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
 
-  const [messages, setMessages] = useState<UserChatMessage[]>([
+  const [messages, setMessages] = useState<ArcyouChatMessage[]>([
     {
       id: 1,
       roomId: 'demo-room',
@@ -48,7 +48,7 @@ export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
   const currentUserId = 'user-1';
 
   const handleSubmit = useCallback((message: string) => {
-    const newMessage: UserChatMessage = {
+    const newMessage: ArcyouChatMessage = {
       id: Date.now(),
       roomId: 'demo-room',
       userId: currentUserId,

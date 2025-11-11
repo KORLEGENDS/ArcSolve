@@ -6,7 +6,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-export const userChatRooms = pgTable('user_chat_rooms', {
+export const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
   id: uuid('id')
     .primaryKey()
     .notNull()
@@ -20,6 +20,6 @@ export const userChatRooms = pgTable('user_chat_rooms', {
   updatedAt: timestamp('updated_at', { withTimezone: true }),
 });
 
-export type UserChatRoom = typeof userChatRooms.$inferSelect;
-export type NewUserChatRoom = typeof userChatRooms.$inferInsert;
+export type ArcyouChatRoom = typeof arcyouChatRooms.$inferSelect;
+export type NewArcyouChatRoom = typeof arcyouChatRooms.$inferInsert;
 

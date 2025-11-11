@@ -6,22 +6,22 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { userChatRooms } from './user-chat-room-drizzle';
+import { arcyouChatRooms } from './arcyou-chat-room-drizzle';
 
-export const userChatMemberRoleEnum = pgEnum('user_chat_member_role', [
+export const arcyouChatMemberRoleEnum = pgEnum('arcyou_chat_member_role', [
   'owner',
   'manager',
   'participant',
 ]);
 
-export const userChatMembers = pgTable(
-  'user_chat_members',
+export const arcyouChatMembers = pgTable(
+  'arcyou_chat_members',
   {
     roomId: uuid('room_id')
       .notNull()
-      .references(() => userChatRooms.id, { onDelete: 'cascade' }),
+      .references(() => arcyouChatRooms.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').notNull(),
-    role: userChatMemberRoleEnum('role')
+    role: arcyouChatMemberRoleEnum('role')
       .default('participant')
       .notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -35,6 +35,6 @@ export const userChatMembers = pgTable(
   ]
 );
 
-export type UserChatMember = typeof userChatMembers.$inferSelect;
-export type NewUserChatMember = typeof userChatMembers.$inferInsert;
+export type ArcyouChatMember = typeof arcyouChatMembers.$inferSelect;
+export type NewArcyouChatMember = typeof arcyouChatMembers.$inferInsert;
 
