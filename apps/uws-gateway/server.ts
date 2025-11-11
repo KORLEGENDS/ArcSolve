@@ -1,6 +1,6 @@
 // server.ts
 
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 
@@ -19,7 +19,6 @@ import {
 
 import { Redis, type RedisOptions } from 'ioredis';
 
-import jwt from 'jsonwebtoken';
 
 import http, { IncomingMessage, ServerResponse } from 'node:http';
 
@@ -28,6 +27,15 @@ import { Pool } from 'pg';
 import { WebSocket, WebSocketServer } from 'ws';
 
 import os from 'node:os';
+
+import {
+  backfillSince,
+  broadcastToRoom,
+  type ClientInfo,
+  safeSend,
+  takeToken,
+  verifyToken,
+} from './server-utils.js';
 
 // ====== ENV ======
 
@@ -228,160 +236,9 @@ const wss = new WebSocketServer({ server });
 
 // ====== In-memory routing ======
 
-type ClientInfo = {
-  userId?: string;
-
-  roomId?: string;
-
-  authenticated?: boolean;
-
-  // token bucket
-
-  tokens: number;
-
-  lastRefillAt: number;
-};
-
 const channelClients = new Map<string, Set<WebSocket>>(); // roomId -> sockets
 
 const clients = new Map<WebSocket, ClientInfo>();
-
-// ====== JWT ======
-
-function verifyToken(token: string): { userId: string } | null {
-  try {
-    const clean = token.startsWith('Bearer ') ? token.slice(7) : token;
-
-    // Dev placeholder: token가 UUID면 패스
-
-    if (jwtPublicKey === 'dev-placeholder') {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-      return uuidRegex.test(clean) ? { userId: clean } : null;
-    }
-
-    const verifyOpts: jwt.VerifyOptions = { algorithms: ['RS256'] };
-
-    if (jwtIssuer) verifyOpts.issuer = jwtIssuer;
-
-    if (jwtAudience) verifyOpts.audience = jwtAudience;
-
-    const decoded = jwt.verify(clean, jwtPublicKey!, verifyOpts) as jwt.JwtPayload;
-
-    const userId = (decoded.sub || decoded.userId || decoded.id) as string | undefined;
-
-    if (!userId) return null;
-
-    return { userId };
-  } catch (e) {
-    console.error('[JWT] verify failed:', e);
-
-    return null;
-  }
-}
-
-// ====== Helpers ======
-
-function takeToken(ci: ClientInfo): boolean {
-  const now = Date.now();
-
-  if (now - ci.lastRefillAt >= RL_REFILL_MS) {
-    ci.tokens = RL_BUCKET_CAPACITY;
-
-    ci.lastRefillAt = now;
-  }
-
-  if (ci.tokens <= 0) return false;
-
-  ci.tokens -= 1;
-
-  return true;
-}
-
-function safeSend(ws: WebSocket, payload: unknown): void {
-  if (ws.readyState !== WebSocket.OPEN) return;
-
-  if (ws.bufferedAmount > WS_SEND_HIGH_WATER) {
-    console.warn('[WS] High water, closing slow client');
-
-    ws.close(1009, 'Slow client buffer overflow');
-
-    return;
-  }
-
-  try {
-    ws.send(JSON.stringify(payload));
-  } catch (e) {
-    console.error('[WS] send error:', e);
-  }
-}
-
-// 보강 전송: lastReadMessageId 이후 메시지 n개
-
-async function backfillSince(
-  roomId: string,
-
-  userId: string,
-
-  limit: number,
-): Promise<
-  Array<{
-    id: number;
-
-    userId: string;
-
-    content: unknown;
-
-    createdAt: Date | null;
-  }>
-> {
-  // 멤버 레코드 확보
-
-  const p = await db
-    .select()
-
-    .from(arcyouChatMembers)
-
-    .where(
-      and(
-        eq(arcyouChatMembers.roomId, roomId),
-        eq(arcyouChatMembers.userId, userId),
-        sql`${arcyouChatMembers.deletedAt} IS NULL`,
-      ),
-    )
-
-    .limit(1);
-
-  const lastRead = p[0]?.lastReadMessageId ?? 0;
-
-  const rows = await db
-    .select({
-      id: arcyouChatMessages.id,
-
-      userId: arcyouChatMessages.userId,
-
-      content: arcyouChatMessages.content,
-
-      createdAt: arcyouChatMessages.createdAt,
-    })
-
-    .from(arcyouChatMessages)
-
-    .where(
-      and(
-        eq(arcyouChatMessages.roomId, roomId),
-        gt(arcyouChatMessages.id, lastRead),
-        sql`${arcyouChatMessages.deletedAt} IS NULL`,
-      ),
-    )
-
-    .orderBy(arcyouChatMessages.id)
-
-    .limit(limit);
-
-  return rows;
-}
 
 // ====== WS lifecycle ======
 
@@ -419,8 +276,8 @@ wss.on('connection', (ws: WebSocket) => {
       return;
     }
 
-    if (!takeToken(ci)) {
-      safeSend(ws, { op: 'error', error: 'Rate limited' });
+    if (!takeToken(ci, RL_REFILL_MS, RL_BUCKET_CAPACITY)) {
+      safeSend(ws, { op: 'error', error: 'Rate limited' }, WS_SEND_HIGH_WATER);
 
       return;
     }
@@ -432,7 +289,7 @@ wss.on('connection', (ws: WebSocket) => {
 
       msg = JSON.parse(buf.toString());
     } catch (e) {
-      safeSend(ws, { op: 'error', error: 'Invalid JSON or too large' });
+      safeSend(ws, { op: 'error', error: 'Invalid JSON or too large' }, WS_SEND_HIGH_WATER);
 
       return;
     }
@@ -443,26 +300,29 @@ wss.on('connection', (ws: WebSocket) => {
       const token = msg.token;
 
       if (!token)
-        return safeSend(ws, { op: 'auth', success: false, error: 'Token required' });
+        return safeSend(ws, { op: 'auth', success: false, error: 'Token required' }, WS_SEND_HIGH_WATER);
 
-      const vr = verifyToken(token);
+      const vr = verifyToken(token, jwtPublicKey!, jwtIssuer, jwtAudience);
 
       if (!vr)
-        return safeSend(ws, { op: 'auth', success: false, error: 'Unauthorized' });
+        return safeSend(ws, { op: 'auth', success: false, error: 'Unauthorized' }, WS_SEND_HIGH_WATER);
 
       ci.userId = vr.userId;
-
       ci.authenticated = true;
 
-      return safeSend(ws, { op: 'auth', success: true, userId: vr.userId });
+      return safeSend(ws, { op: 'auth', success: true, userId: vr.userId }, WS_SEND_HIGH_WATER);
     }
 
     if (!ci.authenticated || !ci.userId) {
-      return safeSend(ws, {
-        op: msg.op,
-        success: false,
-        error: 'Unauthorized: auth first',
-      });
+      return safeSend(
+        ws,
+        {
+          op: msg.op,
+          success: false,
+          error: 'Unauthorized: auth first',
+        },
+        WS_SEND_HIGH_WATER,
+      );
     }
 
     // ---- JOIN ----
@@ -471,11 +331,7 @@ wss.on('connection', (ws: WebSocket) => {
       const roomId = msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId;
 
       if (!roomId)
-        return safeSend(ws, {
-          op: 'join',
-          success: false,
-          error: 'room_id required',
-        });
+        return safeSend(ws, { op: 'join', success: false, error: 'room_id required' }, WS_SEND_HIGH_WATER);
 
       // 멤버 검증
 
@@ -495,11 +351,7 @@ wss.on('connection', (ws: WebSocket) => {
         .limit(1);
 
       if (p.length === 0)
-        return safeSend(ws, {
-          op: 'join',
-          success: false,
-          error: 'Forbidden: not a member',
-        });
+        return safeSend(ws, { op: 'join', success: false, error: 'Forbidden: not a member' }, WS_SEND_HIGH_WATER);
 
       // 이전 채널 제거
 
@@ -523,36 +375,37 @@ wss.on('connection', (ws: WebSocket) => {
       channelClients.get(roomId)!.add(ws);
 
       // 합류 OK
-
-      safeSend(ws, { op: 'join', success: true, room_id: roomId });
+      safeSend(ws, { op: 'join', success: true, room_id: roomId }, WS_SEND_HIGH_WATER);
 
       // 보강 전송
-
       try {
-        const missed = await backfillSince(roomId, ci.userId, MAX_MSGS_ON_JOIN);
+        const missed = await backfillSince(
+          db,
+          arcyouChatMembers,
+          arcyouChatMessages,
+          roomId,
+          ci.userId,
+          MAX_MSGS_ON_JOIN,
+        );
 
         for (const m of missed) {
-          safeSend(ws, {
-            op: 'event',
-
-            type: 'message.created',
-
-            roomId,
-
-            message: {
-              id: m.id,
-
-              user_id: m.userId,
-
-              content: m.content,
-
-              created_at: m.createdAt ? m.createdAt.toISOString() : undefined,
+          safeSend(
+            ws,
+            {
+              op: 'event',
+              type: 'message.created',
+              roomId,
+              message: {
+                id: m.id,
+                user_id: m.userId,
+                content: m.content,
+                created_at: m.createdAt ? m.createdAt.toISOString() : undefined,
+              },
+              timestamp: new Date().toISOString(),
+              source: 'backfill',
             },
-
-            timestamp: new Date().toISOString(),
-
-            source: 'backfill',
-          });
+            WS_SEND_HIGH_WATER,
+          );
         }
       } catch (e) {
         console.error('[JOIN backfill] failed:', e);
@@ -572,21 +425,16 @@ wss.on('connection', (ws: WebSocket) => {
       const tempId = msg.temp_id;
 
       if (!roomId)
-        return safeSend(ws, {
-          op: 'send',
-          success: false,
-          error: 'room_id required',
-        });
+        return safeSend(ws, { op: 'send', success: false, error: 'room_id required' }, WS_SEND_HIGH_WATER);
 
       if (content == null)
-        return safeSend(ws, { op: 'send', success: false, error: 'content required' });
+        return safeSend(ws, { op: 'send', success: false, error: 'content required' }, WS_SEND_HIGH_WATER);
 
       // 간단한 크기 제한
-
       const estBytes = Buffer.byteLength(JSON.stringify(content));
 
       if (estBytes > MAX_BODY_BYTES) {
-        return safeSend(ws, { op: 'send', success: false, error: 'content too large' });
+        return safeSend(ws, { op: 'send', success: false, error: 'content too large' }, WS_SEND_HIGH_WATER);
       }
 
       // 멤버 검증
@@ -607,11 +455,7 @@ wss.on('connection', (ws: WebSocket) => {
         .limit(1);
 
       if (isP.length === 0)
-        return safeSend(ws, {
-          op: 'send',
-          success: false,
-          error: 'Forbidden: not a member',
-        });
+        return safeSend(ws, { op: 'send', success: false, error: 'Forbidden: not a member' }, WS_SEND_HIGH_WATER);
 
       // 트랜잭션: arcyouChatMessages + outbox(pending)
 
@@ -674,24 +518,29 @@ wss.on('connection', (ws: WebSocket) => {
           return m.id;
         });
 
-        return safeSend(ws, {
-          op: 'send',
-
-          success: true,
-
-          message_id: result,
-
-          temp_id: tempId,
-        });
+        return safeSend(
+          ws,
+          {
+            op: 'send',
+            success: true,
+            message_id: result,
+            temp_id: tempId,
+          },
+          WS_SEND_HIGH_WATER,
+        );
       } catch (e: any) {
         console.error('[SEND tx] failed:', e);
 
-        return safeSend(ws, {
-          op: 'send',
-          success: false,
-          error: String(e?.message ?? e),
-          temp_id: tempId,
-        });
+        return safeSend(
+          ws,
+          {
+            op: 'send',
+            success: false,
+            error: String(e?.message ?? e),
+            temp_id: tempId,
+          },
+          WS_SEND_HIGH_WATER,
+        );
       }
     }
 
@@ -704,11 +553,11 @@ wss.on('connection', (ws: WebSocket) => {
       const lastReadMessageId = Number(msg.last_read_message_id || msg.last_read_id);
 
       if (!roomId || !Number.isFinite(lastReadMessageId)) {
-        return safeSend(ws, {
-          op: 'ack',
-          success: false,
-          error: 'room_id & last_read_message_id required',
-        });
+        return safeSend(
+          ws,
+          { op: 'ack', success: false, error: 'room_id & last_read_message_id required' },
+          WS_SEND_HIGH_WATER,
+        );
       }
 
       try {
@@ -728,22 +577,25 @@ wss.on('connection', (ws: WebSocket) => {
           [lastReadMessageId, roomId, clients.get(ws)!.userId],
         );
 
-        return safeSend(ws, {
-          op: 'ack',
-          success: true,
-          room_id: roomId,
-          last_read_message_id: lastReadMessageId,
-        });
+        return safeSend(
+          ws,
+          {
+            op: 'ack',
+            success: true,
+            room_id: roomId,
+            last_read_message_id: lastReadMessageId,
+          },
+          WS_SEND_HIGH_WATER,
+        );
       } catch (e) {
         console.error('[ACK] failed:', e);
 
-        return safeSend(ws, { op: 'ack', success: false, error: 'db error' });
+        return safeSend(ws, { op: 'ack', success: false, error: 'db error' }, WS_SEND_HIGH_WATER);
       }
     }
 
     // ---- Unknown ----
-
-    safeSend(ws, { op: msg.op, success: false, error: `Unknown operation: ${msg.op}` });
+    safeSend(ws, { op: msg.op, success: false, error: `Unknown operation: ${msg.op}` }, WS_SEND_HIGH_WATER);
   });
 });
 
@@ -765,14 +617,6 @@ if (pubsubMode === 'perconv') {
   });
 }
 
-function broadcastToRoom(roomId: string, payload: any) {
-  const set = channelClients.get(roomId);
-
-  if (!set || set.size === 0) return;
-
-  for (const ws of set) safeSend(ws, payload);
-}
-
 subscriber.on('message', (_channel, message) => {
   try {
     const data = JSON.parse(message);
@@ -783,13 +627,11 @@ subscriber.on('message', (_channel, message) => {
 
     const payload = {
       ...data,
-
       timestamp: new Date().toISOString(),
-
       source: 'live',
     };
 
-    broadcastToRoom(roomId, payload);
+    broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
   } catch (e) {
     console.error('[Redis] message parse error:', e);
   }
@@ -806,15 +648,12 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
 
     const payload = {
       ...data,
-
       roomId,
-
       timestamp: new Date().toISOString(),
-
       source: 'live',
     };
 
-    broadcastToRoom(roomId, payload);
+    broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
   } catch (e) {
     console.error('[Redis] pmessage parse error:', e);
   }

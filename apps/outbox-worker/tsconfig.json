@@ -10,7 +10,7 @@
     "noEmit": false,
     "esModuleInterop": true
   },
-  "include": ["worker.ts"]
+  "include": ["worker.ts", "worker-utils.ts"]
 }
 
 

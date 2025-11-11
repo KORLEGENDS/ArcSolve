@@ -54,6 +54,7 @@ export const clientEnvSchema = z
   .object({
     [ENV_KEYS.COMMON.NODE_ENV]: nodeEnvSchema,
     [ENV_KEYS.CLIENT.APP.URL]: z.string().url().optional(),
+    [ENV_KEYS.CLIENT.CHAT.WS_URL]: z.string().url().optional(),
     [ENV_KEYS.CLIENT.AUTH.OAUTH.KAKAO.CLIENT_ID]: z
       .string()
       .min(1, 'NEXT_PUBLIC_KAKAO_CLIENT_ID is required')
@@ -162,6 +163,10 @@ export const serverEnvSchema = z
       .max(24 * 60 * 60 * 1000)
       .default(10 * 60 * 1000)
       .optional(),
+    // ===== Gateway JWT (WS 인증용) =====
+    [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.PRIVATE_KEY]: z.string().min(1).optional(),
+    [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.ISSUER]: z.string().min(1).optional(),
+    [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.AUDIENCE]: z.string().min(1).optional(),
   })
   .loose();
 

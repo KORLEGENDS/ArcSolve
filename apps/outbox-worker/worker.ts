@@ -13,7 +13,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 import Redis from 'ioredis';
 
@@ -23,31 +23,30 @@ import os from 'node:os';
 
 import crypto from 'node:crypto';
 
+import {
+  claimBatch,
+  isTransientDbError,
+  markPublished,
+  publishOne,
+  reapExpiredLocks,
+  reschedule
+} from './worker-utils';
+
 // ====== ENV ======
 
 const databaseUrl = process.env.DATABASE_URL;
-
 const redisUrl = process.env.REDIS_URL;
-
 const pubsubMode = (process.env.PUBSUB_MODE || 'global') as 'global' | 'perconv';
-
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 1000);
-
 const MAX_BATCH = Number(process.env.BATCH_SIZE ?? 100);
-
 const LOCK_SECONDS = Number(process.env.LOCK_SECONDS ?? 30);
-
 const MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS ?? 12);
-
 const BACKOFF_BASE_MS = Number(process.env.BACKOFF_BASE_MS ?? 1000);
-
 const BACKOFF_CAP_MS = Number(process.env.BACKOFF_CAP_MS ?? 60_000);
-
 const WORKER_ID =
   process.env.WORKER_ID || `${os.hostname()}:${process.pid}:${crypto.randomUUID()}`;
 
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
-
 if (!redisUrl) throw new Error('REDIS_URL is required');
 
 // ====== SCHEMA (align with server) ======
@@ -61,53 +60,27 @@ const outboxStatusEnum = pgEnum('outbox_status', [
 
 const outbox = pgTable('outbox', {
   id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
-
   type: text('type').notNull(),
-
   roomId: uuid('room_id').notNull(),
-
   payload: jsonb('payload').notNull(),
-
   status: outboxStatusEnum('status').default('pending').notNull(),
-
   attempts: integer('attempts').default(0).notNull(),
-
   nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true })
     .default(sql`NOW()`)
     .notNull(),
-
   lockedBy: text('locked_by'),
-
   lockedUntil: timestamp('locked_until', { withTimezone: true }),
-
   publishedAt: timestamp('published_at', { withTimezone: true }),
-
   error: text('error'),
-
   createdAt: timestamp('created_at', { withTimezone: true }).default(sql`NOW()`).notNull(),
 });
-
-type OutboxRow = {
-  id: number;
-
-  type: string;
-
-  roomId: string;
-
-  payload: any;
-
-  attempts: number;
-};
 
 // ====== PG / Drizzle ======
 
 const pool = new Pool({
   connectionString: databaseUrl,
-
   max: 10,
-
   idleTimeoutMillis: 30000,
-
   connectionTimeoutMillis: 10000,
 });
 
@@ -117,189 +90,37 @@ const db = drizzle(pool, { schema: { outbox } });
 
 const redis = new Redis(redisUrl!, {
   maxRetriesPerRequest: 3,
-
   retryStrategy: (times) => Math.min(times * 50, 2000),
 });
-
-// ====== Utils ======
-
-function nextBackoffMs(attempts: number): number {
-  // attempts: 0,1,2,... → 1s,2s,4s,... capped
-
-  const exp = Math.min(
-    BACKOFF_CAP_MS,
-    BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)),
-  );
-
-  return Math.floor(exp);
-}
-
-async function claimBatch(): Promise<OutboxRow[]> {
-  // 하나의 트랜잭션에서 pending & due를 잠금 후 in_progress로 마킹
-
-  return await db.transaction(async (tx) => {
-    // FOR UPDATE SKIP LOCKED 를 쓸 수 있게 raw
-    // MAX_BATCH를 명시적으로 integer로 캐스팅
-
-    const rows = await tx.execute(
-      sql<OutboxRow>`
-
-        SELECT id, type, room_id, payload, attempts
-
-        FROM outbox
-
-        WHERE status = 'pending'
-
-          AND next_attempt_at <= NOW()
-
-        ORDER BY id ASC
-
-        LIMIT ${sql.raw(String(MAX_BATCH))}
-
-        FOR UPDATE SKIP LOCKED
-
-      `,
-    );
-
-    if (rows.rowCount === 0) return [];
-
-    const claimed: OutboxRow[] = [];
-
-    for (const r of rows.rows) {
-      // in_progress + lock
-      // LOCK_SECONDS를 명시적으로 integer로 캐스팅
-
-      await tx
-        .update(outbox)
-
-        .set({
-          status: 'in_progress',
-
-          lockedBy: WORKER_ID,
-
-          lockedUntil: sql`NOW() + INTERVAL '${sql.raw(String(LOCK_SECONDS))} seconds'`,
-
-          error: null,
-        })
-
-        .where(eq(outbox.id, Number(r.id)));
-
-      claimed.push({
-        id: Number(r.id),
-
-        type: String(r.type),
-
-        roomId: String((r as any).room_id),
-
-        payload: r.payload,
-
-        attempts: Number(r.attempts ?? 0),
-      });
-    }
-
-    return claimed;
-  });
-}
-
-async function publishOne(row: OutboxRow): Promise<void> {
-  const channel =
-    pubsubMode === 'perconv' ? `conv:${row.roomId}` : 'chat:message';
-
-  // payload는 게이트웨이가 그대로 팬아웃 가능한 형태여야 함
-
-  const msg = JSON.stringify({
-    ...row.payload,
-
-    // 안전상 roomId가 payload 내에 없으면 보강
-
-    roomId: row.payload?.roomId ?? row.roomId,
-  });
-
-  await redis.publish(channel, msg);
-}
-
-async function markPublished(id: number) {
-  await db
-    .update(outbox)
-
-    .set({
-      status: 'published',
-
-      publishedAt: sql`NOW()`,
-
-      lockedBy: null,
-
-      lockedUntil: null,
-
-      error: null,
-    })
-
-    .where(eq(outbox.id, id));
-}
-
-async function reschedule(id: number, attempts: number, err: unknown) {
-  const nextMs = nextBackoffMs(attempts);
-  const nextSeconds = Math.max(1, Math.floor(nextMs / 1000));
-
-  await db
-    .update(outbox)
-
-    .set({
-      status: attempts + 1 >= MAX_ATTEMPTS ? 'dead' : 'pending',
-
-      attempts: attempts + 1,
-
-      nextAttemptAt: sql`NOW() + INTERVAL '${sql.raw(String(nextSeconds))} seconds'`,
-
-      lockedBy: null,
-
-      lockedUntil: null,
-
-      error:
-        attempts + 1 >= MAX_ATTEMPTS
-          ? `dead after ${attempts + 1} attempts: ${String((err as any)?.message ?? err)}`
-          : `retry ${attempts + 1}: ${String((err as any)?.message ?? err)}`,
-    })
-
-    .where(eq(outbox.id, id));
-}
-
-async function reapExpiredLocks(): Promise<number> {
-  const res = await pool.query(
-    `
-
-    UPDATE outbox
-
-    SET status = 'pending',
-
-        locked_by = NULL,
-
-        locked_until = NULL
-
-    WHERE status = 'in_progress'
-
-      AND locked_until IS NOT NULL
-
-      AND locked_until <= NOW()
-
-    RETURNING id
-
-  `,
-  );
-
-  return res.rowCount || 0;
-}
 
 // ====== Main loop ======
 
 let shuttingDown = false;
 
 async function loopOnce(): Promise<void> {
-  const expired = await reapExpiredLocks();
+  let expired = 0;
+  try {
+    expired = await reapExpiredLocks(pool);
+  } catch (e) {
+    if (isTransientDbError(e)) {
+      console.warn(
+        '[Outbox] transient reapExpiredLocks error (ignored):',
+        (e as any)?.code ?? (e as any)?.message ?? e,
+      );
+    } else {
+      throw e;
+    }
+  }
 
   if (expired > 0) console.warn(`[Outbox] reaped ${expired} expired locks`);
 
-  const batch = await claimBatch();
+  const batch = await claimBatch(
+    db,
+    outbox,
+    MAX_BATCH,
+    LOCK_SECONDS,
+    WORKER_ID,
+  );
 
   if (batch.length === 0) return;
 
@@ -309,20 +130,24 @@ async function loopOnce(): Promise<void> {
   for (const row of batch) {
     try {
       // 안전장치: roomId가 없으면 dead
-
       if (!row.roomId)
         throw new Error(`row ${row.id} has no roomId`);
 
-      await publishOne(row);
-
-      await markPublished(row.id);
-
+      await publishOne(redis, row, pubsubMode);
+      await markPublished(db, outbox, row.id);
       ok++;
     } catch (e) {
-      await reschedule(row.id, row.attempts, e);
-
+      await reschedule(
+        db,
+        outbox,
+        row.id,
+        row.attempts,
+        e,
+        MAX_ATTEMPTS,
+        BACKOFF_BASE_MS,
+        BACKOFF_CAP_MS,
+      );
       fail++;
-
       console.error(`[Outbox] publish failed id=${row.id}:`, e);
     }
   }
@@ -335,20 +160,32 @@ async function loopOnce(): Promise<void> {
 
 async function main() {
   console.log('[Outbox] starting...');
-
   console.log(`[Outbox] workerId=${WORKER_ID}`);
-
   console.log(`[Outbox] DB=${databaseUrl!.replace(/:[^:@]+@/, ':****@')}`);
-
   console.log(`[Outbox] Redis=${redisUrl!.replace(/:[^:@]+@/, ':****@')}`);
-
   console.log(
     `[Outbox] mode=${pubsubMode}, poll=${POLL_INTERVAL_MS}ms, batch=${MAX_BATCH}, maxAttempts=${MAX_ATTEMPTS}`,
   );
 
-  // quick health check
-
-  await pool.query('SELECT 1');
+  // quick health check with retry
+  let dbReady = false;
+  for (let i = 0; i < 10; i++) {
+    try {
+      await pool.query('SELECT 1');
+      dbReady = true;
+      break;
+    } catch (e: any) {
+      if (e?.code === 'ENOTFOUND' || e?.code === 'ECONNREFUSED') {
+        console.log(`[Outbox] DB not ready yet, retrying... (${i + 1}/10)`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } else {
+        throw e;
+      }
+    }
+  }
+  if (!dbReady) {
+    throw new Error('Failed to connect to database after 10 retries');
+  }
 
   await redis.ping();
 
@@ -366,9 +203,7 @@ async function main() {
     if (shuttingDown) return;
 
     shuttingDown = true;
-
     console.log('[Outbox] shutting down...');
-
     clearInterval(interval);
 
     try {
@@ -380,12 +215,9 @@ async function main() {
     } catch {}
 
     console.log('[Outbox] bye');
-
     process.exit(0);
   };
-
   process.on('SIGTERM', shutdown);
-
   process.on('SIGINT', shutdown);
 }
 
@@ -395,12 +227,10 @@ process.on('unhandledRejection', (r) =>
 
 process.on('uncaughtException', (e) => {
   console.error('[Outbox] uncaughtException:', e);
-
   process.exit(1);
 });
 
 main().catch((e) => {
   console.error('[Outbox] fatal:', e);
-
   process.exit(1);
 });

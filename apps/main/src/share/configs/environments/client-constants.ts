@@ -9,6 +9,7 @@ export function getClientEnv() {
   const tmp: Record<string, string | undefined> = {
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_URL: process.env['NEXT_PUBLIC_APP_URL'],
+    NEXT_PUBLIC_CHAT_WS_URL: process.env['NEXT_PUBLIC_CHAT_WS_URL'],
     NEXT_PUBLIC_TOSS_CLIENT_KEY: process.env['NEXT_PUBLIC_TOSS_CLIENT_KEY'],
     NEXT_PUBLIC_ORDER_ID_TTL_MS: process.env['NEXT_PUBLIC_ORDER_ID_TTL_MS'],
     NEXT_PUBLIC_API_URL: process.env['NEXT_PUBLIC_API_URL'],

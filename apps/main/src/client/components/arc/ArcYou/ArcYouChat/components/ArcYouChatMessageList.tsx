@@ -2,8 +2,8 @@
 
 import { cn } from '@/client/components/ui/utils';
 import { StickToBottom } from 'use-stick-to-bottom';
-import type { ArcyouChatMessage } from '../ArcYouChatMessage/ArcYouChatMessage';
-import { ArcYouChatMessage } from '../ArcYouChatMessage/ArcYouChatMessage';
+import type { ArcyouChatMessage } from './ArcYouChatMessage';
+import { ArcYouChatMessage } from './ArcYouChatMessage';
 
 // Types
 export interface ArcYouChatMessageListProps {

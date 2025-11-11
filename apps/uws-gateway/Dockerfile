@@ -7,6 +7,7 @@ COPY apps/uws-gateway/package.json ./package.json
 COPY apps/main/tsconfig.json ./tsconfig.base.json
 COPY apps/uws-gateway/tsconfig.json ./tsconfig.json
 COPY apps/uws-gateway/server.ts ./server.ts
+COPY apps/uws-gateway/server-utils.ts ./server-utils.ts
 
 # tsconfig.json의 extends 경로 수정 (Docker 빌드 컨텍스트에 맞게)
 RUN sed -i 's|"extends": "../main/tsconfig.json"|"extends": "./tsconfig.base.json"|' tsconfig.json

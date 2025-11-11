@@ -13,6 +13,9 @@ export const ENV_KEYS = {
     APP: {
       URL: 'NEXT_PUBLIC_APP_URL',
     },
+    CHAT: {
+      WS_URL: 'NEXT_PUBLIC_CHAT_WS_URL',
+    },
     AUTH: {
       OAUTH: {
         KAKAO: {
@@ -117,6 +120,13 @@ export const ENV_KEYS = {
         ORDER: {
           SIGNING_SECRET: 'ORDER_SIGNING_SECRET',
           ORDER_ID_TTL_MS: 'ORDER_ID_TTL_MS',
+        },
+      },
+      GATEWAY: {
+        JWT: {
+          PRIVATE_KEY: 'GATEWAY_JWT_PRIVATE_KEY',
+          ISSUER: 'GATEWAY_JWT_ISSUER',
+          AUDIENCE: 'GATEWAY_JWT_AUDIENCE',
         },
       },
     },

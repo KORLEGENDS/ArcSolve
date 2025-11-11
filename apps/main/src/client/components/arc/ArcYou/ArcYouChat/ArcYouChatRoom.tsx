@@ -3,8 +3,8 @@
 import { cn } from '@/client/components/ui/utils';
 import { useRef, useState } from 'react';
 import { Input } from './components/ArcYouChatInput/ArcYouChatInput';
-import type { ArcyouChatMessage } from './components/ArcYouChatMessage/ArcYouChatMessage';
-import { ArcYouChatMessageList } from './components/ArcYouChatMessageList/ArcYouChatMessageList';
+import type { ArcyouChatMessage } from './components/ArcYouChatMessage';
+import { ArcYouChatMessageList } from './components/ArcYouChatMessageList';
 
 export interface ArcYouChatRoomProps {
   messages: ArcyouChatMessage[];

@@ -84,7 +84,7 @@ export function ArcYouChatMessage({
           isOwnMessage ? 'bg-primary order-2' : 'bg-muted order-1'
         )}
       >
-        <div className="break-words whitespace-pre-wrap">{message.content}</div>
+        <div className="wrap-break-word whitespace-pre-wrap">{message.content}</div>
         {message.replyToMessageId && (
           <div className="mt-1 text-xs opacity-70">답장: {message.replyToMessageId}</div>
         )}

@@ -1,18 +1,16 @@
 // Components
-export { ArcYouChatMessage } from './components/ArcYouChatMessage/ArcYouChatMessage';
-export { ArcYouChatMessageList } from './components/ArcYouChatMessageList/ArcYouChatMessageList';
 export { ArcYouChatRoom } from './ArcYouChatRoom';
-export { ArcYouChatRoomList } from './ArcYouChatRoomList';
+export { ArcYouChatMessage } from './components/ArcYouChatMessage';
+export { ArcYouChatMessageList } from './components/ArcYouChatMessageList';
+export { ArcYouChatRoomList } from './components/ArcYouChatRoomList';
 
 // Types
-export type {
-  ArcYouChatMessageProps, MessageStatus, MessageType, ArcyouChatMessage
-} from './components/ArcYouChatMessage/ArcYouChatMessage';
-export type { ArcYouChatMessageListProps } from './components/ArcYouChatMessageList/ArcYouChatMessageList';
 export type { ArcYouChatRoomProps } from './ArcYouChatRoom';
+export type { ArcyouChatMessage, ArcYouChatMessageProps, MessageStatus, MessageType } from './components/ArcYouChatMessage';
+export type { ArcYouChatMessageListProps } from './components/ArcYouChatMessageList';
+export type { ArcYouChatRoomListProps } from './components/ArcYouChatRoomList';
 export type {
   ArcYouChatRoomListItemProps,
-  ArcYouChatRoomMenuOption,
-} from './components/ArcYouChatRoomListItem/ArcYouChatRoomListItem';
-export type { ArcYouChatRoomListProps } from './ArcYouChatRoomList';
+  ArcYouChatRoomMenuOption
+} from './components/ArcYouChatRoomListItem';
 

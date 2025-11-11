@@ -1,5 +1,4 @@
 import { SidebarWrapper } from '@/client/components/arc/ArcSide';
-import type { IJsonModel } from 'flexlayout-react';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { ArcWorkWithChatRoom } from './components/ArcWorkWithChatRoom';
@@ -23,40 +22,6 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
 
   const leftDefaultOpen = leftState ? leftState === 'true' : true;
   const rightDefaultOpen = rightState ? rightState === 'true' : true;
-
-  // ArcWork 기본 레이아웃 설정
-  const defaultJson: IJsonModel = {
-    global: {},
-    borders: [],
-    layout: {
-      type: 'row',
-      weight: 100,
-      children: [
-        {
-          type: 'tabset',
-          weight: 50,
-          children: [
-            {
-              type: 'tab',
-              name: 'Work 1',
-              component: 'placeholder',
-            },
-          ],
-        },
-        {
-          type: 'tabset',
-          weight: 50,
-          children: [
-            {
-              type: 'tab',
-              name: 'Chat Room',
-              component: 'arcyou-chat-room',
-            },
-          ],
-        },
-      ],
-    },
-  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100svh', width: '100%' }}>
@@ -85,7 +50,6 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
           <div className='relative h-full w-full'>
             <ArcWorkWithChatRoom
               className="absolute inset-0 z-48"
-              defaultLayout={defaultJson}
             />
             {children}
           </div>

@@ -19,6 +19,12 @@ import type {
 } from 'flexlayout-react';
 import { Layout, Model } from 'flexlayout-react';
 // combined.css에는 모든 테마(light, dark)가 포함되어 있으며 클래스명으로 활성화됩니다
+import {
+  useServiceMakeExternalDragHandler,
+  useServiceSaveLayout,
+  useServiceSetModel,
+  useServiceSetLayoutRef,
+} from '@/client/states/stores/service-store';
 import 'flexlayout-react/style/combined.css';
 import { useTheme } from 'next-themes';
 import * as React from 'react';
@@ -161,6 +167,16 @@ export interface ArcWorkProps {
    * ResizeObserver를 사용하여 컨테이너 크기 변경을 감지합니다
    */
   responsive?: boolean;
+  /**
+   * 레이아웃 변경 시 자동 저장 활성화 (기본값: true)
+   * false로 설정하면 자동 저장이 비활성화됩니다
+   */
+  autoSave?: boolean;
+  /**
+   * 자동 저장 디바운스 지연 시간 (밀리초, 기본값: 200)
+   * 레이아웃 변경 후 이 시간만큼 대기한 후 저장합니다
+   */
+  autoSaveDelayMs?: number;
 }
 
 export function ArcWork({
@@ -187,9 +203,20 @@ export function ArcWork({
   onShowOverflowMenu,
   onTabSetPlaceHolder,
   responsive = true,
+  autoSave = true,
+  autoSaveDelayMs = 200,
 }: ArcWorkProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const layoutRef = React.useRef<Layout | null>(null);
+  
+  // 자동 저장 관련 훅
+  const setServiceModel = useServiceSetModel();
+  const setLayoutRef = useServiceSetLayoutRef();
+  const saveLayout = useServiceSaveLayout();
+  
+  // 디바운스 타이머 ref
+  const saveTimerRef = React.useRef<number | null>(null);
+  const makeExternalDragHandler = useServiceMakeExternalDragHandler();
   
   // 테마 관리: next-themes와 동기화
   const { resolvedTheme } = useTheme();
@@ -225,6 +252,50 @@ export function ArcWork({
     }
     return Model.fromJson(jsonModel);
   });
+
+  // 모델을 스토어에 등록 (마운트 시 및 model 변경 시)
+  React.useEffect(() => {
+    setServiceModel(model);
+  }, [model, setServiceModel]);
+
+  // 자동 저장 스케줄링 함수
+  const scheduleSave = React.useCallback(() => {
+    if (!autoSave) return;
+
+    // 기존 타이머 취소
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current);
+    }
+
+    // 새로운 타이머 설정
+    saveTimerRef.current = window.setTimeout(() => {
+      saveLayout();
+      saveTimerRef.current = null;
+    }, autoSaveDelayMs);
+  }, [autoSave, autoSaveDelayMs, saveLayout]);
+
+  // 모델 변경 핸들러 (외부 콜백 + 자동 저장)
+  const handleModelChange = React.useCallback(
+    (changedModel: Model, action: Action) => {
+      // 외부 콜백 호출
+      onModelChange?.(changedModel, action);
+
+      // 자동 저장 스케줄링
+      scheduleSave();
+    },
+    [onModelChange, scheduleSave]
+  );
+
+  // 언마운트 시 타이머 정리
+  React.useEffect(() => {
+    return () => {
+      setLayoutRef(null);
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 테마 변경 시 컨테이너 className 업데이트
   React.useEffect(() => {
@@ -302,15 +373,18 @@ export function ArcWork({
   return (
     <div ref={containerRef} className={`${themeClass} ${className || ''}`} style={{ width: '100%', height: '100%' }}>
       <Layout
-        ref={layoutRef}
+        ref={(el) => {
+          layoutRef.current = el;
+          setLayoutRef(el);
+        }}
         model={model}
         factory={factoryCallback}
-        onModelChange={onModelChange}
+        onModelChange={handleModelChange}
         realtimeResize={realtimeResize}
         onAction={onAction}
         onRenderTab={tabRenderCallback}
         onRenderTabSet={tabSetRenderCallback}
-        onExternalDrag={onExternalDrag}
+        onExternalDrag={onExternalDrag ?? makeExternalDragHandler()}
         icons={iconsConfig}
         classNameMapper={classNameMapperCallback}
         i18nMapper={i18nMapperCallback}
