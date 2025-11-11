@@ -269,12 +269,12 @@
 }
 
 .sevInfo {
-  border-color: var(--color-blue-700);
-  background: color-mix(in oklab, var(--color-card) 80%, color-mix(in oklab, var(--color-blue-700) 10%, transparent));
+  border-color: var(--color-neutral-700);
+  background: color-mix(in oklab, var(--color-card) 80%, color-mix(in oklab, var(--color-neutral-700) 10%, transparent));
   box-shadow: 
-    0 1px 3px 0 color-mix(in oklab, var(--color-blue-700) 20%, transparent),
-    0 0 0 1px color-mix(in oklab, var(--color-blue-700) 40%, transparent) inset,
-    0 0 12px color-mix(in oklab, var(--color-blue-700) 8%, transparent);
+    0 1px 3px 0 color-mix(in oklab, var(--color-neutral-700) 20%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-neutral-700) 40%, transparent) inset,
+    0 0 12px color-mix(in oklab, var(--color-neutral-700) 8%, transparent);
 }
 
 .sevSuccess {

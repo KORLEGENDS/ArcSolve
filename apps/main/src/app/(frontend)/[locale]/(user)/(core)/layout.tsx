@@ -1,5 +1,4 @@
 import { SidebarWrapper } from '@/client/components/arc/ArcSide';
-import { ARCWORK_THEME_COOKIE_NAME, type ArcWorkTheme } from '@/client/components/arc/ArcWork';
 import type { IJsonModel } from 'flexlayout-react';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
@@ -24,10 +23,6 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
 
   const leftDefaultOpen = leftState ? leftState === 'true' : true;
   const rightDefaultOpen = rightState ? rightState === 'true' : true;
-
-  // ArcWork 테마 쿠키 읽기
-  const arcWorkTheme = cookieStore.get(ARCWORK_THEME_COOKIE_NAME)?.value;
-  const arcWorkInitialTheme: ArcWorkTheme = arcWorkTheme === 'dark' ? 'dark' : 'light';
 
   // ArcWork 기본 레이아웃 설정
   const defaultJson: IJsonModel = {
@@ -90,7 +85,6 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
           <div className='relative h-full w-full'>
             <ArcWorkWithChatRoom
               className="absolute inset-0 z-48"
-              initialTheme={arcWorkInitialTheme}
               defaultLayout={defaultJson}
             />
             {children}

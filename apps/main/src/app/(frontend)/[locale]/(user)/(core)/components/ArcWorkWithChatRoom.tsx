@@ -1,6 +1,6 @@
 'use client';
 
-import { ArcWork, type ArcWorkProps } from '@/client/components/arc/ArcWork';
+import { ArcWorkDynamic, type ArcWorkProps } from '@/client/components/arc/ArcWork';
 import { ArcYouChatRoom, type ArcyouChatMessage } from '@/client/components/arc/ArcYou/ArcYouChat';
 import type { TabNode } from 'flexlayout-react';
 import { useCallback, useState } from 'react';
@@ -86,6 +86,6 @@ export function ArcWorkWithChatRoom(props: ArcWorkWithChatRoomProps) {
     [messages, handleSubmit]
   );
 
-  return <ArcWork {...props} factory={factory} />;
+  return <ArcWorkDynamic {...props} factory={factory} />;
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
+import { iconFromToken } from '@/share/configs/icons/icon-utils';
 import type { ITabRenderValues, TabNode } from 'flexlayout-react';
-import * as React from 'react';
 
 export interface ArcWorkTabProps {
   /**
@@ -15,13 +15,76 @@ export interface ArcWorkTabProps {
 }
 
 /**
+ * 컴포넌트 타입에 따른 아이콘 토큰 반환
+ */
+function getIconToken(component: string): string {
+  switch (component) {
+    case 'arcnote':
+      return 'arc.core.arcWork.tab.components.arcnote';
+    case 'arcviewer':
+      return 'arc.core.arcWork.tab.components.arcviewer';
+    case 'arcchat':
+      return 'arc.core.arcWork.tab.components.arcchat';
+    default:
+      return 'arc.core.arcWork.tab.components.default';
+  }
+}
+
+/**
  * 탭 렌더링 커스터마이징 컴포넌트
  * onRenderTab 콜백에서 사용됩니다
+ * 
+ * 커스터마이징 가능한 모든 속성:
+ * - renderValues.leading: 탭 앞쪽 아이콘/요소
+ * - renderValues.content: 탭 텍스트/컨텐츠
+ * - renderValues.buttons: 탭 뒤쪽 버튼 배열
  */
 export function ArcWorkTab({ node, renderValues }: ArcWorkTabProps) {
-  // 기본 렌더링은 flexlayout-react가 처리하므로
-  // 여기서는 커스터마이징 로직만 구현합니다
-  // renderValues를 수정하여 스타일이나 내용을 변경할 수 있습니다
+  const component = node.getComponent() || 'default-panel';
+  const iconToken = getIconToken(component);
+  const isDirty = false; // TODO: store에서 dirty 상태 가져오기
+
+  // ============================================
+  // leading: 탭 앞쪽 아이콘 설정
+  // ============================================
+  // 기본값: 컴포넌트 타입에 따른 아이콘
+  // 커스터마이징: renderValues.leading을 직접 수정하여 변경 가능
+  if (!renderValues.leading) {
+    renderValues.leading = (
+      <span className="flexlayout__tab_leading">
+        {iconFromToken(iconToken, { size: 14, className: 'flexlayout__tab_leading_icon' })}
+      </span>
+    );
+  }
+
+  // ============================================
+  // content: 탭 텍스트/컨텐츠 설정
+  // ============================================
+  // 기본값: node.getName() (flexlayout-react가 자동 설정)
+  // 커스터마이징: renderValues.content를 수정하여 변경 가능
+  // 예: renderValues.content = `${node.getName()} *`; (dirty 표시)
+  // 예: renderValues.content = <CustomComponent />; (커스텀 컴포넌트)
+  // 현재는 기본값 사용 (변경 필요시 주석 해제)
+  // if (isDirty) {
+  //   renderValues.content = `${renderValues.content} *`;
+  // }
+
+  // ============================================
+  // buttons: 탭 뒤쪽 버튼 배열 설정
+  // ============================================
+  // 기본값: 빈 배열 (flexlayout-react가 기본 닫기 버튼 추가)
+  // 커스터마이징: renderValues.buttons.push()로 버튼 추가 가능
+  // 주의: 기본 닫기 버튼은 flexlayout-react가 자동으로 추가하므로
+  // 여기서 추가하는 버튼은 그 뒤에 표시됩니다
+  if (isDirty) {
+    renderValues.buttons.push(
+      <span key="dirty" className="flexlayout__tab_dirty_indicator" aria-hidden="true">
+        {iconFromToken('arc.core.arcWork.tab.dirty', {
+          className: 'flexlayout__tab_dirty_icon',
+        })}
+      </span>
+    );
+  }
 
   return null;
 }
@@ -33,13 +96,13 @@ export function createTabRenderCallback(
   customRenderer?: (node: TabNode, renderValues: ITabRenderValues) => void
 ) {
   return (node: TabNode, renderValues: ITabRenderValues) => {
-    // 커스텀 렌더러가 있으면 먼저 실행
+    // 기본 ArcWorkTab 로직 먼저 실행
+    ArcWorkTab({ node, renderValues });
+
+    // 커스텀 렌더러가 있으면 실행
     if (customRenderer) {
       customRenderer(node, renderValues);
     }
-
-    // 기본 ArcWorkTab 로직 실행
-    // 필요시 여기에 공통 커스터마이징 로직 추가
   };
 }
 

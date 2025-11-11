@@ -20,8 +20,10 @@ import type {
 import { Layout, Model } from 'flexlayout-react';
 // combined.css에는 모든 테마(light, dark)가 포함되어 있으며 클래스명으로 활성화됩니다
 import 'flexlayout-react/style/combined.css';
+import { useTheme } from 'next-themes';
 import * as React from 'react';
-import { type ArcWorkTheme } from './ArcWork-config';
+import { ARCWORK_DEFAULT_THEME, type ArcWorkTheme } from './ArcWork-config';
+import './ArcWork.css';
 import {
   createClassNameMapper,
   createDragRectRenderCallback,
@@ -34,7 +36,6 @@ import {
   createTabSetRenderCallback,
   defaultArcWorkFactory,
 } from './components';
-import { useArcWorkTheme } from './hooks/useArcWorkTheme';
 
 export interface ArcWorkGlobalOptions extends Partial<IGlobalAttributes> {
   /**
@@ -64,12 +65,6 @@ export interface ArcWorkProps {
    * 컨테이너 클래스명
    */
   className?: string;
-  /**
-   * 초기 테마 (서버에서 쿠키를 읽어 전달)
-   * next-themes의 resolvedTheme이 없을 때만 사용됩니다 (초기 렌더링 fallback)
-   * 기본값: 'light'
-   */
-  initialTheme?: ArcWorkTheme;
   /**
    * 기본 레이아웃 모델 또는 JSON 모델 (필수)
    */
@@ -170,7 +165,6 @@ export interface ArcWorkProps {
 
 export function ArcWork({
   className,
-  initialTheme,
   defaultLayout,
   onModelChange,
   globalOptions,
@@ -197,8 +191,25 @@ export function ArcWork({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const layoutRef = React.useRef<Layout | null>(null);
   
-  // 테마 관리: next-themes와 동기화 및 쿠키 기록
-  const { themeClass } = useArcWorkTheme({ initialTheme });
+  // 테마 관리: next-themes와 동기화
+  const { resolvedTheme } = useTheme();
+
+  // 테마 결정: resolvedTheme 사용, 없으면 기본값 사용
+  const theme = React.useMemo<ArcWorkTheme>(() => {
+    if (resolvedTheme === 'dark') {
+      return 'dark';
+    }
+    if (resolvedTheme === 'light') {
+      return 'light';
+    }
+    // resolvedTheme이 undefined인 경우(초기 렌더링) 기본값 사용
+    return ARCWORK_DEFAULT_THEME;
+  }, [resolvedTheme]);
+
+  // 테마 클래스명 생성
+  const themeClass = React.useMemo(() => {
+    return `flexlayout__theme_${theme}`;
+  }, [theme]);
 
   // 모델 초기화
   const [model] = React.useState<Model>(() => {

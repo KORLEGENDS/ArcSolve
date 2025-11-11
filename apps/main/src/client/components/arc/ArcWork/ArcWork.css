@@ -1,0 +1,416 @@
+/* ============================================
+   ArcWork - flexlayout-react 커스터마이징 스타일
+   모든 커스터마이징 가능한 클래스를 빈 속성으로 정리
+   ============================================ */
+
+/* ============================================
+   레이아웃 전체
+   ============================================ */
+.flexlayout__layout {
+  /* 레이아웃 루트 컨테이너 */
+}
+
+.flexlayout__layout_main {
+  /* 메인 레이아웃 영역 */
+}
+
+.flexlayout__layout_border_container {
+  /* 보더 컨테이너 */
+}
+
+.flexlayout__layout_border_container_inner {
+  /* 보더 컨테이너 내부 */
+}
+
+.flexlayout__layout_moveables {
+  /* 이동 가능한 요소들 컨테이너 */
+}
+
+.flexlayout__layout_overlay {
+  /* 오버레이 영역 */
+}
+
+.flexlayout__layout_tab_stamps {
+  /* 탭 스탬프 컨테이너 */
+}
+
+/* ============================================
+   테마
+   ============================================ */
+.flexlayout__theme_light {
+  /* 라이트 테마 */
+}
+
+.flexlayout__theme_dark {
+  /* 다크 테마 */
+}
+
+.flexlayout__theme_gray {
+  /* 그레이 테마 */
+}
+
+.flexlayout__theme_rounded {
+  /* 둥근 모서리 테마 */
+}
+
+.flexlayout__theme_underline {
+  /* 밑줄 테마 */
+}
+
+/* ============================================
+   탭셋 (TabSet)
+   ============================================ */
+.flexlayout__tabset {
+  /* 탭셋 컨테이너 */
+}
+
+.flexlayout__tabset-selected {
+  /* 선택된 탭셋 */
+}
+
+.flexlayout__tabset-maximized {
+  /* 최대화된 탭셋 */
+}
+
+.flexlayout__tabset_container {
+  /* 탭셋 컨테이너 */
+}
+
+.flexlayout__tabset_content {
+  /* 탭셋 내용 영역 */
+}
+
+.flexlayout__tabset_header {
+  /* 탭셋 헤더 */
+}
+
+.flexlayout__tabset_header_content {
+  /* 탭셋 헤더 내용 */
+}
+
+.flexlayout__tabset_leading {
+  /* 탭셋 앞쪽 요소 */
+}
+
+.flexlayout__tabset_tab_divider {
+  /* 탭 구분선 */
+}
+
+/* ============================================
+   탭 바 (TabBar)
+   ============================================ */
+.flexlayout__tabset_tabbar_outer {
+  /* 탭 바 외부 컨테이너 */
+  height: 40px;
+}
+
+.flexlayout__tabset_tabbar_outer_top {
+  /* 탭 바 외부 컨테이너 (위쪽) */
+}
+
+.flexlayout__tabset_tabbar_outer_bottom {
+  /* 탭 바 외부 컨테이너 (아래쪽) */
+}
+
+.flexlayout__tabset_tabbar_inner {
+  /* 탭 바 내부 컨테이너 */
+}
+
+.flexlayout__tabset_tabbar_inner_tab_container {
+  /* 탭 바 내부 탭 컨테이너 */
+}
+
+.flexlayout__tabset_tabbar_inner_tab_container_top {
+  /* 탭 바 내부 탭 컨테이너 (위쪽) */
+  border-top: none;
+}
+
+.flexlayout__tabset_tabbar_inner_tab_container_bottom {
+  /* 탭 바 내부 탭 컨테이너 (아래쪽) */
+}
+
+/* ============================================
+   탭 (Tab)
+   ============================================ */
+.flexlayout__tab {
+  /* 탭 컨테이너 */
+}
+
+.flexlayout__tab_button {
+  /* 탭 버튼 */
+  width: 150px;
+  gap: var(--spacing-sm);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.flexlayout__tab_button--selected {
+  /* 선택된 탭 버튼 */
+}
+
+.flexlayout__tab_button--unselected {
+  /* 선택되지 않은 탭 버튼 */
+}
+
+.flexlayout__tab_button_content {
+  /* 탭 버튼 내용 */
+  width: 100%;
+  font-size: var(--text-body-small-regular);
+}
+
+.flexlayout__tab_button_leading {
+  /* 탭 버튼 앞쪽 요소 (아이콘 등) */
+}
+
+.flexlayout__tab_button_trailing {
+  /* 탭 버튼 뒤쪽 요소 (닫기 버튼 등) */
+}
+
+.flexlayout__tab_button_textbox {
+  /* 탭 버튼 텍스트 박스 (편집 모드) */
+}
+
+.flexlayout__tab_button_stretch {
+  /* 탭 버튼 늘리기 */
+}
+
+.flexlayout__tab_button_stamp {
+  /* 탭 버튼 스탬프 */
+}
+
+.flexlayout__tab_button_overflow {
+  /* 탭 버튼 오버플로우 */
+}
+
+.flexlayout__tab_moveable {
+  /* 이동 가능한 탭 */
+}
+
+.flexlayout__tab_overlay {
+  /* 탭 오버레이 */
+}
+
+/* ============================================
+   탭 툴바 (Tab Toolbar)
+   ============================================ */
+.flexlayout__tab_toolbar {
+  /* 탭 툴바 */
+}
+
+.flexlayout__tab_toolbar_button {
+  /* 탭 툴바 버튼 */
+}
+
+.flexlayout__tab_toolbar_icon {
+  /* 탭 툴바 아이콘 */
+}
+
+.flexlayout__tab_toolbar_sticky_buttons_container {
+  /* 탭 툴바 고정 버튼 컨테이너 */
+}
+
+/* ============================================
+   보더 (Border)
+   ============================================ */
+.flexlayout__border {
+  /* 보더 컨테이너 */
+}
+
+.flexlayout__border_top {
+  /* 위쪽 보더 */
+}
+
+.flexlayout__border_bottom {
+  /* 아래쪽 보더 */
+}
+
+.flexlayout__border_left {
+  /* 왼쪽 보더 */
+}
+
+.flexlayout__border_right {
+  /* 오른쪽 보더 */
+}
+
+.flexlayout__border_inner {
+  /* 보더 내부 */
+}
+
+.flexlayout__border_inner_tab_container {
+  /* 보더 내부 탭 컨테이너 */
+}
+
+.flexlayout__border_inner_tab_container_left {
+  /* 보더 내부 탭 컨테이너 (왼쪽) */
+}
+
+.flexlayout__border_inner_tab_container_right {
+  /* 보더 내부 탭 컨테이너 (오른쪽) */
+}
+
+.flexlayout__border_leading {
+  /* 보더 앞쪽 요소 */
+}
+
+.flexlayout__border_sizer {
+  /* 보더 크기 조절 */
+}
+
+.flexlayout__border_tab_contents {
+  /* 보더 탭 내용 */
+}
+
+.flexlayout__border_tab_divider {
+  /* 보더 탭 구분선 */
+}
+
+.flexlayout__border_toolbar {
+  /* 보더 툴바 */
+}
+
+.flexlayout__border_toolbar_left {
+  /* 보더 툴바 (왼쪽) */
+}
+
+.flexlayout__border_toolbar_top {
+  /* 보더 툴바 (위쪽) */
+}
+
+.flexlayout__border_toolbar_button {
+  /* 보더 툴바 버튼 */
+}
+
+.flexlayout__border_toolbar_button_overflow {
+  /* 보더 툴바 버튼 오버플로우 */
+}
+
+.flexlayout__border_button {
+  /* 보더 버튼 */
+}
+
+.flexlayout__border_button--selected {
+  /* 선택된 보더 버튼 */
+}
+
+.flexlayout__border_button--unselected {
+  /* 선택되지 않은 보더 버튼 */
+}
+
+.flexlayout__border_button_content {
+  /* 보더 버튼 내용 */
+}
+
+.flexlayout__border_button_leading {
+  /* 보더 버튼 앞쪽 요소 */
+}
+
+.flexlayout__border_button_trailing {
+  /* 보더 버튼 뒤쪽 요소 */
+}
+
+/* ============================================
+   스플리터 (Splitter)
+   ============================================ */
+.flexlayout__splitter {
+  /* 스플리터 */
+}
+
+.flexlayout__splitter_drag {
+  /* 드래그 중인 스플리터 */
+}
+
+.flexlayout__splitter_extra {
+  /* 스플리터 추가 영역 */
+}
+
+.flexlayout__splitter_handle {
+  /* 스플리터 핸들 */
+}
+
+.flexlayout__splitter_handle_horz {
+  /* 가로 스플리터 핸들 */
+}
+
+.flexlayout__splitter_handle_vert {
+  /* 세로 스플리터 핸들 */
+}
+
+/* ============================================
+   행 (Row)
+   ============================================ */
+.flexlayout__row {
+  /* 행 컨테이너 */
+}
+
+/* ============================================
+   드래그 관련
+   ============================================ */
+.flexlayout__drag_rect {
+  /* 드래그 사각형 */
+}
+
+.flexlayout__outline_rect {
+  /* 아웃라인 사각형 */
+}
+
+.flexlayout__outline_rect_edge {
+  /* 아웃라인 사각형 엣지 */
+}
+
+.flexlayout__edge_rect {
+  /* 엣지 사각형 */
+}
+
+/* ============================================
+   팝업 메뉴
+   ============================================ */
+.flexlayout__popup_menu {
+  /* 팝업 메뉴 */
+}
+
+.flexlayout__popup_menu_container {
+  /* 팝업 메뉴 컨테이너 */
+}
+
+.flexlayout__popup_menu_item {
+  /* 팝업 메뉴 아이템 */
+}
+
+.flexlayout__popup_menu_item--selected {
+  /* 선택된 팝업 메뉴 아이템 */
+}
+
+/* ============================================
+   플로팅 윈도우
+   ============================================ */
+.flexlayout__floating_window {
+  /* 플로팅 윈도우 */
+}
+
+.flexlayout__floating_window_content {
+  /* 플로팅 윈도우 내용 */
+}
+
+/* ============================================
+   미니 스크롤바
+   ============================================ */
+.flexlayout__mini_scrollbar {
+  /* 미니 스크롤바 */
+}
+
+.flexlayout__mini_scrollbar_container {
+  /* 미니 스크롤바 컨테이너 */
+  height: 100%;
+  padding-top: 6px;
+}
+
+/* ============================================
+   에러 바운더리
+   ============================================ */
+.flexlayout__error_boundary_container {
+  /* 에러 바운더리 컨테이너 */
+}
+
+.flexlayout__error_boundary_content {
+  /* 에러 바운더리 내용 */
+}
+
