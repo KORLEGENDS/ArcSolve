@@ -8,10 +8,12 @@ function LeftSidebar({
   expanded,
   collapsed,
   header,
+  footer,
 }: {
   expanded: React.ReactNode;
   collapsed?: React.ReactNode;
   header?: React.ReactNode;
+  footer?: React.ReactNode;
 }): React.ReactElement {
   const sidebarState = useSidebar();
   const isCollapsed = sidebarState.state === 'collapsed';
@@ -29,6 +31,11 @@ function LeftSidebar({
       <SidebarBase.Content>
         {isCollapsed ? (collapsed ?? null) : expanded}
       </SidebarBase.Content>
+      {footer && !isCollapsed && (
+        <SidebarBase.Footer>
+          {footer}
+        </SidebarBase.Footer>
+      )}
       <SidebarBase.Rail direction='right' />
     </SidebarBase>
   );
@@ -38,10 +45,12 @@ function RightSidebar({
   expanded,
   collapsed,
   header,
+  footer,
 }: {
   expanded: React.ReactNode;
   collapsed?: React.ReactNode;
   header?: React.ReactNode;
+  footer?: React.ReactNode;
 }): React.ReactElement {
   const sidebarState = useSidebar();
   const isCollapsed = sidebarState.state === 'collapsed';
@@ -59,6 +68,11 @@ function RightSidebar({
       <SidebarBase.Content>
         {isCollapsed ? (collapsed ?? null) : expanded}
       </SidebarBase.Content>
+      {footer && !isCollapsed && (
+        <SidebarBase.Footer>
+          {footer}
+        </SidebarBase.Footer>
+      )}
       <SidebarBase.Rail direction='left' />
     </SidebarBase>
   );
@@ -83,6 +97,7 @@ interface SidebarWrapperProps {
   expanded: React.ReactNode;
   collapsed?: React.ReactNode;
   header?: React.ReactNode;
+  footer?: React.ReactNode;
   defaultOpen?: boolean;
   defaultWidth?: string;
   cookieKeyPrefix: string;
@@ -93,6 +108,7 @@ export function SidebarWrapper({
   expanded,
   collapsed,
   header,
+  footer,
   defaultOpen,
   defaultWidth,
   cookieKeyPrefix,
@@ -105,9 +121,9 @@ export function SidebarWrapper({
       cookieKeyPrefix={cookieKeyPrefix}
     >
       {side === 'left' ? (
-        <Sidebar.Left expanded={expanded} collapsed={collapsed} header={header} />
+        <Sidebar.Left expanded={expanded} collapsed={collapsed} header={header} footer={footer} />
       ) : (
-        <Sidebar.Right expanded={expanded} collapsed={collapsed} header={header} />
+        <Sidebar.Right expanded={expanded} collapsed={collapsed} header={header} footer={footer} />
       )}
     </SidebarProvider>
   );

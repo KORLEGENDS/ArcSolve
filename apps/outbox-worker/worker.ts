@@ -4,7 +4,6 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 
 import {
   bigserial,
-  boolean,
   integer,
   jsonb,
   pgEnum,
@@ -65,7 +64,7 @@ const outbox = pgTable('outbox', {
 
   type: text('type').notNull(),
 
-  conversationId: uuid('conversation_id').notNull(),
+  roomId: uuid('room_id').notNull(),
 
   payload: jsonb('payload').notNull(),
 
@@ -86,26 +85,6 @@ const outbox = pgTable('outbox', {
   error: text('error'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).default(sql`NOW()`).notNull(),
-
-  // legacy columns retained for compatibility; ignored by the new logic
-
-  // processed/processedAt/retryCount may exist in DB but are not used anymore
-
-  // This prevents Drizzle from complaining if you still have them
-
-  // Remove these once your migrations drop legacy columns.
-
-  // @ts-ignore
-
-  processed: boolean('processed'),
-
-  // @ts-ignore
-
-  processedAt: timestamp('processed_at', { withTimezone: true }),
-
-  // @ts-ignore
-
-  retryCount: integer('retry_count'),
 });
 
 type OutboxRow = {
@@ -113,7 +92,7 @@ type OutboxRow = {
 
   type: string;
 
-  conversationId: string;
+  roomId: string;
 
   payload: any;
 
@@ -165,7 +144,7 @@ async function claimBatch(): Promise<OutboxRow[]> {
     const rows = await tx.execute(
       sql<OutboxRow>`
 
-        SELECT id, type, conversation_id, payload, attempts
+        SELECT id, type, room_id, payload, attempts
 
         FROM outbox
 
@@ -210,7 +189,7 @@ async function claimBatch(): Promise<OutboxRow[]> {
 
         type: String(r.type),
 
-        conversationId: String((r as any).conversation_id),
+        roomId: String((r as any).room_id),
 
         payload: r.payload,
 
@@ -224,16 +203,16 @@ async function claimBatch(): Promise<OutboxRow[]> {
 
 async function publishOne(row: OutboxRow): Promise<void> {
   const channel =
-    pubsubMode === 'perconv' ? `conv:${row.conversationId}` : 'chat:message';
+    pubsubMode === 'perconv' ? `conv:${row.roomId}` : 'chat:message';
 
   // payload는 게이트웨이가 그대로 팬아웃 가능한 형태여야 함
 
   const msg = JSON.stringify({
     ...row.payload,
 
-    // 안전상 conversationId가 payload 내에 없으면 보강
+    // 안전상 roomId가 payload 내에 없으면 보강
 
-    conversationId: row.payload?.conversationId ?? row.conversationId,
+    roomId: row.payload?.roomId ?? row.roomId,
   });
 
   await redis.publish(channel, msg);
@@ -329,10 +308,10 @@ async function loopOnce(): Promise<void> {
 
   for (const row of batch) {
     try {
-      // 안전장치: conversationId가 없으면 dead
+      // 안전장치: roomId가 없으면 dead
 
-      if (!row.conversationId)
-        throw new Error(`row ${row.id} has no conversationId`);
+      if (!row.roomId)
+        throw new Error(`row ${row.id} has no roomId`);
 
       await publishOne(row);
 

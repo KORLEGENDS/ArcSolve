@@ -7,6 +7,7 @@ import { ArcWorkWithChatRoom } from './components/ArcWorkWithChatRoom';
 import { RightSidebarContent } from './components/RightSidebarContent';
 import { RightSidebarHeader } from './components/RightSidebarHeader';
 import { SidebarContent } from './components/SidebarContent';
+import { SidebarFooter } from './components/SidebarFooter';
 import { SidebarHeader } from './components/SidebarHeader';
 
 interface UserLayoutProps {
@@ -68,6 +69,7 @@ export default async function Layout({ children }: UserLayoutProps): Promise<Rea
           side="left"
           expanded={<SidebarContent />}
           header={<SidebarHeader />}
+          footer={<SidebarFooter />}
           defaultOpen={leftDefaultOpen}
           defaultWidth={leftWidth}
           cookieKeyPrefix="left"

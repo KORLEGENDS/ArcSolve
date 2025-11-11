@@ -2,10 +2,9 @@
 
 import { cn } from '@/client/components/ui/utils';
 import { useRef, useState } from 'react';
-import { Input } from '../ArcYouChatInput/ArcYouChatInput';
-import type { UserChatMessage } from '../ArcYouChatMessage/ArcYouChatMessage';
-import { ArcYouChatMessageList } from '../ArcYouChatMessageList/ArcYouChatMessageList';
-import styles from './ArcYouChatRoom.module.css';
+import { Input } from './components/ArcYouChatInput/ArcYouChatInput';
+import type { UserChatMessage } from './components/ArcYouChatMessage/ArcYouChatMessage';
+import { ArcYouChatMessageList } from './components/ArcYouChatMessageList/ArcYouChatMessageList';
 
 export interface ArcYouChatRoomProps {
   messages: UserChatMessage[];
@@ -34,11 +33,14 @@ export function ArcYouChatRoom({
   };
 
   return (
-    <div ref={rootRef} className={cn(styles.arcChatRoomContainer, className)}>
-      <div className={styles.chatArea}>
+    <div ref={rootRef} className={cn('flex flex-col h-full w-full relative', className)}>
+      <div className="flex-1 min-h-0">
         <ArcYouChatMessageList messages={messages} currentUserId={currentUserId} />
       </div>
-      <div className={styles.inputWrapper} data-arc-input-wrapper="1">
+      <div
+        className="w-full max-w-2xl pt-0 px-2 pb-2 bg-transparent absolute left-0 right-0 bottom-0 mx-auto z-20"
+        data-arc-input-wrapper="1"
+      >
         <Input
           onSubmit={handleSubmit}
           value={message}

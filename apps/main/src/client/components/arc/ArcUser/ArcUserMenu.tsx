@@ -4,9 +4,9 @@ import { ChevronDown, MoreVertical } from 'lucide-react';
 import * as React from 'react';
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { cn } from '@/client/components/ui/utils';
 
@@ -19,7 +19,7 @@ export interface ArcUserMenuItem {
   disabled?: boolean;
 }
 
-export interface ArcUserProps {
+export interface ArcUserMenuProps {
   /**
    * 사용자 제목
    */
@@ -42,13 +42,13 @@ export interface ArcUserProps {
   className?: string;
 }
 
-export function ArcUser({
+export function ArcUserMenu({
   title,
   description,
   menuItems = [],
   onMenuItemSelect,
   className,
-}: ArcUserProps) {
+}: ArcUserMenuProps) {
   const handleMenuItemClick = React.useCallback(
     (value: string) => {
       onMenuItemSelect?.(value);

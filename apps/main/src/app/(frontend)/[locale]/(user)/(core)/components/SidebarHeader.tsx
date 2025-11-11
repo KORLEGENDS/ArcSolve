@@ -1,6 +1,6 @@
 'use client';
 
-import { ArcUser, type ArcUserMenuItem } from '@/client/components/arc/ArcUser';
+import { ArcUserMenu, type ArcUserMenuItem } from '@/client/components/arc/ArcUser';
 import * as React from 'react';
 
 // 프로젝트 타입 정의 (실제 데이터 구조에 맞게 수정 필요)
@@ -38,7 +38,7 @@ export function SidebarHeader() {
     projects[0] || null
   );
 
-  // 프로젝트 목록을 ArcUser의 menuItems 형식으로 변환
+  // 프로젝트 목록을 ArcUserMenu의 menuItems 형식으로 변환
   const projectMenuItems: ArcUserMenuItem[] = React.useMemo(
     () =>
       projects.map((project) => ({
@@ -64,7 +64,7 @@ export function SidebarHeader() {
   );
 
   return (
-    <ArcUser
+    <ArcUserMenu
       title={selectedProject?.title || '프로젝트 선택'}
       description={selectedProject?.description}
       menuItems={projectMenuItems}

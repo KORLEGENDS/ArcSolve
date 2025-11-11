@@ -99,3 +99,71 @@ export const userQueryOptions = {
 // (태스크 전용 Query Options 제거됨)
 
 // 이벤트 관련 옵션 제거됨
+
+// ==================== 채팅방 Query Options ====================
+
+/**
+ * 채팅방 관련 타입 정의
+ */
+export type UserChatRoom = {
+  id: string;
+  name: string;
+  description: string | null;
+  lastMessageId: number | null;
+  role: 'owner' | 'manager' | 'participant';
+  lastReadMessageId: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type ChatRoomsListResponse = {
+  rooms: UserChatRoom[];
+};
+
+/**
+ * 채팅방 생성 뮤테이션 변수 타입
+ */
+export interface CreateChatRoomMutationVariables {
+  name: string;
+  description?: string | null;
+}
+
+export type CreateChatRoomResponse = {
+  room: UserChatRoom;
+};
+
+/**
+ * 채팅방 관련 Query Options
+ */
+export const chatRoomQueryOptions = {
+  /**
+   * 사용자의 채팅방 목록 조회
+   */
+  list: () =>
+    queryOptions({
+      queryKey: queryKeys.chatRooms.list(),
+      ...createApiQueryOptions<ChatRoomsListResponse['rooms'], ChatRoomsListResponse>(
+        '/api/arcyou/chat/rooms',
+        (data) => data.rooms,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT, // 1분
+          gcTime: TIMEOUT.CACHE.MEDIUM, // 5분
+        }
+      ),
+    }),
+
+  /**
+   * 채팅방 생성 뮤테이션 옵션
+   */
+  create: createApiMutation<
+    CreateChatRoomResponse['room'],
+    CreateChatRoomResponse,
+    CreateChatRoomMutationVariables
+  >(
+    () => '/api/arcyou/chat/rooms',
+    (data) => data.room,
+    {
+      method: 'POST',
+    }
+  ),
+} as const;

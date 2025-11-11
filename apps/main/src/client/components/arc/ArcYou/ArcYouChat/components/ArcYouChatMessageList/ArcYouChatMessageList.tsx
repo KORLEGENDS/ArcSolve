@@ -4,7 +4,6 @@ import { cn } from '@/client/components/ui/utils';
 import { StickToBottom } from 'use-stick-to-bottom';
 import type { UserChatMessage } from '../ArcYouChatMessage/ArcYouChatMessage';
 import { ArcYouChatMessage } from '../ArcYouChatMessage/ArcYouChatMessage';
-import styles from './ArcYouChatMessageList.module.css';
 
 // Types
 export interface ArcYouChatMessageListProps {
@@ -20,13 +19,13 @@ export function ArcYouChatMessageList({
 }: ArcYouChatMessageListProps): React.ReactElement {
   return (
     <StickToBottom
-      className={cn(styles.container, className)}
+      className={cn('h-full overflow-y-auto', className)}
       initial="smooth"
       resize="smooth"
       role="log"
     >
-      <StickToBottom.Content className={styles.content}>
-        <div className={styles.messagesWrapper}>
+      <StickToBottom.Content className="flex flex-col gap-2 pb-[120px] pt-3">
+        <div className="px-3">
           {messages.map((message) => (
             <ArcYouChatMessage
               key={message.id}

@@ -99,7 +99,7 @@
   flex-direction: column;
 }
 
-/* compact(좁음 또는 접힘) 시 ArcUser 상세만 숨김 */
+/* compact(좁음 또는 접힘) 시 ArcUserMenu 상세만 숨김 */
 .sidebarRoot[data-compact="true"] [data-sidebar-visibility~="compact:hidden"] {
   display: none;
 }

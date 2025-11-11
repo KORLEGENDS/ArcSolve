@@ -1,7 +1,6 @@
 'use client';
 
 import type { BorderNode, ITabSetRenderValues, TabSetNode } from 'flexlayout-react';
-import * as React from 'react';
 
 export interface ArcWorkTabSetProps {
   /**

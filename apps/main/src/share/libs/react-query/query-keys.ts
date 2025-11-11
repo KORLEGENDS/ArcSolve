@@ -60,6 +60,13 @@ export const queryKeys = {
         : ([...queryKeys.events.all(), 'list'] as const),
     byId: (id: string) => [...queryKeys.events.all(), 'detail', id] as const,
   },
+
+  // 채팅방 관련
+  chatRooms: {
+    all: () => ['chatRooms'] as const,
+    list: () => [...queryKeys.chatRooms.all(), 'list'] as const,
+    byId: (roomId: string) => [...queryKeys.chatRooms.all(), 'detail', roomId] as const,
+  },
 } as const;
 
 /**
@@ -104,5 +111,19 @@ export const queryKeyUtils = {
    */
   invalidateEventById: (client: QueryClient, id: string): void => {
     void client.invalidateQueries({ queryKey: queryKeys.events.byId(id) });
+  },
+
+  /**
+   * 채팅방 목록 쿼리 무효화
+   */
+  invalidateChatRoomsList: (client: QueryClient): void => {
+    void client.invalidateQueries({ queryKey: queryKeys.chatRooms.list() });
+  },
+
+  /**
+   * 특정 채팅방 쿼리 무효화
+   */
+  invalidateChatRoomById: (client: QueryClient, roomId: string): void => {
+    void client.invalidateQueries({ queryKey: queryKeys.chatRooms.byId(roomId) });
   },
 } as const;

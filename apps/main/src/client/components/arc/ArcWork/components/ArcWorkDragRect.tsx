@@ -38,14 +38,14 @@ export function ArcWorkDragRect({ style }: ArcWorkDragRectProps) {
 export function createDragRectRenderCallback(
   customRenderer?: DragRectRenderCallback
 ): DragRectRenderCallback {
-  return (rect) => {
+  return (content, node, json) => {
     // 커스텀 렌더러가 있으면 사용
     if (customRenderer) {
-      return customRenderer(rect);
+      return customRenderer(content, node, json);
     }
 
-    // 기본 ArcWorkDragRect 렌더링
-    return <ArcWorkDragRect style={rect} />;
+    // 기본 content를 그대로 반환 (flexlayout-react가 내부적으로 스타일을 관리)
+    return content;
   };
 }
 

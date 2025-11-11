@@ -58,7 +58,7 @@ export interface ArcYouChatRoomListItemProps {
   menuOptions?: ArcYouChatRoomMenuOption[];
 }
 
-function ArcYouChatRoomListItem({
+export function ArcYouChatRoomListItem({
   title,
   description,
   icon,
@@ -128,32 +128,6 @@ function ArcYouChatRoomListItem({
           </DropdownMenu>
         )}
       </div>
-    </div>
-  );
-}
-
-export interface ArcYouChatRoomListProps {
-  rooms: ArcYouChatRoomListItemProps[];
-  className?: string;
-}
-
-export function ArcYouChatRoomList({
-  rooms,
-  className,
-}: ArcYouChatRoomListProps): React.ReactElement {
-  return (
-    <div className={cn('w-full flex flex-col', className)}>
-      {rooms.map((room, index) => (
-        <ArcYouChatRoomListItem
-          key={room.title || index}
-          title={room.title}
-          description={room.description}
-          icon={room.icon}
-          className={room.className}
-          onClick={room.onClick}
-          menuOptions={room.menuOptions}
-        />
-      ))}
     </div>
   );
 }

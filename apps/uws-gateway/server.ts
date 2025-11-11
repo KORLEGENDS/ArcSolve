@@ -63,7 +63,25 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 
 // ====== SCHEMA ======
 
-const participantRoleEnum = pgEnum('participant_role', ['member', 'admin']);
+const userChatMemberRoleEnum = pgEnum('user_chat_member_role', [
+  'owner',
+  'manager',
+  'participant',
+]);
+
+const userChatMessageTypeEnum = pgEnum('user_chat_message_type', [
+  'text',
+  'image',
+  'file',
+  'system',
+]);
+
+const userChatMessageStatusEnum = pgEnum('user_chat_message_status', [
+  'sent',
+  'delivered',
+  'read',
+  'deleted',
+]);
 
 const outboxStatusEnum = pgEnum('outbox_status', [
   'pending',
@@ -72,32 +90,66 @@ const outboxStatusEnum = pgEnum('outbox_status', [
   'dead',
 ]);
 
-const messages = pgTable('messages', {
-  id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
-
-  conversationId: uuid('conversation_id').notNull(),
-
-  senderId: uuid('sender_id').notNull(),
-
-  body: jsonb('body').notNull(),
-
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+const userChatRooms = pgTable('user_chat_rooms', {
+  id: uuid('id')
+    .primaryKey()
+    .notNull()
+    .defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  lastMessageId: bigint('last_message_id', { mode: 'number' }),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
 });
 
-const participants = pgTable(
-  'participants',
+const userChatMessages = pgTable('user_chat_messages', {
+  id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
+
+  roomId: uuid('room_id')
+    .notNull()
+    .references(() => userChatRooms.id, { onDelete: 'cascade' }),
+
+  userId: uuid('user_id').notNull(),
+
+  type: userChatMessageTypeEnum('type').default('text').notNull(),
+
+  content: jsonb('content').notNull(),
+
+  replyToMessageId: bigint('reply_to_message_id', { mode: 'number' }),
+
+  status: userChatMessageStatusEnum('status').default('sent').notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+});
+
+const userChatMembers = pgTable(
+  'user_chat_members',
 
   {
-    conversationId: uuid('conversation_id').notNull(),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => userChatRooms.id, { onDelete: 'cascade' }),
 
     userId: uuid('user_id').notNull(),
 
-    lastReadId: bigint('last_read_id', { mode: 'number' }).default(0).notNull(),
+    role: userChatMemberRoleEnum('role').default('participant').notNull(),
 
-    role: participantRoleEnum('role').default('member').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+
+    lastReadMessageId: bigint('last_read_message_id', { mode: 'number' }),
   },
 
-  (p) => [primaryKey({ columns: [p.conversationId, p.userId] })],
+  (p) => [primaryKey({ columns: [p.roomId, p.userId] })],
 );
 
 const outbox = pgTable('outbox', {
@@ -105,9 +157,9 @@ const outbox = pgTable('outbox', {
 
   type: text('type').notNull(), // e.g., 'message.created'
 
-  conversationId: uuid('conversation_id').notNull(),
+  roomId: uuid('room_id').notNull(),
 
-  payload: jsonb('payload').notNull(), // should include conversationId & message
+  payload: jsonb('payload').notNull(), // should include roomId & message
 
   status: outboxStatusEnum('status').default('pending').notNull(),
 
@@ -125,7 +177,9 @@ const outbox = pgTable('outbox', {
 
   error: text('error'),
 
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .default(sql`NOW()`)
+    .notNull(),
 });
 
 // ====== PG / Drizzle ======
@@ -140,7 +194,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 
-const db = drizzle(pool, { schema: { messages, participants, outbox } });
+const db = drizzle(pool, { schema: { userChatRooms, userChatMessages, userChatMembers, outbox } });
 
 // ====== Redis ======
 
@@ -177,7 +231,7 @@ const wss = new WebSocketServer({ server });
 type ClientInfo = {
   userId?: string;
 
-  conversationId?: string;
+  roomId?: string;
 
   authenticated?: boolean;
 
@@ -188,7 +242,7 @@ type ClientInfo = {
   lastRefillAt: number;
 };
 
-const channelClients = new Map<string, Set<WebSocket>>(); // convId -> sockets
+const channelClients = new Map<string, Set<WebSocket>>(); // roomId -> sockets
 
 const clients = new Map<WebSocket, ClientInfo>();
 
@@ -263,10 +317,10 @@ function safeSend(ws: WebSocket, payload: unknown): void {
   }
 }
 
-// 보강 전송: lastReadId 이후 메시지 n개
+// 보강 전송: lastReadMessageId 이후 메시지 n개
 
 async function backfillSince(
-  conversationId: string,
+  roomId: string,
 
   userId: string,
 
@@ -275,52 +329,54 @@ async function backfillSince(
   Array<{
     id: number;
 
-    senderId: string;
+    userId: string;
 
-    body: unknown;
+    content: unknown;
 
     createdAt: Date | null;
   }>
 > {
-  // 참가자 레코드 확보
+  // 멤버 레코드 확보
 
   const p = await db
     .select()
 
-    .from(participants)
+    .from(userChatMembers)
 
     .where(
       and(
-        eq(participants.conversationId, conversationId),
-        eq(participants.userId, userId),
+        eq(userChatMembers.roomId, roomId),
+        eq(userChatMembers.userId, userId),
+        sql`${userChatMembers.deletedAt} IS NULL`,
       ),
     )
 
     .limit(1);
 
-  const lastRead = p[0]?.lastReadId ?? 0;
+  const lastRead = p[0]?.lastReadMessageId ?? 0;
 
   const rows = await db
     .select({
-      id: messages.id,
+      id: userChatMessages.id,
 
-      senderId: messages.senderId,
+      userId: userChatMessages.userId,
 
-      body: messages.body,
+      content: userChatMessages.content,
 
-      createdAt: messages.createdAt,
+      createdAt: userChatMessages.createdAt,
     })
 
-    .from(messages)
+    .from(userChatMessages)
 
     .where(
       and(
-        eq(messages.conversationId, conversationId),
-        gt(messages.id, lastRead),
+        eq(userChatMessages.roomId, roomId),
+        gt(userChatMessages.id, lastRead),
+        sql`${userChatMessages.deletedAt} IS NULL`,
       ),
     )
 
-    .orderBy(messages.id)
+    .orderBy(userChatMessages.id)
 
     .limit(limit);
 
@@ -339,13 +395,13 @@ wss.on('connection', (ws: WebSocket) => {
   ws.on('close', () => {
     const ci = clients.get(ws);
 
-    if (ci?.conversationId) {
-      const set = channelClients.get(ci.conversationId);
+    if (ci?.roomId) {
+      const set = channelClients.get(ci.roomId);
 
       if (set) {
         set.delete(ws);
 
-        if (set.size === 0) channelClients.delete(ci.conversationId);
+        if (set.size === 0) channelClients.delete(ci.roomId);
       }
     }
 
@@ -412,26 +468,27 @@ wss.on('connection', (ws: WebSocket) => {
     // ---- JOIN ----
 
     if (msg.op === 'join') {
-      const conversationId = msg.conversation_id || msg.conversationId;
+      const roomId = msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId;
 
-      if (!conversationId)
+      if (!roomId)
         return safeSend(ws, {
           op: 'join',
           success: false,
-          error: 'conversation_id required',
+          error: 'room_id required',
         });
 
-      // 참가자 검증
+      // 멤버 검증
 
       const p = await db
         .select()
 
-        .from(participants)
+        .from(userChatMembers)
 
         .where(
           and(
-            eq(participants.conversationId, conversationId),
-            eq(participants.userId, ci.userId),
+            eq(userChatMembers.roomId, roomId),
+            eq(userChatMembers.userId, ci.userId),
+            sql`${userChatMembers.deletedAt} IS NULL`,
           ),
         )
 
@@ -441,38 +498,38 @@ wss.on('connection', (ws: WebSocket) => {
         return safeSend(ws, {
           op: 'join',
           success: false,
-          error: 'Forbidden: not a participant',
+          error: 'Forbidden: not a member',
         });
 
       // 이전 채널 제거
 
-      if (ci.conversationId) {
-        const old = channelClients.get(ci.conversationId);
+      if (ci.roomId) {
+        const old = channelClients.get(ci.roomId);
 
         if (old) {
           old.delete(ws);
 
-          if (old.size === 0) channelClients.delete(ci.conversationId);
+          if (old.size === 0) channelClients.delete(ci.roomId);
         }
       }
 
       // 새 채널 등록
 
-      ci.conversationId = conversationId;
+      ci.roomId = roomId;
 
-      if (!channelClients.has(conversationId))
-        channelClients.set(conversationId, new Set());
+      if (!channelClients.has(roomId))
+        channelClients.set(roomId, new Set());
 
-      channelClients.get(conversationId)!.add(ws);
+      channelClients.get(roomId)!.add(ws);
 
       // 합류 OK
 
-      safeSend(ws, { op: 'join', success: true, conversation_id: conversationId });
+      safeSend(ws, { op: 'join', success: true, room_id: roomId });
 
       // 보강 전송
 
       try {
-        const missed = await backfillSince(conversationId, ci.userId, MAX_MSGS_ON_JOIN);
+        const missed = await backfillSince(roomId, ci.userId, MAX_MSGS_ON_JOIN);
 
         for (const m of missed) {
           safeSend(ws, {
@@ -480,14 +537,14 @@ wss.on('connection', (ws: WebSocket) => {
 
             type: 'message.created',
 
-            conversationId,
+            roomId,
 
             message: {
               id: m.id,
 
-              sender_id: m.senderId,
+              user_id: m.userId,
 
-              body: m.body,
+              content: m.content,
 
               created_at: m.createdAt ? m.createdAt.toISOString() : undefined,
             },
@@ -507,42 +564,43 @@ wss.on('connection', (ws: WebSocket) => {
     // ---- SEND ----
 
     if (msg.op === 'send') {
-      const conversationId =
-        msg.conversation_id || msg.conversationId || ci.conversationId;
+      const roomId =
+        msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId || ci.roomId;
 
-      const body = msg.body;
+      const content = msg.content || msg.body;
 
       const tempId = msg.temp_id;
 
-      if (!conversationId)
+      if (!roomId)
         return safeSend(ws, {
           op: 'send',
           success: false,
-          error: 'conversation_id required',
+          error: 'room_id required',
         });
 
-      if (body == null)
-        return safeSend(ws, { op: 'send', success: false, error: 'body required' });
+      if (content == null)
+        return safeSend(ws, { op: 'send', success: false, error: 'content required' });
 
       // 간단한 크기 제한
 
-      const estBytes = Buffer.byteLength(JSON.stringify(body));
+      const estBytes = Buffer.byteLength(JSON.stringify(content));
 
       if (estBytes > MAX_BODY_BYTES) {
-        return safeSend(ws, { op: 'send', success: false, error: 'body too large' });
+        return safeSend(ws, { op: 'send', success: false, error: 'content too large' });
       }
 
-      // 참가자 검증
+      // 멤버 검증
 
       const isP = await db
         .select()
 
-        .from(participants)
+        .from(userChatMembers)
 
         .where(
           and(
-            eq(participants.conversationId, conversationId),
-            eq(participants.userId, ci.userId),
+            eq(userChatMembers.roomId, roomId),
+            eq(userChatMembers.userId, ci.userId),
+            sql`${userChatMembers.deletedAt} IS NULL`,
           ),
         )
 
@@ -552,42 +610,53 @@ wss.on('connection', (ws: WebSocket) => {
         return safeSend(ws, {
           op: 'send',
           success: false,
-          error: 'Forbidden: not a participant',
+          error: 'Forbidden: not a member',
         });
 
-      // 트랜잭션: messages + outbox(pending)
+      // 트랜잭션: userChatMessages + outbox(pending)
 
       try {
         const result = await db.transaction(async (tx) => {
           const [m] = await tx
-            .insert(messages)
+            .insert(userChatMessages)
 
-            .values({ conversationId, senderId: ci.userId!, body: body as any })
+            .values({ 
+              roomId, 
+              userId: ci.userId!, 
+              type: 'text',
+              content: content as any 
+            })
 
             .returning();
 
-          if (!m) throw new Error('insert messages failed');
+          if (!m) throw new Error('insert userChatMessages failed');
+
+          // lastMessageId 업데이트
+          await tx
+            .update(userChatRooms)
+            .set({ lastMessageId: m.id, updatedAt: new Date() })
+            .where(eq(userChatRooms.id, roomId));
 
           // outbox payload는 게이트웨이가 그대로 팬아웃 가능한 형태
 
           await tx.insert(outbox).values({
             type: 'message.created',
 
-            conversationId,
+            roomId,
 
             payload: {
               op: 'event',
 
               type: 'message.created',
 
-              conversationId,
+              roomId,
 
               message: {
                 id: m.id,
 
-                sender_id: ci.userId,
+                user_id: ci.userId,
 
-                body,
+                content,
 
                 created_at: m.createdAt?.toISOString(),
 
@@ -629,41 +698,41 @@ wss.on('connection', (ws: WebSocket) => {
     // ---- ACK (선택) : 읽은 위치 갱신 ----
 
     if (msg.op === 'ack') {
-      const conversationId =
-        msg.conversation_id || msg.conversationId || clients.get(ws)?.conversationId;
+      const roomId =
+        msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId || clients.get(ws)?.roomId;
 
-      const lastReadId = Number(msg.last_read_id);
+      const lastReadMessageId = Number(msg.last_read_message_id || msg.last_read_id);
 
-      if (!conversationId || !Number.isFinite(lastReadId)) {
+      if (!roomId || !Number.isFinite(lastReadMessageId)) {
         return safeSend(ws, {
           op: 'ack',
           success: false,
-          error: 'conversation_id & last_read_id required',
+          error: 'room_id & last_read_message_id required',
         });
       }
 
       try {
-        // lastReadId를 올릴 때만 업데이트
+        // lastReadMessageId를 올릴 때만 업데이트
 
         await pool.query(
           `
 
-          UPDATE participants
+          UPDATE user_chat_members
 
-          SET last_read_id = GREATEST(last_read_id, $1)
+          SET last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), $1)
 
-          WHERE conversation_id = $2 AND user_id = $3
+          WHERE room_id = $2 AND user_id = $3 AND deleted_at IS NULL
 
         `,
 
-          [lastReadId, conversationId, clients.get(ws)!.userId],
+          [lastReadMessageId, roomId, clients.get(ws)!.userId],
         );
 
         return safeSend(ws, {
           op: 'ack',
           success: true,
-          conversation_id: conversationId,
-          last_read_id: lastReadId,
+          room_id: roomId,
+          last_read_message_id: lastReadMessageId,
         });
       } catch (e) {
         console.error('[ACK] failed:', e);
@@ -696,8 +765,8 @@ if (pubsubMode === 'perconv') {
   });
 }
 
-function broadcastToConversation(conversationId: string, payload: any) {
-  const set = channelClients.get(conversationId);
+function broadcastToRoom(roomId: string, payload: any) {
+  const set = channelClients.get(roomId);
 
   if (!set || set.size === 0) return;
 
@@ -708,9 +777,9 @@ subscriber.on('message', (_channel, message) => {
   try {
     const data = JSON.parse(message);
 
-    const conversationId: string | undefined = data.conversationId;
+    const roomId: string | undefined = data.roomId || data.conversationId;
 
-    if (!conversationId) return;
+    if (!roomId) return;
 
     const payload = {
       ...data,
@@ -720,7 +789,7 @@ subscriber.on('message', (_channel, message) => {
       source: 'live',
     };
 
-    broadcastToConversation(conversationId, payload);
+    broadcastToRoom(roomId, payload);
   } catch (e) {
     console.error('[Redis] message parse error:', e);
   }
@@ -730,22 +799,22 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
   try {
     const data = JSON.parse(message);
 
-    const conversationId: string =
-      data.conversationId || channel.replace(/^conv:/, '');
+    const roomId: string =
+      data.roomId || data.conversationId || channel.replace(/^conv:/, '');
 
-    if (!conversationId) return;
+    if (!roomId) return;
 
     const payload = {
       ...data,
 
-      conversationId,
+      roomId,
 
       timestamp: new Date().toISOString(),
 
       source: 'live',
     };
 
-    broadcastToConversation(conversationId, payload);
+    broadcastToRoom(roomId, payload);
   } catch (e) {
     console.error('[Redis] pmessage parse error:', e);
   }

@@ -4,7 +4,8 @@
     "**/next-env.d.ts": true,
     "**/pnpm-lock.yaml": true,
     "**/tsconfig.tsbuildinfo": true,
-    "**/postcss.config.mjs": true
+    "**/postcss.config.mjs": true,
+    "**/dist": true,
   }
 }
 

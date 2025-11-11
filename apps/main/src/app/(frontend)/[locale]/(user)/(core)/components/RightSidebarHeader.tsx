@@ -1,6 +1,6 @@
 'use client';
 
-import { ArcUser, type ArcUserMenuItem } from '@/client/components/arc/ArcUser';
+import { ArcUserMenu, type ArcUserMenuItem } from '@/client/components/arc/ArcUser';
 import * as React from 'react';
 
 // 사용자 프로필 타입 정의
@@ -99,7 +99,7 @@ export function RightSidebarHeader() {
   );
 
   return (
-    <ArcUser
+    <ArcUserMenu
       title={selectedProfile.name}
       description={selectedProfile.description}
       menuItems={menuItems}

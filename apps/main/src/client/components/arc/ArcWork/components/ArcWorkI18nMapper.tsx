@@ -13,12 +13,12 @@ export type I18nMapper = (id: I18nLabel, param?: string) => string | undefined;
  */
 export function defaultI18nMapper(id: I18nLabel, param?: string): string | undefined {
   // 기본 라벨 매핑
-  const labels: Partial<Record<I18nLabel, string>> = {
+  // I18nLabel은 enum이지만, 실제로는 enum의 값(문자열)을 키로 사용합니다
+  const labels: Record<string, string> = {
     Close: '닫기',
-    Maximize: '최대화',
-    Minimize: '최소화',
-    Restore: '복원',
-    FloatTab: '탭 분리',
+    'Maximize tab set': '최대화',
+    'Restore tab set': '복원',
+    'Popout selected tab': '탭 분리',
     'Dock to': '도킹',
     'Dock to Left': '왼쪽에 도킹',
     'Dock to Right': '오른쪽에 도킹',
@@ -50,7 +50,6 @@ export function defaultI18nMapper(id: I18nLabel, param?: string): string | undef
     'Move Tab to Bottom Tabset': '아래 탭셋으로 이동',
     'Move Tab to Center Tabset': '중앙 탭셋으로 이동',
     'Move Tab to New Tabset': '새 탭셋으로 이동',
-    'Move Tab to New Window': '새 창으로 이동',
     'Move Tab to New Popout': '새 팝아웃으로 이동',
     'Move Tab to New Floating Window': '새 플로팅 창으로 이동',
     'Move Tab to New Dock Window': '새 도킹 창으로 이동',
@@ -68,6 +67,7 @@ export function defaultI18nMapper(id: I18nLabel, param?: string): string | undef
     'Move Tab to New Border Center': '새 중앙 보더로 이동',
   };
 
+  // I18nLabel enum의 값(문자열)을 키로 사용
   return labels[id] || id;
 }
 
