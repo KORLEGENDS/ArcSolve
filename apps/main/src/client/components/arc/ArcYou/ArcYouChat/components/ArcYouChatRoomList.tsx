@@ -25,10 +25,9 @@ export function ArcYouChatRoomList({
   return (
     <div className={cn('w-full flex flex-col', className)}>
       {rooms.map((room) => {
-        const id = `chat:room:${room.id}`;
+        const id = room.id;
         const type = 'arcyou-chat-room';
         const name = room.name;
-        const content = { roomId: room.id };
 
         return (
           <div
@@ -36,10 +35,10 @@ export function ArcYouChatRoomList({
             draggable
             onDragStart={(e) => {
               // 통합 드래그 시작(존재 시 move, 미존재 시 add). 레이아웃 미존재 시 내부에서 폴백 처리.
-              startAddTabDrag(e, { id, type, name, content });
+              startAddTabDrag(e, { id, type, name });
             }}
             onDoubleClick={() => {
-              ensureOpen({ id, type, name, content });
+              ensureOpen({ id, type, name });
             }}
           >
             <ArcYouChatRoomListItem

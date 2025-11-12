@@ -50,8 +50,8 @@
   - 응답: `messages[]`, `hasMore`, `nextBefore`
 
 ### 4) 클라이언트 구성
-- ArcWork 연동 (`apps/main/src/app/(frontend)/[locale]/(user)/(core)/components/ArcWorkWithChatRoom.tsx`)
-  - FlexLayout 탭의 `node.getConfig().content.roomId`를 읽어 `<ArcYouChatRoom id={roomId} />` 렌더
+- ArcWork 연동 (`apps/main/src/app/(frontend)/[locale]/(user)/(core)/components/ArcWorkContent.tsx`)
+  - FlexLayout 탭의 `node.getId()`를 직접 사용하여 `<ArcYouChatRoom id={node.getId()} />` 렌더
 
 - ArcYouChatRoom (`apps/main/src/client/components/arc/ArcYou/ArcYouChat/ArcYouChatRoom.tsx`)
   - props: `{ id: string }`

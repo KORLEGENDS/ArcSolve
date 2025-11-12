@@ -23,7 +23,6 @@ export interface ServiceOpenTabInput {
   id: string;
   type: string; // component key
   name?: string;
-  content?: unknown;
   tabsetId?: string;
 }
 
@@ -169,7 +168,6 @@ export const useServiceStore = create<ServiceLayoutStore>()(
         id: input.id,
         name: input.name ?? input.id,
         component: input.type,
-        config: { content: input.content },
       };
       model.doAction(
         Actions.addNode(json, toTabsetId!, DockLocation.CENTER, -1, true)
@@ -220,7 +218,6 @@ export const useServiceStore = create<ServiceLayoutStore>()(
             id: payload.id,
             name: payload.name ?? payload.id,
             component: payload.type,
-            config: { content: payload.content },
           };
           return {
             json,
@@ -243,7 +240,6 @@ export const useServiceStore = create<ServiceLayoutStore>()(
               id: input.id,
               type: input.type,
               name: input.name ?? input.id,
-              content: input.content,
             });
             dt.setData('application/x-arcservice', json);
             dt.setData('text/plain', json);
@@ -269,7 +265,6 @@ export const useServiceStore = create<ServiceLayoutStore>()(
         id: input.id,
         name: input.name ?? input.id,
         component: input.type,
-        config: { content: input.content },
       };
       layout.addTabWithDragAndDrop(nativeEvent as any, json);
       return true;
@@ -338,7 +333,7 @@ export function setArcServiceDragData(
 ) {
   const dt = (event as DragEvent).dataTransfer || (event as React.DragEvent<HTMLElement>).dataTransfer;
   if (!dt) return;
-  const json = JSON.stringify({ id: data.id, type: data.type, name: data.name, content: data.content });
+  const json = JSON.stringify({ id: data.id, type: data.type, name: data.name });
   try {
     dt.setData('application/x-arcservice', json);
   } catch {

@@ -62,11 +62,9 @@ export function ArcUserProfile({
       // 기본 동작 (필요시 수정)
       switch (value) {
         case 'settings':
-          console.log('환경설정 클릭');
           // TODO: 환경설정 페이지로 이동
           break;
         case 'help':
-          console.log('도움말 클릭');
           // TODO: 도움말 페이지로 이동
           break;
         default:

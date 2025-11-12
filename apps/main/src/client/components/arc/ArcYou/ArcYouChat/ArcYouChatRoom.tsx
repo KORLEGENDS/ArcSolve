@@ -68,29 +68,25 @@ export function ArcYouChatRoom({
     let ws: WebSocket | null = null;
     (async () => {
       try {
-        console.log('[ArcYouChatRoom] fetching token for room', { roomId: id });
         const r = await fetch('/api/arcyou/chat/ws/token', { method: 'GET' });
         if (!r.ok) {
-          console.error('[ArcYouChatRoom] token fetch failed', { status: r.status });
           return;
         }
         const { token } = (await r.json()) as { token: string };
-        console.log('[ArcYouChatRoom] token fetched ok');
         if (closed) return;
         ws = new WebSocket(wsUrl);
         socketRef.current = ws;
 
         ws.addEventListener('open', () => {
-          console.log('[ArcYouChatRoom] ws open, sending auth');
           ws?.send(JSON.stringify({ op: 'auth', token }));
         });
 
         ws.addEventListener('error', (err) => {
-          console.error('[ArcYouChatRoom] ws error', err);
+          // error handling
         });
 
         ws.addEventListener('close', (ev) => {
-          console.warn('[ArcYouChatRoom] ws close', { code: ev.code, reason: ev.reason });
+          // close handling
         });
 
         ws.addEventListener('message', (ev) => {
@@ -98,7 +94,6 @@ export function ArcYouChatRoom({
             const data = JSON.parse(ev.data as string) as any;
             if (data.op === 'auth') {
               if (data.success && data.userId) {
-                console.log('[ArcYouChatRoom] auth ok', { userId: data.userId });
                 setCurrentUserId(String(data.userId));
                 isAuthedRef.current = true;
                 // 선히스토리 로드 (최신 N개) 후 join → backfill로 겹쳐도 dedupe 처리
@@ -111,7 +106,6 @@ export function ArcYouChatRoom({
                         data?: { messages?: Array<{ id: number; userId: string; content: unknown; createdAt?: string }> };
                       };
                       const items = body?.data?.messages ?? [];
-                      console.log('[ArcYouChatRoom] initial history fetched', { count: items.length });
                       if (items.length > 0) {
                         // 서버는 DESC 반환 → ASC로 정렬하여 앞쪽에 배치
                         const asc = [...items].reverse();
@@ -149,17 +143,11 @@ export function ArcYouChatRoom({
             }
             if (data.op === 'join') {
               // 성공/실패 UI는 필요 시 확장
-              console.log('[ArcYouChatRoom] join response', data);
               isJoinedRef.current = !!data?.success;
               setReady(!!data?.success);
               return;
             }
             if (data.op === 'event' && data.type === 'message.created' && data.roomId === id) {
-              console.log('[ArcYouChatRoom] event message.created', {
-                id: data.message?.id,
-                user: data.message?.user_id,
-                source: data.source,
-              });
               const contentText = toDisplayText(data.message?.content);
               const createdAt = data.message?.created_at ?? new Date().toISOString();
               const tempId = data.message?.temp_id as string | undefined;
@@ -218,7 +206,6 @@ export function ArcYouChatRoom({
             }
             if (data.op === 'send') {
               const res = data as { success: boolean; message_id?: number; temp_id?: string };
-              console.log('[ArcYouChatRoom] send ack', res);
               if (!res.temp_id) return;
               const idx = pendingMapRef.current[res.temp_id];
               if (typeof idx !== 'number') return;
@@ -244,7 +231,6 @@ export function ArcYouChatRoom({
               return;
             }
             if (data.op === 'error') {
-              console.warn('[ArcYouChatRoom] ws payload error', data);
               return;
             }
           } catch {
@@ -252,7 +238,7 @@ export function ArcYouChatRoom({
           }
         });
       } catch (e) {
-        console.error('[ArcYouChatRoom] ws/token or socket error', e);
+        // error handling
       }
     })();
 
@@ -290,16 +276,11 @@ export function ArcYouChatRoom({
     if (messageValue.trim()) {
       const ws = socketRef.current;
       if (!isAuthedRef.current || !isJoinedRef.current) {
-        console.warn('[ArcYouChatRoom] blocked send until ready', {
-          authed: isAuthedRef.current,
-          joined: isJoinedRef.current,
-        });
         setMessage('');
         return;
       }
       if (ws && ws.readyState === WebSocket.OPEN) {
         const tempId = `temp-${Date.now()}`;
-        console.log('[ArcYouChatRoom] sending message', { tempId, text: messageValue.slice(0, 120) });
         const optimistic: ArcyouChatMessage = {
           id: tempId,
           roomId: id,

@@ -30,10 +30,8 @@ export async function GET(
       return error('BAD_REQUEST', 'limit은 양의 정수여야 합니다.');
     }
 
-    console.log('[GET messages] params', { userId, roomId, beforeId, limit });
     const repo = new ArcyouChatMessageRepository();
     const rows = await repo.listByRoomId(userId, roomId, { beforeId, limit });
-    console.log('[GET messages] result', { count: rows.length, minId: rows.at(-1)?.id, maxId: rows[0]?.id });
 
     // 최신 우선으로 반환되므로 클라이언트에서 필요시 역순 정렬 가능
     const hasMore = rows.length === Math.min(Math.max(limit ?? 50, 1), 200);
@@ -60,7 +58,6 @@ export async function GET(
     if (err?.code === 'FORBIDDEN') {
       return error('FORBIDDEN', '권한이 없습니다.');
     }
-    console.error('[GET /api/arcyou/chat/room/[roomId]/messages] Error:', err);
     return error('INTERNAL', '메시지 조회 중 오류가 발생했습니다.');
   }
 }
