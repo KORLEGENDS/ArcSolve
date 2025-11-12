@@ -7,6 +7,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { arcyouChatRooms } from './arcyou-chat-room-drizzle';
+import { users } from './user-drizzle';
 
 export const arcyouChatMemberRoleEnum = pgEnum('arcyou_chat_member_role', [
   'owner',
@@ -20,7 +21,9 @@ export const arcyouChatMembers = pgTable(
     roomId: uuid('room_id')
       .notNull()
       .references(() => arcyouChatRooms.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     role: arcyouChatMemberRoleEnum('role')
       .default('participant')
       .notNull(),

@@ -164,7 +164,16 @@ export const serverEnvSchema = z
       .default(10 * 60 * 1000)
       .optional(),
     // ===== Gateway JWT (WS 인증용) =====
-    [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.PRIVATE_KEY]: z.string().min(1).optional(),
+    [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.PRIVATE_KEY]: z
+      .string()
+      .min(100, 'RSA private key must be at least 100 characters')
+      .refine(
+        (val) => val.includes('BEGIN') && val.includes('PRIVATE KEY'),
+        {
+          message: 'GATEWAY_JWT_PRIVATE_KEY must be a valid PEM format RSA private key',
+        }
+      )
+      .optional(),
     [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.ISSUER]: z.string().min(1).optional(),
     [ENV_KEYS.SERVER.SERVICES.GATEWAY.JWT.AUDIENCE]: z.string().min(1).optional(),
   })
