@@ -8,6 +8,7 @@ import {
     uuid
 } from 'drizzle-orm/pg-core';
 import { arcyouChatRooms } from './arcyou-chat-room-drizzle';
+import { users } from './user-drizzle';
 
 export const arcyouChatMessageTypeEnum = pgEnum('arcyou_chat_message_type', [
   'text',
@@ -28,7 +29,9 @@ export const arcyouChatMessages = pgTable('arcyou_chat_messages', {
   roomId: uuid('room_id')
     .notNull()
     .references(() => arcyouChatRooms.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   type: arcyouChatMessageTypeEnum('type').default('text').notNull(),
   content: jsonb('content').notNull(),
   replyToMessageId: bigint('reply_to_message_id', { mode: 'number' })
