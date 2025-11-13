@@ -13,7 +13,6 @@ export const PUBLIC_PATHS = ['/login', '/docs', '/components', '/default'] as co
 
 export const PUBLIC_API_PATHS = [
   '/api/auth',
-  '/api/cron',
   '/api/auth/oauth/token',
   '/api/auth/oauth/revoke',
 ] as const;

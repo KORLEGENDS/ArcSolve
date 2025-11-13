@@ -27,9 +27,6 @@ export const ENV_KEYS = {
       },
     },
     PAYMENTS: {
-      TOSS: {
-        CLIENT_KEY: 'NEXT_PUBLIC_TOSS_CLIENT_KEY',
-      },
       ORDER: {
         ORDER_ID_TTL_MS: 'NEXT_PUBLIC_ORDER_ID_TTL_MS',
       },
@@ -84,12 +81,6 @@ export const ENV_KEYS = {
       },
     },
     SERVICES: {
-      CRON: {
-        SECRET: 'CRON_SECRET',
-      },
-      SCHEDULER: {
-        ENABLED: 'SCHEDULER_ENABLED',
-      },
       ARC: {
         URL: 'ARC_SERVICE_URL',
         TIMEOUT: 'ARC_SERVICE_TIMEOUT',
@@ -107,16 +98,7 @@ export const ENV_KEYS = {
           MODEL_ALIAS: 'CHAT_MODEL_ALIAS',
         },
       },
-      MEM0: {
-        PGV_COLLECTION: 'MEM0_PGV_COLLECTION',
-        EMBEDDING_DIMS: 'MEM0_EMBEDDING_DIMS',
-      },
       PAYMENTS: {
-        TOSS: {
-          SECRET_KEY: 'TOSS_SECRET_KEY',
-          API_BASE: 'TOSS_API_BASE',
-          WEBHOOK_SECRET: 'TOSS_WEBHOOK_SECRET',
-        },
         ORDER: {
           SIGNING_SECRET: 'ORDER_SIGNING_SECRET',
           ORDER_ID_TTL_MS: 'ORDER_ID_TTL_MS',

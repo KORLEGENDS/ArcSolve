@@ -122,9 +122,6 @@ export const serverEnvSchema = z
       .optional(),
     [ENV_KEYS.SERVER.SERVICES.ARC.API_KEY]: z.string().min(1).optional(), // 서비스 간 인증용 API 키
 
-    // ===== Cron / Scheduler 설정 =====
-    [ENV_KEYS.SERVER.SERVICES.CRON.SECRET]: z.string().min(16).optional(),
-    [ENV_KEYS.SERVER.SERVICES.SCHEDULER.ENABLED]: z.coerce.boolean().default(false).optional(),
 
     // ===== AI Providers / Routing =====
     [ENV_KEYS.SERVER.SERVICES.AI.OPENAI.API_KEY]: z.string().min(1).optional(),
@@ -134,24 +131,6 @@ export const serverEnvSchema = z
       .enum(['chat.low', 'chat.medium', 'chat.high', 'note.default', 'summary.default'])
       .optional(),
     
-    // ===== Mem0 (Memory Management) =====
-    [ENV_KEYS.SERVER.SERVICES.MEM0.PGV_COLLECTION]: z.string().optional(),
-    [ENV_KEYS.SERVER.SERVICES.MEM0.EMBEDDING_DIMS]: z.coerce.number().default(1536).optional(),
-
-    // ===== Payments (Toss) =====
-    [ENV_KEYS.SERVER.SERVICES.PAYMENTS.TOSS.SECRET_KEY]: z
-      .string()
-      .min(1)
-      .optional(),
-    [ENV_KEYS.SERVER.SERVICES.PAYMENTS.TOSS.API_BASE]: z
-      .string()
-      .url()
-      .optional(),
-    [ENV_KEYS.SERVER.SERVICES.PAYMENTS.TOSS.WEBHOOK_SECRET]: z
-      .string()
-      .min(1)
-      .optional(),
-
     // ===== Payments (Order Signing - Stateless) =====
     [ENV_KEYS.SERVER.SERVICES.PAYMENTS.ORDER.SIGNING_SECRET]: z
       .string()

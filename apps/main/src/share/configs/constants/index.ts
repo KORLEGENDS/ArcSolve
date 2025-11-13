@@ -6,6 +6,5 @@ export * from './path-constants';
 
 // 서버 전용 네임스페이스도 필요한 심볼만 재노출하여 사용 편의 제공
 export { CACHE_TTL, CacheKey, RATE_LIMIT } from './server/cache-constants';
-export * from './server/extension-constants';
 
 
