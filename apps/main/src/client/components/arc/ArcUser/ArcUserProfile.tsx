@@ -1,16 +1,17 @@
 'use client';
 
-import { ChevronDown, HelpCircle, Settings } from 'lucide-react';
+import { ChevronDown, HelpCircle, LogOut, Settings } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import * as React from 'react';
 
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { cn } from '@/client/components/ui/utils';
+import { useLogoutWithCacheClear } from '@/share/api/client/useAuth';
 
 import { ArcUserItem } from './components/ArcUserItem';
 
@@ -47,6 +48,11 @@ const DEFAULT_MENU_ITEMS: ArcUserProfileMenuItem[] = [
     value: 'help',
     description: '도움말을 확인합니다',
   },
+  {
+    label: '로그아웃',
+    value: 'logout',
+    description: '계정에서 로그아웃합니다',
+  },
 ];
 
 export function ArcUserProfile({
@@ -55,6 +61,7 @@ export function ArcUserProfile({
   onMenuItemSelect,
 }: ArcUserProfileProps) {
   const { data: session } = useSession();
+  const logout = useLogoutWithCacheClear();
 
   const handleMenuItemClick = React.useCallback(
     (value: string) => {
@@ -67,11 +74,14 @@ export function ArcUserProfile({
         case 'help':
           // TODO: 도움말 페이지로 이동
           break;
+        case 'logout':
+          void logout();
+          break;
         default:
           break;
       }
     },
-    [onMenuItemSelect]
+    [onMenuItemSelect, logout]
   );
 
   const getMenuItemIcon = React.useCallback((value: string) => {
@@ -80,6 +90,8 @@ export function ArcUserProfile({
         return <Settings className="size-4 text-muted-foreground" />;
       case 'help':
         return <HelpCircle className="size-4 text-muted-foreground" />;
+      case 'logout':
+        return <LogOut className="size-4 text-muted-foreground" />;
       default:
         return null;
     }
