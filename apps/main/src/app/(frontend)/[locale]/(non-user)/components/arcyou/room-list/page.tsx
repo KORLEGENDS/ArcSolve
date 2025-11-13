@@ -18,7 +18,8 @@ export default function ArcYouChatRoomListDemoPage() {
 
   const rooms: ArcYouChatRoomListItemProps[] = [
     {
-      title: '친구 1',
+      id: 'room-1',
+      name: '친구 1',
       description: '부럽네요 😊',
       menuOptions: [
         {
@@ -37,7 +38,8 @@ export default function ArcYouChatRoomListDemoPage() {
       ],
     },
     {
-      title: '친구 2',
+      id: 'room-2',
+      name: '친구 2',
       description: '네, 안녕하세요!',
       menuOptions: [
         {
@@ -56,7 +58,8 @@ export default function ArcYouChatRoomListDemoPage() {
       ],
     },
     {
-      title: '프로젝트 팀',
+      id: 'room-3',
+      name: '프로젝트 팀',
       description: '프로젝트 진행 상황 공유드립니다.',
       menuOptions: [
         {
@@ -75,7 +78,8 @@ export default function ArcYouChatRoomListDemoPage() {
       ],
     },
     {
-      title: '메뉴 없는 채팅방',
+      id: 'room-4',
+      name: '메뉴 없는 채팅방',
       description: '메뉴 옵션이 없는 경우입니다.',
     },
   ];

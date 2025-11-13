@@ -15,6 +15,8 @@ const buttonVariants = cva(
           'point-gradient',
         brand:
           'bg-brand text-brand-foreground hover:bg-brand/90 active:bg-brand/80 shadow-xs',
+        outline:
+          'border border-border bg-background hover:bg-accent hover:text-accent-foreground',
       },
       layout: {
         default: '',

@@ -1,7 +1,7 @@
 'use client';
 
 import { Sidebar } from '@/client/components/arc/ArcSide';
-import { SidebarProvider } from '@/client/components/arc/ArcSide/components';
+import { SidebarProvider } from '@/client/components/arc/ArcSide/components/core';
 
 export default function ArcSideDemoPage() {
   return (

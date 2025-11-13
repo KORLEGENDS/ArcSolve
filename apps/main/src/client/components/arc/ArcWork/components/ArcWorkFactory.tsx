@@ -11,6 +11,11 @@ export interface ArcWorkFactoryProps {
 }
 
 /**
+ * 팩토리 함수 타입
+ */
+export type ArcWorkFactory = (node: TabNode) => React.ReactNode;
+
+/**
  * 기본 팩토리 함수
  */
 export function defaultArcWorkFactory(node: TabNode): React.ReactNode {

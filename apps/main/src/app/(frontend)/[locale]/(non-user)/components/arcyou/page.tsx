@@ -103,7 +103,8 @@ export default function ArcYouDemoPage() {
   // 채팅방 목록 데이터
   const [rooms] = useState<ArcYouChatRoomListItemProps[]>([
     {
-      title: '친구 1',
+      id: 'room-1',
+      name: '친구 1',
       description: '부럽네요 😊',
       onClick: () => setSelectedRoomId('room-1'),
       menuOptions: [
@@ -123,7 +124,8 @@ export default function ArcYouDemoPage() {
       ],
     },
     {
-      title: '친구 2',
+      id: 'room-2',
+      name: '친구 2',
       description: '네, 안녕하세요!',
       onClick: () => setSelectedRoomId('room-2'),
       menuOptions: [
@@ -143,7 +145,8 @@ export default function ArcYouDemoPage() {
       ],
     },
     {
-      title: '프로젝트 팀',
+      id: 'room-3',
+      name: '프로젝트 팀',
       description: '프로젝트 진행 상황 공유드립니다.',
       onClick: () => setSelectedRoomId('room-3'),
       menuOptions: [
@@ -201,11 +204,7 @@ export default function ArcYouDemoPage() {
               </div>
               {/* 우측: 선택된 채팅방 */}
               <div className="flex-1 p-4 border rounded-lg bg-muted/30">
-                <ArcYouChatRoom
-                  messages={currentMessages}
-                  currentUserId="user-1"
-                  onSubmit={handleSubmit}
-                />
+                <ArcYouChatRoom id={selectedRoomId} />
               </div>
             </div>
           </CardContent>

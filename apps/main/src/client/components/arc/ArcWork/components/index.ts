@@ -34,9 +34,9 @@ export { createIconsConfig, defaultArcWorkIcons } from './ArcWorkIcons';
 
 // Factory 관련 컴포넌트
 export {
-  ArcWorkFactory,
   createFactory,
   defaultArcWorkFactory,
+  type ArcWorkFactory,
   type ArcWorkFactoryProps,
 } from './ArcWorkFactory';
 
