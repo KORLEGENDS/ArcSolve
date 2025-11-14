@@ -62,6 +62,30 @@ export interface ArcYouRelationItemProps {
    * 거절 버튼 비활성화 여부
    */
   rejectDisabled?: boolean;
+  /**
+   * 취소 버튼 클릭 핸들러 (pending 상태에서 보낸 요청일 때 표시)
+   */
+  onCancel?: () => void;
+  /**
+   * 취소 버튼 비활성화 여부
+   */
+  cancelDisabled?: boolean;
+  /**
+   * 대화 버튼 클릭 핸들러 (accepted 상태일 때 표시)
+   */
+  onChat?: () => void;
+  /**
+   * 삭제 버튼 클릭 핸들러 (accepted 상태일 때 표시)
+   */
+  onDelete?: () => void;
+  /**
+   * 대화 버튼 비활성화 여부
+   */
+  chatDisabled?: boolean;
+  /**
+   * 삭제 버튼 비활성화 여부
+   */
+  deleteDisabled?: boolean;
 }
 
 /**
@@ -90,9 +114,19 @@ export function ArcYouRelationItem({
   onClick,
   acceptDisabled = false,
   rejectDisabled = false,
+  onCancel,
+  cancelDisabled = false,
+  onChat,
+  onDelete,
+  chatDisabled = false,
+  deleteDisabled = false,
 }: ArcYouRelationItemProps) {
   const isPending = status === 'pending';
-  const showActions = isPending && (onAccept || onReject);
+  const isAccepted = status === 'accepted';
+  const showPendingReceivedActions = isPending && (onAccept || onReject); // 받은 요청: 수락/거절
+  const showPendingSentActions = isPending && onCancel; // 보낸 요청: 취소
+  const showAcceptedActions = isAccepted && (onChat || onDelete);
+  const showActions = showPendingReceivedActions || showPendingSentActions || showAcceptedActions;
 
   const handleAccept = React.useCallback(
     (e: React.MouseEvent) => {
@@ -108,6 +142,30 @@ export function ArcYouRelationItem({
       onReject?.();
     },
     [onReject]
+  );
+
+  const handleCancel = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onCancel?.();
+    },
+    [onCancel]
+  );
+
+  const handleChat = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onChat?.();
+    },
+    [onChat]
+  );
+
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDelete?.();
+    },
+    [onDelete]
   );
 
   return (
@@ -154,28 +212,73 @@ export function ArcYouRelationItem({
         )}
       </div>
 
-      {/* 우측 끝: 수락/거절 버튼 (pending 상태일 때만 표시) */}
+      {/* 우측 끝: 액션 버튼 */}
       {showActions && (
         <div className="shrink-0 flex items-center gap-1.5">
-          {onAccept && (
-            <Button
-              variant="brand"
-              size="sm"
-              onClick={handleAccept}
-              disabled={acceptDisabled}
-            >
-              수락
-            </Button>
+          {/* pending 상태: 받은 요청 - 수락/거절 버튼 */}
+          {showPendingReceivedActions && (
+            <>
+              {onAccept && (
+                <Button
+                  variant="brand"
+                  size="sm"
+                  onClick={handleAccept}
+                  disabled={acceptDisabled}
+                >
+                  수락
+                </Button>
+              )}
+              {onReject && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReject}
+                  disabled={rejectDisabled}
+                >
+                  거절
+                </Button>
+              )}
+            </>
           )}
-          {onReject && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReject}
-              disabled={rejectDisabled}
-            >
-              거절
-            </Button>
+          {/* pending 상태: 보낸 요청 - 취소 버튼 */}
+          {showPendingSentActions && (
+            <>
+              {onCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={cancelDisabled}
+                >
+                  취소
+                </Button>
+              )}
+            </>
+          )}
+          {/* accepted 상태: 대화/삭제 버튼 */}
+          {showAcceptedActions && (
+            <>
+              {onChat && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleChat}
+                  disabled={chatDisabled}
+                >
+                  대화
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleteDisabled}
+                >
+                  삭제
+                </Button>
+              )}
+            </>
           )}
         </div>
       )}

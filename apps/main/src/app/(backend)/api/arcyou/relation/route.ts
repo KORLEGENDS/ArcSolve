@@ -134,3 +134,207 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * PATCH /api/arcyou/relation
+ * 
+ * 친구 요청을 수락, 거절, 또는 취소합니다.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    // 인증 확인
+    const session = await auth();
+    if (!session?.user?.id) {
+      return error('UNAUTHORIZED', '인증이 필요합니다.', {
+        user: session?.user ? { id: session.user.id, email: session.user.email || undefined } : undefined,
+      });
+    }
+
+    const userId = session.user.id;
+
+    // 요청 본문 파싱
+    const body = await request.json().catch(() => ({}));
+    const { requesterUserId, targetUserId, action } = body;
+
+    // action이 'cancel'인 경우 취소 처리
+    if (action === 'cancel') {
+      // 유효성 검사
+      if (!targetUserId || typeof targetUserId !== 'string') {
+        return error('BAD_REQUEST', 'targetUserId는 필수입니다.', {
+          user: { id: userId, email: session.user.email || undefined },
+        });
+      }
+
+      // 자기 자신에게 요청 방지
+      if (userId === targetUserId) {
+        return error('BAD_REQUEST', '자기 자신의 요청을 취소할 수 없습니다.', {
+          user: { id: userId, email: session.user.email || undefined },
+        });
+      }
+
+      // 친구 요청 취소
+      const repository = new ArcyouChatRelationRepository();
+      const relation = await repository.cancelFriendRequest(userId, targetUserId);
+
+      return ok(
+        {
+          relation: {
+            userId: relation.userId,
+            targetUserId: relation.targetUserId,
+            status: relation.status,
+            requestedAt: relation.requestedAt?.toISOString(),
+            respondedAt: relation.respondedAt?.toISOString() || null,
+            blockedAt: relation.blockedAt?.toISOString() || null,
+          },
+        },
+        {
+          user: { id: userId, email: session.user.email || undefined },
+          message: '친구 요청이 성공적으로 취소되었습니다.',
+        }
+      );
+    }
+
+    // 기존 로직: 수락/거절
+    // 유효성 검사
+    if (!requesterUserId || typeof requesterUserId !== 'string') {
+      return error('BAD_REQUEST', '요청자 ID는 필수입니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    if (!action || (action !== 'accept' && action !== 'reject')) {
+      return error('BAD_REQUEST', 'action은 "accept" 또는 "reject"여야 합니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    // 자기 자신에게 요청 방지
+    if (userId === requesterUserId) {
+      return error('BAD_REQUEST', '자기 자신의 요청을 처리할 수 없습니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    // 친구 요청 수락/거절
+    const repository = new ArcyouChatRelationRepository();
+    const relation =
+      action === 'accept'
+        ? await repository.acceptFriendRequest(userId, requesterUserId)
+        : await repository.rejectFriendRequest(userId, requesterUserId);
+
+    return ok(
+      {
+        relation: {
+          userId: relation.userId,
+          targetUserId: relation.targetUserId,
+          status: relation.status,
+          requestedAt: relation.requestedAt?.toISOString(),
+          respondedAt: relation.respondedAt?.toISOString() || null,
+          blockedAt: relation.blockedAt?.toISOString() || null,
+        },
+      },
+      {
+        user: { id: userId, email: session.user.email || undefined },
+        message: action === 'accept' ? '친구 요청을 수락했습니다.' : '친구 요청을 거절했습니다.',
+      }
+    );
+  } catch (err) {
+    console.error('[PATCH /api/arcyou/relation] Error:', err);
+
+    // ApiException 처리
+    if (err instanceof ApiException) {
+      const session = await auth().catch(() => null);
+      return error(
+        err.code,
+        err.message,
+        {
+          user: session?.user?.id ? { id: session.user.id, email: session.user.email || undefined } : undefined,
+          details: err.details,
+        }
+      );
+    }
+
+    return error(
+      'INTERNAL',
+      '친구 요청 처리 중 오류가 발생했습니다.',
+      {
+        details: err instanceof Error ? { message: err.message } : undefined,
+      }
+    );
+  }
+}
+
+/**
+ * DELETE /api/arcyou/relation
+ * 
+ * 친구 관계를 삭제합니다.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    // 인증 확인
+    const session = await auth();
+    if (!session?.user?.id) {
+      return error('UNAUTHORIZED', '인증이 필요합니다.', {
+        user: session?.user ? { id: session.user.id, email: session.user.email || undefined } : undefined,
+      });
+    }
+
+    const userId = session.user.id;
+
+    // 쿼리 파라미터에서 friendUserId 추출
+    const { searchParams } = new URL(request.url);
+    const friendUserId = searchParams.get('friendUserId');
+
+    // 유효성 검사
+    if (!friendUserId || typeof friendUserId !== 'string') {
+      return error('BAD_REQUEST', 'friendUserId는 필수입니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    // 자기 자신과의 관계 삭제 방지
+    if (userId === friendUserId) {
+      return error('BAD_REQUEST', '자기 자신과의 관계를 삭제할 수 없습니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    // 친구 관계 삭제
+    const repository = new ArcyouChatRelationRepository();
+    const deletedCount = await repository.deleteFriendRelation(userId, friendUserId);
+
+    return ok(
+      {
+        deletedCount,
+      },
+      {
+        user: { id: userId, email: session.user.email || undefined },
+        message: '친구 관계가 성공적으로 삭제되었습니다.',
+      }
+    );
+  } catch (err) {
+    console.error('[DELETE /api/arcyou/relation] Error:', err);
+
+    // ApiException 처리
+    if (err instanceof ApiException) {
+      const session = await auth().catch(() => null);
+      return error(
+        err.code,
+        err.message,
+        {
+          user: session?.user?.id ? { id: session.user.id, email: session.user.email || undefined } : undefined,
+          details: err.details,
+        }
+      );
+    }
+
+    return error(
+      'INTERNAL',
+      '친구 관계 삭제 중 오류가 발생했습니다.',
+      {
+        details: err instanceof Error ? { message: err.message } : undefined,
+      }
+    );
+  }
+}
+
+

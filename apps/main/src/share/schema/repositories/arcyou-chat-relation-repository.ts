@@ -1,10 +1,10 @@
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
 import { throwApi } from '@/share/api/server/errors';
 import {
-    arcyouChatRelations,
-    users,
-    type ArcyouChatRelation,
-    type NewArcyouChatRelation,
+  arcyouChatRelations,
+  users,
+  type ArcyouChatRelation,
+  type NewArcyouChatRelation,
 } from '@/share/schema/drizzles';
 import { and, eq, or } from 'drizzle-orm';
 import type { DB } from './base-repository';
@@ -137,6 +137,7 @@ export class ArcyouChatRelationRepository {
    * @returns 친구 관계 목록 (대상 사용자 정보 포함, pending/accepted만)
    */
   async listByUserId(userId: string): Promise<RelationshipWithTargetUser[]> {
+
     // userId가 요청자인 경우: targetUserId에 해당하는 사용자 정보 가져오기
     const forwardRelations = await this.database
       .select({
@@ -203,9 +204,282 @@ export class ArcyouChatRelationRepository {
     }));
 
     // 두 결과를 합쳐서 pending / accepted 상태만 반환
-    return [...normalizedForward, ...normalizedReverse].filter(
+    const allRelations = [...normalizedForward, ...normalizedReverse];
+
+    const filtered = allRelations.filter(
       (rel) => rel.status === 'pending' || rel.status === 'accepted'
     );
+
+    return filtered;
+  }
+
+  /**
+   * 친구 요청을 수락합니다.
+   * 현재 사용자가 받은 요청을 수락합니다.
+   * @param userId 현재 사용자 ID (요청을 받은 사람)
+   * @param requesterUserId 요청을 보낸 사용자 ID
+   * @returns 업데이트된 관계 데이터
+   * @throws ApiException
+   *   - NOT_FOUND: 해당 관계를 찾을 수 없음
+   *   - BAD_REQUEST: 이미 처리된 요청이거나 수락할 수 없는 상태
+   */
+  async acceptFriendRequest(
+    userId: string,
+    requesterUserId: string
+  ): Promise<ArcyouChatRelation> {
+    return await this.database.transaction(async (tx) => {
+      // DB에서는 userId가 요청자, targetUserId가 받은 사람
+      const [existing] = await tx
+        .select()
+        .from(arcyouChatRelations)
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, requesterUserId),
+            eq(arcyouChatRelations.targetUserId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        throwApi('NOT_FOUND', '해당 친구 요청을 찾을 수 없습니다.', {
+          requesterUserId,
+          userId,
+        });
+      }
+
+      if (existing.status !== 'pending') {
+        throwApi(
+          'BAD_REQUEST',
+          existing.status === 'accepted'
+            ? '이미 수락된 요청입니다.'
+            : existing.status === 'rejected'
+              ? '이미 거절된 요청입니다.'
+              : '수락할 수 없는 상태의 요청입니다.',
+          {
+            currentStatus: existing.status,
+          }
+        );
+      }
+
+      const [updated] = await tx
+        .update(arcyouChatRelations)
+        .set({
+          status: 'accepted',
+          respondedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, requesterUserId),
+            eq(arcyouChatRelations.targetUserId, userId)
+          )
+        )
+        .returning();
+
+      if (!updated) {
+        throwApi('INTERNAL', '친구 요청 수락에 실패했습니다.');
+      }
+
+      return updated;
+    });
+  }
+
+  /**
+   * 친구 요청을 거절합니다.
+   * 현재 사용자가 받은 요청을 거절합니다.
+   * @param userId 현재 사용자 ID (요청을 받은 사람)
+   * @param requesterUserId 요청을 보낸 사용자 ID
+   * @returns 업데이트된 관계 데이터
+   * @throws ApiException
+   *   - NOT_FOUND: 해당 관계를 찾을 수 없음
+   *   - BAD_REQUEST: 이미 처리된 요청이거나 거절할 수 없는 상태
+   */
+  async rejectFriendRequest(
+    userId: string,
+    requesterUserId: string
+  ): Promise<ArcyouChatRelation> {
+    return await this.database.transaction(async (tx) => {
+      // DB에서는 userId가 요청자, targetUserId가 받은 사람
+      const [existing] = await tx
+        .select()
+        .from(arcyouChatRelations)
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, requesterUserId),
+            eq(arcyouChatRelations.targetUserId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        throwApi('NOT_FOUND', '해당 친구 요청을 찾을 수 없습니다.', {
+          requesterUserId,
+          userId,
+        });
+      }
+
+      if (existing.status !== 'pending') {
+        throwApi(
+          'BAD_REQUEST',
+          existing.status === 'accepted'
+            ? '이미 수락된 요청입니다.'
+            : existing.status === 'rejected'
+              ? '이미 거절된 요청입니다.'
+              : '거절할 수 없는 상태의 요청입니다.',
+          {
+            currentStatus: existing.status,
+          }
+        );
+      }
+
+      const [updated] = await tx
+        .update(arcyouChatRelations)
+        .set({
+          status: 'rejected',
+          respondedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, requesterUserId),
+            eq(arcyouChatRelations.targetUserId, userId)
+          )
+        )
+        .returning();
+
+      if (!updated) {
+        throwApi('INTERNAL', '친구 요청 거절에 실패했습니다.');
+      }
+
+      return updated;
+    });
+  }
+
+  /**
+   * 친구 관계를 삭제합니다.
+   * 양방향 관계를 모두 삭제합니다 (userId -> targetUserId 또는 targetUserId -> userId).
+   * @param userId 현재 사용자 ID
+   * @param friendUserId 친구 사용자 ID
+   * @returns 삭제된 관계 수
+   * @throws ApiException
+   *   - NOT_FOUND: 해당 친구 관계를 찾을 수 없음
+   */
+  async deleteFriendRelation(
+    userId: string,
+    friendUserId: string
+  ): Promise<number> {
+    return await this.database.transaction(async (tx) => {
+      // 양방향 관계 확인
+      const existingRelations = await tx
+        .select()
+        .from(arcyouChatRelations)
+        .where(
+          or(
+            // userId -> friendUserId
+            and(
+              eq(arcyouChatRelations.userId, userId),
+              eq(arcyouChatRelations.targetUserId, friendUserId)
+            ),
+            // friendUserId -> userId (역방향)
+            and(
+              eq(arcyouChatRelations.userId, friendUserId),
+              eq(arcyouChatRelations.targetUserId, userId)
+            )
+          )
+        );
+
+      if (existingRelations.length === 0) {
+        throwApi('NOT_FOUND', '해당 친구 관계를 찾을 수 없습니다.', {
+          userId,
+          friendUserId,
+        });
+      }
+
+      // 양방향 관계 모두 삭제
+      const deleted1 = await tx
+        .delete(arcyouChatRelations)
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, userId),
+            eq(arcyouChatRelations.targetUserId, friendUserId)
+          )
+        );
+
+      const deleted2 = await tx
+        .delete(arcyouChatRelations)
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, friendUserId),
+            eq(arcyouChatRelations.targetUserId, userId)
+          )
+        );
+
+      return (deleted1.rowCount || 0) + (deleted2.rowCount || 0);
+    });
+  }
+
+  /**
+   * 친구 요청을 취소합니다.
+   * 현재 사용자가 보낸 pending 상태의 요청을 삭제합니다.
+   * @param userId 현재 사용자 ID (요청을 보낸 사람)
+   * @param targetUserId 대상 사용자 ID
+   * @returns 삭제된 관계 데이터
+   * @throws ApiException
+   *   - NOT_FOUND: 해당 친구 요청을 찾을 수 없음
+   *   - BAD_REQUEST: 이미 처리된 요청이거나 취소할 수 없는 상태
+   */
+  async cancelFriendRequest(
+    userId: string,
+    targetUserId: string
+  ): Promise<ArcyouChatRelation> {
+    return await this.database.transaction(async (tx) => {
+      // userId가 요청자이고 targetUserId가 대상인 관계 확인
+      const [existing] = await tx
+        .select()
+        .from(arcyouChatRelations)
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, userId),
+            eq(arcyouChatRelations.targetUserId, targetUserId)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        throwApi('NOT_FOUND', '해당 친구 요청을 찾을 수 없습니다.', {
+          userId,
+          targetUserId,
+        });
+      }
+
+      if (existing.status !== 'pending') {
+        throwApi(
+          'BAD_REQUEST',
+          existing.status === 'accepted'
+            ? '이미 수락된 요청입니다.'
+            : existing.status === 'rejected'
+              ? '이미 거절된 요청입니다.'
+              : '취소할 수 없는 상태의 요청입니다.',
+          {
+            currentStatus: existing.status,
+          }
+        );
+      }
+
+      const [deleted] = await tx
+        .delete(arcyouChatRelations)
+        .where(
+          and(
+            eq(arcyouChatRelations.userId, userId),
+            eq(arcyouChatRelations.targetUserId, targetUserId)
+          )
+        )
+        .returning();
+
+      if (!deleted) {
+        throwApi('INTERNAL', '친구 요청 취소에 실패했습니다.');
+      }
+
+      return deleted;
+    });
   }
 }
 

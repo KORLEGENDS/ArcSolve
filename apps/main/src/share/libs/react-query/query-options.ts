@@ -212,6 +212,40 @@ export type SendFriendRequestResponse = {
 };
 
 /**
+ * 친구 요청 수락/거절 뮤테이션 변수 타입
+ */
+export interface RespondToFriendRequestMutationVariables {
+  requesterUserId: string;
+  action: 'accept' | 'reject';
+}
+
+export type RespondToFriendRequestResponse = {
+  relation: ArcyouChatRelationApi;
+};
+
+/**
+ * 친구 관계 삭제 뮤테이션 변수 타입
+ */
+export interface DeleteFriendRelationMutationVariables {
+  friendUserId: string;
+}
+
+export type DeleteFriendRelationResponse = {
+  deletedCount: number;
+};
+
+/**
+ * 친구 요청 취소 뮤테이션 변수 타입
+ */
+export interface CancelFriendRequestMutationVariables {
+  targetUserId: string;
+}
+
+export type CancelFriendRequestResponse = {
+  relation: ArcyouChatRelationApi;
+};
+
+/**
  * 친구 관계 관련 Query Options
  */
 export const relationQueryOptions = {
@@ -246,6 +280,55 @@ export const relationQueryOptions = {
     (data) => data.relation,
     {
       method: 'POST',
+    }
+  ),
+
+  /**
+   * 친구 요청 수락/거절 뮤테이션 옵션
+   */
+  respondToFriendRequest: createApiMutation<
+    RespondToFriendRequestResponse['relation'],
+    RespondToFriendRequestResponse,
+    RespondToFriendRequestMutationVariables
+  >(
+    () => '/api/arcyou/relation',
+    (data) => data.relation,
+    {
+      method: 'PATCH',
+    }
+  ),
+
+  /**
+   * 친구 관계 삭제 뮤테이션 옵션
+   */
+  deleteFriendRelation: createApiMutation<
+    DeleteFriendRelationResponse['deletedCount'],
+    DeleteFriendRelationResponse,
+    DeleteFriendRelationMutationVariables
+  >(
+    (variables) => `/api/arcyou/relation?friendUserId=${encodeURIComponent(variables.friendUserId)}`,
+    (data) => data.deletedCount,
+    {
+      method: 'DELETE',
+    }
+  ),
+
+  /**
+   * 친구 요청 취소 뮤테이션 옵션
+   */
+  cancelFriendRequest: createApiMutation<
+    CancelFriendRequestResponse['relation'],
+    CancelFriendRequestResponse,
+    CancelFriendRequestMutationVariables
+  >(
+    () => '/api/arcyou/relation',
+    (data) => data.relation,
+    {
+      method: 'PATCH',
+      bodyExtractor: (variables) => ({
+        targetUserId: variables.targetUserId,
+        action: 'cancel',
+      }),
     }
   ),
 } as const;

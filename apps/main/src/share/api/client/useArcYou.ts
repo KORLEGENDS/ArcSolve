@@ -39,11 +39,59 @@ export function useArcYou() {
     },
   });
 
+  const respondToFriendRequestMutation = useMutation({
+    ...relationQueryOptions.respondToFriendRequest,
+    onSuccess: () => {
+      // 친구 관계 목록 쿼리 무효화하여 자동으로 새로고침
+      queryClient.invalidateQueries({ queryKey: queryKeys.relations.list() });
+    },
+  });
+
+  const deleteFriendRelationMutation = useMutation({
+    ...relationQueryOptions.deleteFriendRelation,
+    onSuccess: () => {
+      // 친구 관계 목록 쿼리 무효화하여 자동으로 새로고침
+      queryClient.invalidateQueries({ queryKey: queryKeys.relations.list() });
+    },
+  });
+
+  const cancelFriendRequestMutation = useMutation({
+    ...relationQueryOptions.cancelFriendRequest,
+    onSuccess: () => {
+      // 친구 관계 목록 쿼리 무효화하여 자동으로 새로고침
+      queryClient.invalidateQueries({ queryKey: queryKeys.relations.list() });
+    },
+  });
+
   return {
     ...query,
     sendFriendRequest: sendFriendRequestMutation.mutateAsync,
     isSending: sendFriendRequestMutation.isPending,
     sendError: sendFriendRequestMutation.error,
+    acceptFriendRequest: (requesterUserId: string) =>
+      respondToFriendRequestMutation.mutateAsync({
+        requesterUserId,
+        action: 'accept',
+      }),
+    rejectFriendRequest: (requesterUserId: string) =>
+      respondToFriendRequestMutation.mutateAsync({
+        requesterUserId,
+        action: 'reject',
+      }),
+    isResponding: respondToFriendRequestMutation.isPending,
+    respondError: respondToFriendRequestMutation.error,
+    cancelFriendRequest: (targetUserId: string) =>
+      cancelFriendRequestMutation.mutateAsync({
+        targetUserId,
+      }),
+    isCanceling: cancelFriendRequestMutation.isPending,
+    cancelError: cancelFriendRequestMutation.error,
+    deleteFriendRelation: (friendUserId: string) =>
+      deleteFriendRelationMutation.mutateAsync({
+        friendUserId,
+      }),
+    isDeleting: deleteFriendRelationMutation.isPending,
+    deleteError: deleteFriendRelationMutation.error,
   };
 }
 

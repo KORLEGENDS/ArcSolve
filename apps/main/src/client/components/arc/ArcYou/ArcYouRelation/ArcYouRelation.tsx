@@ -43,6 +43,18 @@ export interface ArcYouRelationProps {
    */
   onReject?: (relationship: RelationshipWithTargetUser) => void;
   /**
+   * 취소 핸들러 (pending 상태에서 보낸 요청일 때)
+   */
+  onCancel?: (relationship: RelationshipWithTargetUser) => void;
+  /**
+   * 대화 핸들러 (accepted 상태일 때)
+   */
+  onChat?: (relationship: RelationshipWithTargetUser) => void;
+  /**
+   * 삭제 핸들러 (accepted 상태일 때)
+   */
+  onDelete?: (relationship: RelationshipWithTargetUser) => void;
+  /**
    * 아이템 클릭 핸들러
    */
   onItemClick?: (relationship: RelationshipWithTargetUser) => void;
@@ -92,6 +104,15 @@ function splitRelationshipsByStatus(
   pending: RelationshipWithTargetUser[];
   accepted: RelationshipWithTargetUser[];
 } {
+  console.log('[ArcYouRelation.splitRelationshipsByStatus] 입력 relationships 수:', relationships.length);
+  console.log('[ArcYouRelation.splitRelationshipsByStatus] 입력 relationships 상세:', relationships.map((rel) => ({
+    userId: rel.userId,
+    targetUserId: rel.targetUserId,
+    status: rel.status,
+    isReceivedRequest: rel.isReceivedRequest,
+    targetUserEmail: rel.targetUser.email,
+  })));
+
   const pending: RelationshipWithTargetUser[] = [];
   const accepted: RelationshipWithTargetUser[] = [];
 
@@ -102,6 +123,11 @@ function splitRelationshipsByStatus(
       accepted.push(relationship);
     }
     // 그 외(status === 'rejected' | 'blocked' 등)는 현재는 무시
+  });
+
+  console.log('[ArcYouRelation.splitRelationshipsByStatus] 분리 결과:', {
+    pending: pending.length,
+    accepted: accepted.length,
   });
 
   return { pending, accepted };
@@ -115,11 +141,21 @@ function relationshipToItemProps(
   relationship: RelationshipWithTargetUser,
   onAccept?: (relationship: RelationshipWithTargetUser) => void,
   onReject?: (relationship: RelationshipWithTargetUser) => void,
+  onCancel?: (relationship: RelationshipWithTargetUser) => void,
+  onChat?: (relationship: RelationshipWithTargetUser) => void,
+  onDelete?: (relationship: RelationshipWithTargetUser) => void,
   onItemClick?: (relationship: RelationshipWithTargetUser) => void
 ): ArcYouRelationItemProps {
   // pending 상태이고 받은 요청인 경우만 수락/거부 버튼 표시
   const canAcceptOrReject =
     relationship.status === 'pending' && relationship.isReceivedRequest === true;
+
+  // pending 상태이고 보낸 요청인 경우 취소 버튼 표시
+  const canCancel =
+    relationship.status === 'pending' && relationship.isReceivedRequest === false;
+
+  // accepted 상태일 때 대화/삭제 버튼 표시
+  const canChatOrDelete = relationship.status === 'accepted';
 
   return {
     userId: relationship.targetUser.id,
@@ -132,6 +168,9 @@ function relationshipToItemProps(
     status: relationship.status,
     onAccept: canAcceptOrReject && onAccept ? () => onAccept(relationship) : undefined,
     onReject: canAcceptOrReject && onReject ? () => onReject(relationship) : undefined,
+    onCancel: canCancel && onCancel ? () => onCancel(relationship) : undefined,
+    onChat: canChatOrDelete && onChat ? () => onChat(relationship) : undefined,
+    onDelete: canChatOrDelete && onDelete ? () => onDelete(relationship) : undefined,
     onClick: onItemClick ? () => onItemClick(relationship) : undefined,
   };
 }
@@ -140,6 +179,9 @@ export function ArcYouRelation({
   relationships,
   onAccept,
   onReject,
+  onCancel,
+  onChat,
+  onDelete,
   onItemClick,
   addEmail = '',
   onAddEmailChange,
@@ -150,17 +192,47 @@ export function ArcYouRelation({
   pendingEmptyMessage = '친구 요청이 없습니다',
   friendsEmptyMessage = '친구가 없습니다',
 }: ArcYouRelationProps): React.ReactElement {
+  // 핸들러 참조를 안정화하기 위해 useRef 사용
+  const handlersRef = React.useRef({
+    onAccept,
+    onReject,
+    onCancel,
+    onChat,
+    onDelete,
+    onItemClick,
+  });
+
+  // 핸들러가 변경될 때마다 ref 업데이트
+  React.useEffect(() => {
+    handlersRef.current = {
+      onAccept,
+      onReject,
+      onCancel,
+      onChat,
+      onDelete,
+      onItemClick,
+    };
+  }, [onAccept, onReject, onCancel, onChat, onDelete, onItemClick]);
+
   // pending 상태와 accepted 상태를 분리
   const { pendingItems, friendItems } = React.useMemo(() => {
+    console.log('[ArcYouRelation] useMemo 실행, relationships 수:', relationships.length);
+
     const { pending, accepted } = splitRelationshipsByStatus(relationships);
+
+    // ref에서 핸들러 가져오기 (의존성 배열에서 제외)
+    const { onAccept: onAcceptHandler, onReject: onRejectHandler, onCancel: onCancelHandler, onChat: onChatHandler, onDelete: onDeleteHandler, onItemClick: onItemClickHandler } = handlersRef.current;
 
     const pendingItems: ArcYouRelationItemProps[] = pending.map(
       (relationship) =>
         relationshipToItemProps(
           relationship,
-          onAccept,
-          onReject,
-          onItemClick
+          onAcceptHandler,
+          onRejectHandler,
+          onCancelHandler,
+          onChatHandler,
+          onDeleteHandler,
+          onItemClickHandler
         )
     );
 
@@ -168,17 +240,25 @@ export function ArcYouRelation({
       (relationship) =>
         relationshipToItemProps(
           relationship,
-          onAccept,
-          onReject,
-          onItemClick
+          onAcceptHandler,
+          onRejectHandler,
+          onCancelHandler,
+          onChatHandler,
+          onDeleteHandler,
+          onItemClickHandler
         )
     );
 
+    console.log('[ArcYouRelation] 변환 완료:', {
+      pendingItems: pendingItems.length,
+      friendItems: friendItems.length,
+    });
+
     return {
-      pendingItems: pending,
+      pendingItems: pendingItems,
       friendItems,
     };
-  }, [relationships, onAccept, onReject, onItemClick]);
+  }, [relationships]); // 핸들러 의존성 제거
 
   return (
     <div className={cn('w-full flex flex-col gap-6', className)}>
@@ -192,18 +272,32 @@ export function ArcYouRelation({
       )}
 
       {/* 위쪽: pending 상태 리스트 */}
-      <ArcYouRelationList
-        items={pendingItems}
-        emptyMessage={pendingEmptyMessage}
-        className={cn('space-y-1', pendingListClassName)}
-      />
+      {pendingItems.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="text-xs font-medium text-muted-foreground px-3">
+            친구 요청
+          </div>
+          <ArcYouRelationList
+            items={pendingItems}
+            emptyMessage={pendingEmptyMessage}
+            className={cn('space-y-1', pendingListClassName)}
+          />
+        </div>
+      )}
 
       {/* 아래쪽: 일반 친구 리스트 */}
-      <ArcYouRelationList
-        items={friendItems}
-        emptyMessage={friendsEmptyMessage}
-        className={cn('space-y-1', friendsListClassName)}
-      />
+      {friendItems.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="text-xs font-medium text-muted-foreground px-3">
+            친구 목록
+          </div>
+          <ArcYouRelationList
+            items={friendItems}
+            emptyMessage={friendsEmptyMessage}
+            className={cn('space-y-1', friendsListClassName)}
+          />
+        </div>
+      )}
     </div>
   );
 }

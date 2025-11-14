@@ -43,10 +43,16 @@ export function ArcYouRelationList({
             status={item.status}
             onAccept={item.onAccept}
             onReject={item.onReject}
+            onCancel={item.onCancel}
+            onChat={item.onChat}
+            onDelete={item.onDelete}
             className={item.className}
             onClick={item.onClick}
             acceptDisabled={item.acceptDisabled}
             rejectDisabled={item.rejectDisabled}
+            cancelDisabled={item.cancelDisabled}
+            chatDisabled={item.chatDisabled}
+            deleteDisabled={item.deleteDisabled}
           />
         ))
       )}

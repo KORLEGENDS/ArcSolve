@@ -29,7 +29,15 @@ import * as React from 'react';
 
 export function RightSidebarContent() {
   const { data: roomsData, isLoading, error, createRoom, isCreating } = useArcyouChat();
-  const { data: relationshipsData, isLoading: isRelationsLoading, sendFriendRequest } = useArcYou();
+  const {
+    data: relationshipsData,
+    isLoading: isRelationsLoading,
+    sendFriendRequest,
+    acceptFriendRequest,
+    rejectFriendRequest,
+    cancelFriendRequest,
+    deleteFriendRelation,
+  } = useArcYou();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [roomName, setRoomName] = React.useState('');
   const [roomDescription, setRoomDescription] = React.useState('');
@@ -66,16 +74,98 @@ export function RightSidebarContent() {
     [sendFriendRequest]
   );
 
+  const handleAcceptFriendRequest = React.useCallback(
+    async (relationship: ComponentRelationshipWithTargetUser) => {
+      try {
+        // isReceivedRequest가 true일 때만 호출되므로, targetUser.id가 요청자 ID
+        await acceptFriendRequest(relationship.targetUser.id);
+      } catch (err) {
+        console.error('친구 요청 수락 실패:', err);
+        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
+      }
+    },
+    [acceptFriendRequest]
+  );
+
+  const handleRejectFriendRequest = React.useCallback(
+    async (relationship: ComponentRelationshipWithTargetUser) => {
+      try {
+        // isReceivedRequest가 true일 때만 호출되므로, targetUser.id가 요청자 ID
+        await rejectFriendRequest(relationship.targetUser.id);
+      } catch (err) {
+        console.error('친구 요청 거절 실패:', err);
+        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
+      }
+    },
+    [rejectFriendRequest]
+  );
+
+  const handleCancelFriendRequest = React.useCallback(
+    async (relationship: ComponentRelationshipWithTargetUser) => {
+      try {
+        // isReceivedRequest가 false일 때만 호출되므로, targetUser.id가 대상 사용자 ID
+        await cancelFriendRequest(relationship.targetUser.id);
+      } catch (err) {
+        console.error('친구 요청 취소 실패:', err);
+        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
+      }
+    },
+    [cancelFriendRequest]
+  );
+
+  const handleChatWithFriend = React.useCallback(
+    (relationship: ComponentRelationshipWithTargetUser) => {
+      // TODO: 친구와의 1:1 채팅방으로 이동하는 로직 구현
+      console.log('친구와 대화하기:', relationship.targetUser.name, relationship.targetUser.id);
+    },
+    []
+  );
+
+  const handleDeleteFriend = React.useCallback(
+    async (relationship: ComponentRelationshipWithTargetUser) => {
+      try {
+        await deleteFriendRelation(relationship.targetUser.id);
+      } catch (err) {
+        console.error('친구 삭제 실패:', err);
+        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
+      }
+    },
+    [deleteFriendRelation]
+  );
+
   // API 응답을 컴포넌트 타입으로 변환 (Date 필드 변환)
   const relationships: ComponentRelationshipWithTargetUser[] = React.useMemo(() => {
-    if (!relationshipsData) return [];
+    console.log('[RightSidebarContent] relationshipsData:', relationshipsData);
+    console.log('[RightSidebarContent] relationshipsData?.length:', relationshipsData?.length);
+    console.log('[RightSidebarContent] relationshipsData 타입:', Array.isArray(relationshipsData) ? '배열' : typeof relationshipsData);
 
-    return relationshipsData.map((rel: ApiRelationshipWithTargetUser) => ({
+    if (!relationshipsData) {
+      console.log('[RightSidebarContent] relationshipsData가 없음, 빈 배열 반환');
+      return [];
+    }
+
+    if (!Array.isArray(relationshipsData)) {
+      console.error('[RightSidebarContent] relationshipsData가 배열이 아님:', relationshipsData);
+      return [];
+    }
+
+    const transformed = relationshipsData.map((rel: ApiRelationshipWithTargetUser) => ({
       ...rel,
       requestedAt: rel.requestedAt ? new Date(rel.requestedAt) : null,
       respondedAt: rel.respondedAt ? new Date(rel.respondedAt) : null,
       blockedAt: rel.blockedAt ? new Date(rel.blockedAt) : null,
     })) as ComponentRelationshipWithTargetUser[];
+
+    console.log('[RightSidebarContent] 변환된 relationships 수:', transformed.length);
+    console.log('[RightSidebarContent] 변환된 relationships 상세:', transformed.map((rel) => ({
+      userId: rel.userId,
+      targetUserId: rel.targetUserId,
+      status: rel.status,
+      isReceivedRequest: rel.isReceivedRequest,
+      targetUserEmail: rel.targetUser.email,
+    })));
+
+    return transformed;
   }, [relationshipsData]);
 
   // API 데이터를 컴포넌트 props 형식으로 변환
@@ -145,6 +235,11 @@ export function RightSidebarContent() {
               addEmail={addEmail}
               onAddEmailChange={setAddEmail}
               onAdd={handleSendFriendRequest}
+              onAccept={handleAcceptFriendRequest}
+              onReject={handleRejectFriendRequest}
+              onCancel={handleCancelFriendRequest}
+              onChat={handleChatWithFriend}
+              onDelete={handleDeleteFriend}
             />
           )}
         </div>
