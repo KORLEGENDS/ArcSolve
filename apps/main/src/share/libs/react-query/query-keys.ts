@@ -64,7 +64,10 @@ export const queryKeys = {
   // 채팅방 관련
   chatRooms: {
     all: () => ['chatRooms'] as const,
-    list: () => [...queryKeys.chatRooms.all(), 'list'] as const,
+    list: (type?: 'direct' | 'group') =>
+      type
+        ? ([...queryKeys.chatRooms.all(), 'list', normalizeParams({ type })] as const)
+        : ([...queryKeys.chatRooms.all(), 'list'] as const),
     byId: (roomId: string) => [...queryKeys.chatRooms.all(), 'detail', roomId] as const,
   },
 
@@ -72,6 +75,10 @@ export const queryKeys = {
   relations: {
     all: () => ['relations'] as const,
     list: () => [...queryKeys.relations.all(), 'list'] as const,
+    search: (query: string) =>
+      query
+        ? ([...queryKeys.relations.all(), 'search', normalizeParams({ q: query })] as const)
+        : ([...queryKeys.relations.all(), 'search'] as const),
   },
 } as const;
 

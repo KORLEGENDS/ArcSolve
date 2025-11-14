@@ -4,11 +4,12 @@ import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 
 /**
- * GET /api/arcyou/chat/rooms
+ * GET /api/arcyou/chat/rooms?type=direct|group
  * 
  * 현재 인증된 사용자의 채팅방 목록을 반환합니다.
+ * type 파라미터로 필터링 가능합니다 (direct 또는 group).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // 인증 확인
     const session = await auth();
@@ -20,9 +21,20 @@ export async function GET() {
 
     const userId = session.user.id;
 
+    // 쿼리 파라미터 파싱
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') as 'direct' | 'group' | null;
+
+    // type 유효성 검사
+    if (type && type !== 'direct' && type !== 'group') {
+      return error('BAD_REQUEST', 'type은 "direct" 또는 "group"이어야 합니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
     // 사용자가 멤버인 채팅방 조회
     const repository = new ArcyouChatRoomRepository();
-    const rooms = await repository.listByUserId(userId);
+    const rooms = await repository.listByUserId(userId, type || undefined);
 
     return ok(
       {
@@ -30,6 +42,7 @@ export async function GET() {
           id: room.id,
           name: room.name,
           description: room.description,
+          type: room.type,
           lastMessageId: room.lastMessageId,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,
@@ -73,9 +86,27 @@ export async function POST(request: NextRequest) {
 
     // 요청 본문 파싱
     const body = await request.json().catch(() => ({}));
-    const { name, description } = body;
+    const { type, name, description, targetUserId, memberIds } = body;
 
     // 유효성 검사
+    if (!type || (type !== 'direct' && type !== 'group')) {
+      return error('BAD_REQUEST', 'type은 "direct" 또는 "group"이어야 합니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    if (type === 'direct' && !targetUserId) {
+      return error('BAD_REQUEST', 'direct 타입 채팅방은 targetUserId가 필수입니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    if (type === 'group' && (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0)) {
+      return error('BAD_REQUEST', 'group 타입 채팅방은 최소 1명의 멤버가 필요합니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return error('BAD_REQUEST', '채팅방 이름은 필수입니다.', {
         user: { id: userId, email: session.user.email || undefined },
@@ -98,8 +129,11 @@ export async function POST(request: NextRequest) {
     const repository = new ArcyouChatRoomRepository();
     const room = await repository.create(
       {
+        type,
         name: name.trim(),
         description: description?.trim() || null,
+        targetUserId: type === 'direct' ? targetUserId : undefined,
+        memberIds: type === 'group' ? memberIds : undefined,
       },
       userId
     );
@@ -110,6 +144,7 @@ export async function POST(request: NextRequest) {
           id: room.id,
           name: room.name,
           description: room.description,
+          type: room.type,
           lastMessageId: room.lastMessageId,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,

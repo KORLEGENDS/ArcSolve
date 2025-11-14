@@ -6,7 +6,7 @@ import {
   type ArcyouChatRelation,
   type NewArcyouChatRelation,
 } from '@/share/schema/drizzles';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, ilike, or } from 'drizzle-orm';
 import type { DB } from './base-repository';
 import { UserRepository } from './user-repository';
 
@@ -211,6 +211,102 @@ export class ArcyouChatRelationRepository {
     );
 
     return filtered;
+  }
+
+  /**
+   * 친구를 검색합니다.
+   * 현재 사용자와 accepted 상태인 친구만 검색합니다.
+   * @param userId 사용자 ID
+   * @param searchQuery 검색어 (이름 또는 이메일)
+   * @returns 검색된 친구 목록 (대상 사용자 정보 포함)
+   */
+  async searchFriends(
+    userId: string,
+    searchQuery: string
+  ): Promise<RelationshipWithTargetUser[]> {
+    if (!searchQuery.trim()) {
+      return [];
+    }
+
+    const searchTerm = `%${searchQuery.trim()}%`;
+
+    // userId가 요청자인 경우: targetUserId에 해당하는 사용자 정보 가져오기
+    const forwardRelations = await this.database
+      .select({
+        userId: arcyouChatRelations.userId,
+        targetUserId: arcyouChatRelations.targetUserId,
+        status: arcyouChatRelations.status,
+        requestedAt: arcyouChatRelations.requestedAt,
+        respondedAt: arcyouChatRelations.respondedAt,
+        blockedAt: arcyouChatRelations.blockedAt,
+        targetUser: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          imageUrl: users.imageUrl,
+        },
+      })
+      .from(arcyouChatRelations)
+      .innerJoin(users, eq(arcyouChatRelations.targetUserId, users.id))
+      .where(
+        and(
+          eq(arcyouChatRelations.userId, userId),
+          eq(arcyouChatRelations.status, 'accepted'),
+          or(ilike(users.name, searchTerm), ilike(users.email, searchTerm))
+        )
+      );
+
+    // userId가 대상인 경우 (역방향): userId에 해당하는 사용자 정보 가져오기
+    const reverseRelations = await this.database
+      .select({
+        userId: arcyouChatRelations.userId,
+        targetUserId: arcyouChatRelations.targetUserId,
+        status: arcyouChatRelations.status,
+        requestedAt: arcyouChatRelations.requestedAt,
+        respondedAt: arcyouChatRelations.respondedAt,
+        blockedAt: arcyouChatRelations.blockedAt,
+        targetUser: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          imageUrl: users.imageUrl,
+        },
+      })
+      .from(arcyouChatRelations)
+      .innerJoin(users, eq(arcyouChatRelations.userId, users.id))
+      .where(
+        and(
+          eq(arcyouChatRelations.targetUserId, userId),
+          eq(arcyouChatRelations.status, 'accepted'),
+          or(ilike(users.name, searchTerm), ilike(users.email, searchTerm))
+        )
+      );
+
+    // 정방향 관계: 내가 보낸 요청 (isReceivedRequest: false)
+    const normalizedForward = forwardRelations.map((rel) => ({
+      userId: rel.userId,
+      targetUserId: rel.targetUserId,
+      status: rel.status,
+      requestedAt: rel.requestedAt,
+      respondedAt: rel.respondedAt,
+      blockedAt: rel.blockedAt,
+      targetUser: rel.targetUser,
+      isReceivedRequest: false,
+    }));
+
+    // 역방향 관계: 내가 받은 요청 (isReceivedRequest: true)
+    const normalizedReverse = reverseRelations.map((rel) => ({
+      userId: rel.targetUserId,
+      targetUserId: rel.userId,
+      status: rel.status,
+      requestedAt: rel.requestedAt,
+      respondedAt: rel.respondedAt,
+      blockedAt: rel.blockedAt,
+      targetUser: rel.targetUser,
+      isReceivedRequest: true,
+    }));
+
+    return [...normalizedForward, ...normalizedReverse];
   }
 
   /**

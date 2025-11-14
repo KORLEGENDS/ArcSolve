@@ -109,6 +109,7 @@ export type ArcyouChatRoom = {
   id: string;
   name: string;
   description: string | null;
+  type: 'direct' | 'group';
   lastMessageId: number | null;
   role: 'owner' | 'manager' | 'participant';
   lastReadMessageId: number | null;
@@ -124,8 +125,11 @@ export type ChatRoomsListResponse = {
  * 채팅방 생성 뮤테이션 변수 타입
  */
 export interface CreateChatRoomMutationVariables {
+  type: 'direct' | 'group';
   name: string;
   description?: string | null;
+  targetUserId?: string; // direct 타입일 때 필수
+  memberIds?: string[]; // group 타입일 때 필수 (최소 1명)
 }
 
 export type CreateChatRoomResponse = {
@@ -138,19 +142,24 @@ export type CreateChatRoomResponse = {
 export const chatRoomQueryOptions = {
   /**
    * 사용자의 채팅방 목록 조회
+   * @param type 채팅방 타입 필터 (선택사항)
    */
-  list: () =>
-    queryOptions({
-      queryKey: queryKeys.chatRooms.list(),
+  list: (type?: 'direct' | 'group') => {
+    const url = type
+      ? `/api/arcyou/chat/rooms?type=${encodeURIComponent(type)}`
+      : '/api/arcyou/chat/rooms';
+    return queryOptions({
+      queryKey: queryKeys.chatRooms.list(type),
       ...createApiQueryOptions<ChatRoomsListResponse['rooms'], ChatRoomsListResponse>(
-        '/api/arcyou/chat/rooms',
+        url,
         (data) => data.rooms,
         {
           staleTime: TIMEOUT.CACHE.SHORT, // 1분
           gcTime: TIMEOUT.CACHE.MEDIUM, // 5분
         }
       ),
-    }),
+    });
+  },
 
   /**
    * 채팅방 생성 뮤테이션 옵션
@@ -267,6 +276,31 @@ export const relationQueryOptions = {
         }
       ),
     }),
+
+  /**
+   * 친구 검색
+   * @param query 검색어
+   */
+  search: (query: string) => {
+    const url = query.trim()
+      ? `/api/arcyou/relation?q=${encodeURIComponent(query.trim())}`
+      : '/api/arcyou/relation';
+    return queryOptions({
+      queryKey: queryKeys.relations.search(query),
+      ...createApiQueryOptions<
+        RelationsListResponse['relationships'],
+        RelationsListResponse
+      >(
+        url,
+        (data) => data.relationships,
+        {
+          enabled: query.trim().length > 0, // 검색어가 있을 때만 실행
+          staleTime: TIMEOUT.CACHE.SHORT, // 1분
+          gcTime: TIMEOUT.CACHE.MEDIUM, // 5분
+        }
+      ),
+    });
+  },
 
   /**
    * 친구 요청 보내기 뮤테이션 옵션

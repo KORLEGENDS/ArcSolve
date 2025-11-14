@@ -1,15 +1,15 @@
-import { error, ok } from '@/share/api/server/response';
 import { ApiException } from '@/share/api/server/errors';
+import { error, ok } from '@/share/api/server/response';
 import { ArcyouChatRelationRepository } from '@/share/schema/repositories/arcyou-chat-relation-repository';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 
 /**
- * GET /api/arcyou/relation
+ * GET /api/arcyou/relation?q=검색어
  * 
- * 현재 인증된 사용자의 친구 관계 목록을 반환합니다.
+ * q 파라미터가 있으면 친구 검색, 없으면 친구 관계 목록을 반환합니다.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // 인증 확인
     const session = await auth();
@@ -21,8 +21,43 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // 친구 관계 목록 조회
+    // 쿼리 파라미터 확인
+    const { searchParams } = new URL(request.url);
+    const searchQuery = searchParams.get('q');
+
     const repository = new ArcyouChatRelationRepository();
+
+    // 검색어가 있으면 검색, 없으면 목록 조회
+    if (searchQuery && searchQuery.trim().length > 0) {
+      // 친구 검색
+      const relationships = await repository.searchFriends(userId, searchQuery.trim());
+
+      return ok(
+        {
+          relationships: relationships.map((rel) => ({
+            userId: rel.userId,
+            targetUserId: rel.targetUserId,
+            status: rel.status,
+            requestedAt: rel.requestedAt?.toISOString() || null,
+            respondedAt: rel.respondedAt?.toISOString() || null,
+            blockedAt: rel.blockedAt?.toISOString() || null,
+            targetUser: {
+              id: rel.targetUser.id,
+              name: rel.targetUser.name,
+              email: rel.targetUser.email,
+              imageUrl: rel.targetUser.imageUrl,
+            },
+            isReceivedRequest: rel.isReceivedRequest ?? false,
+          })),
+        },
+        {
+          user: { id: userId, email: session.user.email || undefined },
+          message: '친구 검색을 완료했습니다.',
+        }
+      );
+    }
+
+    // 친구 관계 목록 조회
     const relationships = await repository.listByUserId(userId);
 
     return ok(
@@ -52,7 +87,7 @@ export async function GET() {
     console.error('[GET /api/arcyou/relation] Error:', err);
     return error(
       'INTERNAL',
-      '친구 관계 목록 조회 중 오류가 발생했습니다.',
+      '친구 관계 조회 중 오류가 발생했습니다.',
       {
         details: err instanceof Error ? { message: err.message } : undefined,
       }

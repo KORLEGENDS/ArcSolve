@@ -104,15 +104,6 @@ function splitRelationshipsByStatus(
   pending: RelationshipWithTargetUser[];
   accepted: RelationshipWithTargetUser[];
 } {
-  console.log('[ArcYouRelation.splitRelationshipsByStatus] 입력 relationships 수:', relationships.length);
-  console.log('[ArcYouRelation.splitRelationshipsByStatus] 입력 relationships 상세:', relationships.map((rel) => ({
-    userId: rel.userId,
-    targetUserId: rel.targetUserId,
-    status: rel.status,
-    isReceivedRequest: rel.isReceivedRequest,
-    targetUserEmail: rel.targetUser.email,
-  })));
-
   const pending: RelationshipWithTargetUser[] = [];
   const accepted: RelationshipWithTargetUser[] = [];
 
@@ -123,11 +114,6 @@ function splitRelationshipsByStatus(
       accepted.push(relationship);
     }
     // 그 외(status === 'rejected' | 'blocked' 등)는 현재는 무시
-  });
-
-  console.log('[ArcYouRelation.splitRelationshipsByStatus] 분리 결과:', {
-    pending: pending.length,
-    accepted: accepted.length,
   });
 
   return { pending, accepted };
@@ -216,8 +202,6 @@ export function ArcYouRelation({
 
   // pending 상태와 accepted 상태를 분리
   const { pendingItems, friendItems } = React.useMemo(() => {
-    console.log('[ArcYouRelation] useMemo 실행, relationships 수:', relationships.length);
-
     const { pending, accepted } = splitRelationshipsByStatus(relationships);
 
     // ref에서 핸들러 가져오기 (의존성 배열에서 제외)
@@ -248,11 +232,6 @@ export function ArcYouRelation({
           onItemClickHandler
         )
     );
-
-    console.log('[ArcYouRelation] 변환 완료:', {
-      pendingItems: pendingItems.length,
-      friendItems: friendItems.length,
-    });
 
     return {
       pendingItems: pendingItems,

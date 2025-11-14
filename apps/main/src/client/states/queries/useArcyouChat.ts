@@ -10,32 +10,30 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 /**
  * 사용자의 채팅방 목록을 조회하는 훅
  * 
+ * @param type 채팅방 타입 필터 (선택사항)
+ * 
  * @example
  * ```tsx
+ * // 모든 채팅방 조회
  * const { data: rooms, isLoading, error } = useArcyouChat();
  * 
- * if (isLoading) return <div>로딩 중...</div>;
- * if (error) return <div>오류: {error.message}</div>;
+ * // 1:1 채팅방만 조회
+ * const { data: directRooms } = useArcyouChat('direct');
  * 
- * return (
- *   <div>
- *     {rooms?.map(room => (
- *       <div key={room.id}>{room.name}</div>
- *     ))}
- *   </div>
- * );
+ * // 그룹 채팅방만 조회
+ * const { data: groupRooms } = useArcyouChat('group');
  * ```
  */
-export function useArcyouChat() {
+export function useArcyouChat(type?: 'direct' | 'group') {
   const queryClient = useQueryClient();
 
-  const query = useQuery(chatRoomQueryOptions.list());
+  const query = useQuery(chatRoomQueryOptions.list(type));
 
   const createMutation = useMutation({
     ...chatRoomQueryOptions.create,
     onSuccess: () => {
-      // 채팅방 목록 쿼리 무효화하여 자동으로 새로고침
-      queryClient.invalidateQueries({ queryKey: queryKeys.chatRooms.list() });
+      // 모든 타입의 채팅방 목록 쿼리 무효화하여 자동으로 새로고침
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatRooms.all() });
     },
   });
 
@@ -60,7 +58,6 @@ export function useArcyouChat() {
  *       name: '새 채팅방',
  *       description: '설명',
  *     });
- *     console.log('생성된 채팅방:', room);
  *   } catch (error) {
  *     console.error('생성 실패:', error);
  *   }
