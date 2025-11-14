@@ -167,3 +167,85 @@ export const chatRoomQueryOptions = {
     }
   ),
 } as const;
+
+// ==================== 친구 관계 Query Options ====================
+
+/**
+ * 친구 관계 관련 타입 정의 (API 응답용)
+ */
+export type ArcyouChatRelationApi = {
+  userId: string;
+  targetUserId: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'blocked';
+  requestedAt: string | null;
+  respondedAt: string | null;
+  blockedAt: string | null;
+};
+
+export type RelationshipWithTargetUser = ArcyouChatRelationApi & {
+  targetUser: {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl?: string | null;
+  };
+  /**
+   * 현재 사용자가 요청을 받은 경우 true
+   * pending 상태에서 수락/거부 버튼을 표시할지 결정하는 데 사용
+   */
+  isReceivedRequest?: boolean;
+};
+
+export type RelationsListResponse = {
+  relationships: RelationshipWithTargetUser[];
+};
+
+/**
+ * 친구 요청 뮤테이션 변수 타입
+ */
+export interface SendFriendRequestMutationVariables {
+  email: string;
+}
+
+export type SendFriendRequestResponse = {
+  relation: ArcyouChatRelationApi;
+};
+
+/**
+ * 친구 관계 관련 Query Options
+ */
+export const relationQueryOptions = {
+  /**
+   * 사용자의 친구 관계 목록 조회
+   */
+  list: () =>
+    queryOptions({
+      queryKey: queryKeys.relations.list(),
+      ...createApiQueryOptions<
+        RelationsListResponse['relationships'],
+        RelationsListResponse
+      >(
+        '/api/arcyou/relation',
+        (data) => data.relationships,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT, // 1분
+          gcTime: TIMEOUT.CACHE.MEDIUM, // 5분
+        }
+      ),
+    }),
+
+  /**
+   * 친구 요청 보내기 뮤테이션 옵션
+   */
+  sendFriendRequest: createApiMutation<
+    SendFriendRequestResponse['relation'],
+    SendFriendRequestResponse,
+    SendFriendRequestMutationVariables
+  >(
+    () => '/api/arcyou/relation',
+    (data) => data.relation,
+    {
+      method: 'POST',
+    }
+  ),
+} as const;

@@ -1,9 +1,9 @@
 'use client';
 
 import {
-    ArcYouRelation,
-    type RelationshipWithTargetUser,
-} from '@/client/components/arc/ArcYou/ArcYouRelation/components/ArcYouRelation';
+  ArcYouRelation,
+  type RelationshipWithTargetUser,
+} from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
 import type { ArcYouRelationItemProps } from '@/client/components/arc/ArcYou/ArcYouRelation/components/ArcYouRelationItem';
 import { ArcYouRelationList } from '@/client/components/arc/ArcYou/ArcYouRelation/components/ArcYouRelationList';
 import { Card, CardContent, CardHeader, CardTitle } from '@/client/components/ui/card';

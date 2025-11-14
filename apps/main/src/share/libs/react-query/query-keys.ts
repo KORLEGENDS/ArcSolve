@@ -67,6 +67,12 @@ export const queryKeys = {
     list: () => [...queryKeys.chatRooms.all(), 'list'] as const,
     byId: (roomId: string) => [...queryKeys.chatRooms.all(), 'detail', roomId] as const,
   },
+
+  // 친구 관계 관련
+  relations: {
+    all: () => ['relations'] as const,
+    list: () => [...queryKeys.relations.all(), 'list'] as const,
+  },
 } as const;
 
 /**
@@ -125,5 +131,12 @@ export const queryKeyUtils = {
    */
   invalidateChatRoomById: (client: QueryClient, roomId: string): void => {
     void client.invalidateQueries({ queryKey: queryKeys.chatRooms.byId(roomId) });
+  },
+
+  /**
+   * 친구 관계 목록 쿼리 무효화
+   */
+  invalidateRelationsList: (client: QueryClient): void => {
+    void client.invalidateQueries({ queryKey: queryKeys.relations.list() });
   },
 } as const;

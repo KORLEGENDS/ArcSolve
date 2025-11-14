@@ -3,15 +3,16 @@
 import * as React from 'react';
 
 import { cn } from '@/client/components/ui/utils';
-import type { ArcyouChatRelationship } from '@/share/schema/drizzles/arcyou-chat-relationship-drizzle';
+import type { ArcyouChatRelation } from '@/share/schema/drizzles/arcyou-chat-relation-drizzle';
 
-import type { ArcYouRelationItemProps } from './ArcYouRelationItem';
-import { ArcYouRelationList } from './ArcYouRelationList';
+import { ArcYouRelationAdd } from './components/ArcYouRelationAdd';
+import type { ArcYouRelationItemProps } from './components/ArcYouRelationItem';
+import { ArcYouRelationList } from './components/ArcYouRelationList';
 
 /**
  * 관계 데이터와 대상 사용자 정보를 결합한 타입
  */
-export interface RelationshipWithTargetUser extends ArcyouChatRelationship {
+export interface RelationshipWithTargetUser extends ArcyouChatRelation {
   /**
    * 대상 사용자 정보
    */
@@ -21,6 +22,11 @@ export interface RelationshipWithTargetUser extends ArcyouChatRelationship {
     email: string;
     imageUrl?: string | null;
   };
+  /**
+   * 현재 사용자가 요청을 받은 경우 true
+   * pending 상태에서 수락/거부 버튼을 표시할지 결정하는 데 사용
+   */
+  isReceivedRequest?: boolean;
 }
 
 export interface ArcYouRelationProps {
@@ -40,6 +46,18 @@ export interface ArcYouRelationProps {
    * 아이템 클릭 핸들러
    */
   onItemClick?: (relationship: RelationshipWithTargetUser) => void;
+  /**
+   * 친구 추가 이메일 입력값
+   */
+  addEmail?: string;
+  /**
+   * 친구 추가 이메일 변경 핸들러
+   */
+  onAddEmailChange?: (email: string) => void;
+  /**
+   * 친구 추가 핸들러
+   */
+  onAdd?: (email: string) => void;
   /**
    * 추가 클래스명
    */
@@ -63,7 +81,35 @@ export interface ArcYouRelationProps {
 }
 
 /**
+ * 관계 배열을 상태별로 분리하는 유틸 함수
+ * - pending: 친구 요청 목록 (위쪽 리스트)
+ * - accepted: 친구 목록 (아래쪽 리스트)
+ * - 그 외(status)는 현재는 무시
+ */
+function splitRelationshipsByStatus(
+  relationships: RelationshipWithTargetUser[]
+): {
+  pending: RelationshipWithTargetUser[];
+  accepted: RelationshipWithTargetUser[];
+} {
+  const pending: RelationshipWithTargetUser[] = [];
+  const accepted: RelationshipWithTargetUser[] = [];
+
+  relationships.forEach((relationship) => {
+    if (relationship.status === 'pending') {
+      pending.push(relationship);
+    } else if (relationship.status === 'accepted') {
+      accepted.push(relationship);
+    }
+    // 그 외(status === 'rejected' | 'blocked' 등)는 현재는 무시
+  });
+
+  return { pending, accepted };
+}
+
+/**
  * 관계 데이터를 ArcYouRelationItemProps로 변환하는 헬퍼 함수
+ * pending 상태에서 받은 요청만 수락/거부 버튼 표시
  */
 function relationshipToItemProps(
   relationship: RelationshipWithTargetUser,
@@ -71,6 +117,10 @@ function relationshipToItemProps(
   onReject?: (relationship: RelationshipWithTargetUser) => void,
   onItemClick?: (relationship: RelationshipWithTargetUser) => void
 ): ArcYouRelationItemProps {
+  // pending 상태이고 받은 요청인 경우만 수락/거부 버튼 표시
+  const canAcceptOrReject =
+    relationship.status === 'pending' && relationship.isReceivedRequest === true;
+
   return {
     userId: relationship.targetUser.id,
     name: relationship.targetUser.name,
@@ -80,8 +130,8 @@ function relationshipToItemProps(
       name: relationship.targetUser.name,
     },
     status: relationship.status,
-    onAccept: onAccept ? () => onAccept(relationship) : undefined,
-    onReject: onReject ? () => onReject(relationship) : undefined,
+    onAccept: canAcceptOrReject && onAccept ? () => onAccept(relationship) : undefined,
+    onReject: canAcceptOrReject && onReject ? () => onReject(relationship) : undefined,
     onClick: onItemClick ? () => onItemClick(relationship) : undefined,
   };
 }
@@ -91,40 +141,56 @@ export function ArcYouRelation({
   onAccept,
   onReject,
   onItemClick,
+  addEmail = '',
+  onAddEmailChange,
+  onAdd,
   className,
   pendingListClassName,
   friendsListClassName,
   pendingEmptyMessage = '친구 요청이 없습니다',
   friendsEmptyMessage = '친구가 없습니다',
 }: ArcYouRelationProps): React.ReactElement {
-  // pending 상태와 그 외 상태로 분리
+  // pending 상태와 accepted 상태를 분리
   const { pendingItems, friendItems } = React.useMemo(() => {
-    const pending: ArcYouRelationItemProps[] = [];
-    const friends: ArcYouRelationItemProps[] = [];
+    const { pending, accepted } = splitRelationshipsByStatus(relationships);
 
-    relationships.forEach((relationship) => {
-      const itemProps = relationshipToItemProps(
-        relationship,
-        onAccept,
-        onReject,
-        onItemClick
-      );
+    const pendingItems: ArcYouRelationItemProps[] = pending.map(
+      (relationship) =>
+        relationshipToItemProps(
+          relationship,
+          onAccept,
+          onReject,
+          onItemClick
+        )
+    );
 
-      if (relationship.status === 'pending') {
-        pending.push(itemProps);
-      } else {
-        friends.push(itemProps);
-      }
-    });
+    const friendItems: ArcYouRelationItemProps[] = accepted.map(
+      (relationship) =>
+        relationshipToItemProps(
+          relationship,
+          onAccept,
+          onReject,
+          onItemClick
+        )
+    );
 
     return {
       pendingItems: pending,
-      friendItems: friends,
+      friendItems,
     };
   }, [relationships, onAccept, onReject, onItemClick]);
 
   return (
     <div className={cn('w-full flex flex-col gap-6', className)}>
+      {/* 친구 추가 폼 */}
+      {onAdd && onAddEmailChange && (
+        <ArcYouRelationAdd
+          email={addEmail}
+          onEmailChange={onAddEmailChange}
+          onSubmit={onAdd}
+        />
+      )}
+
       {/* 위쪽: pending 상태 리스트 */}
       <ArcYouRelationList
         items={pendingItems}

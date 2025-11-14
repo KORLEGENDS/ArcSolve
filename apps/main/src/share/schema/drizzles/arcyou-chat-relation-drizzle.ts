@@ -1,20 +1,20 @@
 import {
-    pgEnum,
-    pgTable,
-    primaryKey,
-    timestamp,
-    uuid,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  timestamp,
+  uuid,
 } from 'drizzle-orm/pg-core';
 
 import { users } from './user-drizzle';
 
-export const arcyouChatRelationshipStatusEnum = pgEnum(
-  'arcyou_chat_relationship_status',
-  ['pending', 'accepted', 'blocked', 'rejected'],
+export const arcyouChatRelationStatusEnum = pgEnum(
+  'arcyou_chat_relation_status',
+  ['pending', 'accepted', 'rejected', 'blocked'],
 );
 
-export const arcyouChatRelationships = pgTable(
-  'arcyou_chat_relationships',
+export const arcyouChatRelations = pgTable(
+  'arcyou_chat_relations',
   {
     userId: uuid('user_id')
       .notNull()
@@ -24,7 +24,7 @@ export const arcyouChatRelationships = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
 
-    status: arcyouChatRelationshipStatusEnum('status')
+    status: arcyouChatRelationStatusEnum('status')
       .default('pending')
       .notNull(),
 
@@ -36,17 +36,16 @@ export const arcyouChatRelationships = pgTable(
 
     blockedAt: timestamp('blocked_at', { withTimezone: true }),
   },
-  (relationship) => [
+  (relation) => [
     primaryKey({
-      columns: [relationship.userId, relationship.targetUserId],
+      columns: [relation.userId, relation.targetUserId],
     }),
   ],
 );
 
-export type ArcyouChatRelationship =
-  typeof arcyouChatRelationships.$inferSelect;
+export type ArcyouChatRelation =
+  typeof arcyouChatRelations.$inferSelect;
 
-export type NewArcyouChatRelationship =
-  typeof arcyouChatRelationships.$inferInsert;
-
+export type NewArcyouChatRelation =
+  typeof arcyouChatRelations.$inferInsert;
 
