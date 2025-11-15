@@ -10,7 +10,7 @@ import {
   ArcYouRelation,
   type RelationshipWithTargetUser as ComponentRelationshipWithTargetUser,
 } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
-import { useArcyouChat } from '@/client/states/queries/useArcyouChat';
+import { useArcyouChat, useRoomActivitySocket } from '@/client/states/queries/useArcyouChat';
 import { useServiceEnsureOpenTab } from '@/client/states/stores/service-store';
 import { useArcYou } from '@/share/api/client/useArcYou';
 import type { RelationshipWithTargetUser as ApiRelationshipWithTargetUser } from '@/share/libs/react-query/query-options';
@@ -20,6 +20,9 @@ import { MessageCircle, MessageSquare, Users } from 'lucide-react';
 import * as React from 'react';
 
 export function RightSidebarContent() {
+  // 방 목록을 실시간으로 최신화하기 위한 room-activity WebSocket 연결
+  useRoomActivitySocket();
+
   // 1:1 채팅방과 그룹 채팅방을 각각 조회
   const {
     data: directRoomsData,

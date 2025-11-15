@@ -1,11 +1,21 @@
 /**
- * 채팅방 관련 React Query 훅
- * 사용자의 채팅방 목록을 조회하고 생성하는 훅
+ * 채팅방 관련 React Query 훅 및 실시간 방 활동 연동 훅
+ * - 사용자의 채팅방 목록을 조회/생성
+ * - uws-gateway의 room-activity 스트림을 통해 방 목록을 실시간으로 최신화
  */
 
+import { clientEnv } from '@/share/configs/environments/client-constants';
 import { queryKeys } from '@/share/libs/react-query/query-keys';
-import { chatRoomQueryOptions } from '@/share/libs/react-query/query-options';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  chatRoomQueryOptions,
+  type ArcyouChatRoom,
+} from '@/share/libs/react-query/query-options';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 /**
  * 사용자의 채팅방 목록을 조회하는 훅
@@ -74,5 +84,123 @@ export function useCreateChatRoom() {
       queryClient.invalidateQueries({ queryKey: queryKeys.chatRooms.list() });
     },
   });
+}
+
+/**
+ * 방 목록 캐시에서 특정 room의 lastMessageId/updatedAt을 갱신하고
+ * 최신 방이 상단에 오도록 재정렬하는 헬퍼 훅
+ */
+export function useBumpChatRoomActivity() {
+  const queryClient = useQueryClient();
+
+  const bump = (roomId: string, opts: { lastMessageId?: number; updatedAt?: string }) => {
+    const updateList = (rooms?: ArcyouChatRoom[]) => {
+      if (!rooms) return rooms;
+      const idx = rooms.findIndex((r) => r.id === roomId);
+      if (idx === -1) return rooms;
+
+      const original = rooms[idx];
+      const updated: ArcyouChatRoom = {
+        ...original,
+        lastMessageId: opts.lastMessageId ?? original.lastMessageId,
+        updatedAt: opts.updatedAt ?? original.updatedAt ?? new Date().toISOString(),
+      };
+
+      const next = [...rooms];
+      next.splice(idx, 1);
+      next.unshift(updated);
+      return next;
+    };
+
+    // 전체/타입별 리스트 모두 갱신 (존재하지 않는 캐시는 무시)
+    queryClient.setQueryData(queryKeys.chatRooms.list(), updateList);
+    queryClient.setQueryData(queryKeys.chatRooms.list('direct'), updateList);
+    queryClient.setQueryData(queryKeys.chatRooms.list('group'), updateList);
+  };
+
+  return { bump };
+}
+
+/**
+ * uws-gateway의 room-activity 스트림을 구독하여
+ * React Query 방 목록 캐시를 실시간으로 갱신하는 훅
+ *
+ * - auth → watch_rooms 순으로 한 번만 등록
+ * - RightSidebar 레벨에서 한 번만 호출하는 것을 예상
+ */
+export function useRoomActivitySocket() {
+  const wsRef = useRef<WebSocket | null>(null);
+  const { bump } = useBumpChatRoomActivity();
+  const wsUrl = clientEnv.NEXT_PUBLIC_CHAT_WS_URL;
+
+  useEffect(() => {
+    if (!wsUrl) return;
+
+    let closed = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/arcyou/chat/ws/token', { method: 'GET' });
+        if (!res.ok) {
+          return;
+        }
+        const { token } = (await res.json()) as { token: string };
+        if (closed) return;
+
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.addEventListener('open', () => {
+          ws.send(JSON.stringify({ op: 'auth', token }));
+        });
+
+        ws.addEventListener('message', (ev) => {
+          try {
+            const data = JSON.parse(ev.data as string) as any;
+
+            if (data.op === 'auth') {
+              if (data.success) {
+                ws.send(JSON.stringify({ op: 'watch_rooms' }));
+              }
+              return;
+            }
+
+            if (data.op === 'watch_rooms') {
+              // 필요 시 에러/상태 처리 확장 가능
+              return;
+            }
+
+            if (data.op === 'room-activity' && typeof data.roomId === 'string') {
+              const lastMessageId =
+                typeof data.lastMessageId === 'number' ? data.lastMessageId : undefined;
+              const updatedAt =
+                typeof data.createdAt === 'string' ? data.createdAt : undefined;
+
+              bump(data.roomId, { lastMessageId, updatedAt });
+              return;
+            }
+          } catch {
+            // ignore malformed messages
+          }
+        });
+
+        ws.addEventListener('error', () => {
+          // 필요시 로깅만 수행 (자동 재연결은 추후 요구사항에 따라 보강)
+        });
+      } catch {
+        // token fetch 실패 등은 조용히 무시 (사용자 경험에 큰 영향 없음)
+      }
+    })();
+
+    return () => {
+      closed = true;
+      try {
+        wsRef.current?.close();
+      } catch {
+        // ignore
+      }
+      wsRef.current = null;
+    };
+  }, [wsUrl, bump]);
 }
 

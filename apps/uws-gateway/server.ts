@@ -240,6 +240,9 @@ const channelClients = new Map<string, Set<WebSocket>>(); // roomId -> sockets
 
 const clients = new Map<WebSocket, ClientInfo>();
 
+// userId 단위 room-activity watcher (방 목록 실시간 갱신용)
+const userWatchers = new Map<string, Set<WebSocket>>();
+
 // ====== WS lifecycle ======
 
 wss.on('connection', (ws: WebSocket) => {
@@ -259,6 +262,14 @@ wss.on('connection', (ws: WebSocket) => {
         set.delete(ws);
 
         if (set.size === 0) channelClients.delete(ci.roomId);
+      }
+    }
+
+    if (ci?.userId) {
+      const set = userWatchers.get(ci.userId);
+      if (set) {
+        set.delete(ws);
+        if (set.size === 0) userWatchers.delete(ci.userId);
       }
     }
 
@@ -323,6 +334,27 @@ wss.on('connection', (ws: WebSocket) => {
         },
         WS_SEND_HIGH_WATER,
       );
+    }
+
+    // ---- WATCH ROOMS (room-activity 스트림 등록) ----
+
+    if (msg.op === 'watch_rooms') {
+      if (!ci.userId) {
+        return safeSend(
+          ws,
+          { op: 'watch_rooms', success: false, error: 'Unauthorized' },
+          WS_SEND_HIGH_WATER,
+        );
+      }
+
+      let set = userWatchers.get(ci.userId);
+      if (!set) {
+        set = new Set();
+        userWatchers.set(ci.userId, set);
+      }
+      set.add(ws);
+
+      return safeSend(ws, { op: 'watch_rooms', success: true }, WS_SEND_HIGH_WATER);
     }
 
     // ---- JOIN ----
@@ -475,6 +507,19 @@ wss.on('connection', (ws: WebSocket) => {
 
           if (!m) throw new Error('insert arcyouChatMessages failed');
 
+          // 현재 방의 모든 멤버 조회 (room-activity recipients용)
+          const members = await tx
+            .select({ userId: arcyouChatMembers.userId })
+            .from(arcyouChatMembers)
+            .where(
+              and(
+                eq(arcyouChatMembers.roomId, roomId),
+                sql`${arcyouChatMembers.deletedAt} IS NULL`,
+              ),
+            );
+
+          const recipients = members.map((mm) => mm.userId);
+
           // lastMessageId 업데이트
           await tx
             .update(arcyouChatRooms)
@@ -506,6 +551,8 @@ wss.on('connection', (ws: WebSocket) => {
 
                 temp_id: tempId,
               },
+              // 방 멤버 userId 목록 (room-activity 브로드캐스트용)
+              recipients,
             },
 
             status: 'pending',
@@ -632,6 +679,28 @@ subscriber.on('message', (_channel, message) => {
     };
 
     broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
+
+    // 방 목록 실시간 갱신을 위한 room-activity 이벤트 (user 단위 브로드캐스트)
+    const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
+    const messageId: number | undefined = data.message?.id;
+    const createdAt: string | undefined = data.message?.created_at;
+
+    if (recipients && typeof messageId === 'number') {
+      const activityPayload = {
+        op: 'room-activity' as const,
+        roomId,
+        lastMessageId: messageId,
+        createdAt: createdAt ?? new Date().toISOString(),
+      };
+
+      for (const userId of recipients) {
+        const set = userWatchers.get(userId);
+        if (!set || set.size === 0) continue;
+        for (const ws of set) {
+          safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+        }
+      }
+    }
   } catch (e) {
     console.error('[Redis] message parse error:', e);
   }
@@ -654,6 +723,28 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
     };
 
     broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
+
+    // 방 목록 실시간 갱신을 위한 room-activity 이벤트 (user 단위 브로드캐스트)
+    const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
+    const messageId: number | undefined = data.message?.id;
+    const createdAt: string | undefined = data.message?.created_at;
+
+    if (recipients && typeof messageId === 'number') {
+      const activityPayload = {
+        op: 'room-activity' as const,
+        roomId,
+        lastMessageId: messageId,
+        createdAt: createdAt ?? new Date().toISOString(),
+      };
+
+      for (const userId of recipients) {
+        const set = userWatchers.get(userId);
+        if (!set || set.size === 0) continue;
+        for (const ws of set) {
+          safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+        }
+      }
+    }
   } catch (e) {
     console.error('[Redis] pmessage parse error:', e);
   }
