@@ -35,24 +35,30 @@ export { useArcYouChatRooms, type ArcYouChatRoomsOptions } from './useArcYouChat
  * const { data: groupRooms } = useArcyouChat('group');
  * ```
  */
-export function useArcyouChat(type?: 'direct' | 'group') {
+export function useCreateArcyouChatRoom() {
   const queryClient = useQueryClient();
 
-  const query = useQuery(chatRoomQueryOptions.list(type));
-
-  const createMutation = useMutation({
+  const mutation = useMutation({
     ...chatRoomQueryOptions.create,
     onSuccess: () => {
-      // 모든 타입의 채팅방 목록 쿼리 무효화하여 자동으로 새로고침
       queryClient.invalidateQueries({ queryKey: queryKeys.chatRooms.all() });
     },
   });
 
   return {
+    createRoom: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    createError: mutation.error,
+  };
+}
+
+export function useArcyouChat(type?: 'direct' | 'group') {
+  const query = useQuery(chatRoomQueryOptions.list(type));
+  const createMutation = useCreateArcyouChatRoom();
+
+  return {
     ...query,
-    createRoom: createMutation.mutateAsync,
-    isCreating: createMutation.isPending,
-    createError: createMutation.error,
+    ...createMutation,
   };
 }
 

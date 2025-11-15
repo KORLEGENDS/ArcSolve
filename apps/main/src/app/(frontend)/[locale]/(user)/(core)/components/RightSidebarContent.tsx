@@ -3,20 +3,14 @@
 import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
 import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
 import { useArcWorkTabNameUpdateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabNameUpdateAdapter';
+import { ArcYouChatRoomCreate, ArcYouChatRoomList } from '@/client/components/arc/ArcYou/ArcYouChat';
+import { ArcYouRelation } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
 import {
-  ArcYouChatRoomCreate,
-  ArcYouChatRoomList,
-  type ArcYouChatRoomListItemProps,
-} from '@/client/components/arc/ArcYou/ArcYouChat';
-import {
-  ArcYouRelation,
-  type RelationshipWithTargetUser as ComponentRelationshipWithTargetUser,
-} from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
-import { useArcYou } from '@/client/states/queries/arcyou/useArcYou';
-import { useArcyouChat, useArcYouChatRooms } from '@/client/states/queries/arcyou/useArcyouChat';
-import type { RelationshipWithTargetUser as ApiRelationshipWithTargetUser } from '@/share/libs/react-query/query-options';
-import { relationQueryOptions } from '@/share/libs/react-query/query-options';
-import { useQuery } from '@tanstack/react-query';
+  type ArcYouRelationWithTargetUser,
+  useArcYouRelation,
+  useArcYouRelationSearch,
+} from '@/client/states/queries/arcyou/useArcYouRelation';
+import { useArcYouChatRooms, useCreateArcyouChatRoom } from '@/client/states/queries/arcyou/useArcyouChat';
 import { MessageCircle, MessageSquare, Users } from 'lucide-react';
 import * as React from 'react';
 
@@ -40,33 +34,22 @@ export function RightSidebarContent() {
   });
 
   // 1:1 채팅방과 그룹 채팅방을 각각 조회
+  const { createRoom: createDirectRoom } = useCreateArcyouChatRoom();
   const {
-    data: directRoomsData,
-    isLoading: isDirectLoading,
-    error: directError,
-    createRoom,
-  } = useArcyouChat('direct');
-  const {
-    data: groupRoomsData,
-    isLoading: isGroupLoading,
-    error: groupError,
     createRoom: createGroupRoom,
     isCreating: isCreatingGroupRoom,
-  } = useArcyouChat('group');
+  } = useCreateArcyouChatRoom();
   const {
-    data: relationshipsData,
+    relationships,
     isLoading: isRelationsLoading,
     sendFriendRequest,
-    acceptFriendRequest,
-    rejectFriendRequest,
-    cancelFriendRequest,
-    deleteFriendRelation,
-  } = useArcYou();
+    handlers: relationHandlers,
+  } = useArcYouRelation();
   const { ensureOpenTab } = useArcWorkTabCreateAdapter();
   const [addEmail, setAddEmail] = React.useState('');
   const [directSearchQuery, setDirectSearchQuery] = React.useState('');
   const [groupSearchQuery, setGroupSearchQuery] = React.useState('');
-  const [selectedGroupFriends, setSelectedGroupFriends] = React.useState<ComponentRelationshipWithTargetUser[]>([]);
+  const [selectedGroupFriends, setSelectedGroupFriends] = React.useState<ArcYouRelationWithTargetUser[]>([]);
 
   // 디바운스된 검색어 (0.3초)
   const [directDebouncedQuery, setDirectDebouncedQuery] = React.useState('');
@@ -88,20 +71,20 @@ export function RightSidebarContent() {
 
   // 1:1 채팅 친구 검색 (디바운스된 검색어 사용)
   const {
-    data: directSearchResults,
+    results: directSearchResults,
     isLoading: isDirectSearching,
-  } = useQuery(relationQueryOptions.search(directDebouncedQuery));
+  } = useArcYouRelationSearch(directDebouncedQuery);
 
   // 그룹 채팅 친구 검색 (디바운스된 검색어 사용)
   const {
-    data: groupSearchResults,
+    results: groupSearchResults,
     isLoading: isGroupSearching,
-  } = useQuery(relationQueryOptions.search(groupDebouncedQuery));
+  } = useArcYouRelationSearch(groupDebouncedQuery);
 
   const handleSendFriendRequest = React.useCallback(
     async (email: string) => {
       try {
-        await sendFriendRequest({ email });
+        await sendFriendRequest(email);
         setAddEmail('');
       } catch (err) {
         console.error('친구 요청 실패:', err);
@@ -112,48 +95,42 @@ export function RightSidebarContent() {
   );
 
   const handleAcceptFriendRequest = React.useCallback(
-    async (relationship: ComponentRelationshipWithTargetUser) => {
+    async (relationship: ArcYouRelationWithTargetUser) => {
       try {
-        // isReceivedRequest가 true일 때만 호출되므로, targetUser.id가 요청자 ID
-        await acceptFriendRequest(relationship.targetUser.id);
+        await relationHandlers.accept(relationship);
       } catch (err) {
         console.error('친구 요청 수락 실패:', err);
-        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [acceptFriendRequest]
+    [relationHandlers]
   );
 
   const handleRejectFriendRequest = React.useCallback(
-    async (relationship: ComponentRelationshipWithTargetUser) => {
+    async (relationship: ArcYouRelationWithTargetUser) => {
       try {
-        // isReceivedRequest가 true일 때만 호출되므로, targetUser.id가 요청자 ID
-        await rejectFriendRequest(relationship.targetUser.id);
+        await relationHandlers.reject(relationship);
       } catch (err) {
         console.error('친구 요청 거절 실패:', err);
-        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [rejectFriendRequest]
+    [relationHandlers]
   );
 
   const handleCancelFriendRequest = React.useCallback(
-    async (relationship: ComponentRelationshipWithTargetUser) => {
+    async (relationship: ArcYouRelationWithTargetUser) => {
       try {
-        // isReceivedRequest가 false일 때만 호출되므로, targetUser.id가 대상 사용자 ID
-        await cancelFriendRequest(relationship.targetUser.id);
+        await relationHandlers.cancel(relationship);
       } catch (err) {
         console.error('친구 요청 취소 실패:', err);
-        // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [cancelFriendRequest]
+    [relationHandlers]
   );
 
   const handleChatWithFriend = React.useCallback(
-    async (relationship: ComponentRelationshipWithTargetUser) => {
+    async (relationship: ArcYouRelationWithTargetUser) => {
       try {
-        const room = await createRoom({
+        const room = await createDirectRoom({
           type: 'direct',
           name: relationship.targetUser.name,
           description: null,
@@ -168,12 +145,12 @@ export function RightSidebarContent() {
         // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [createRoom, ensureOpenTab]
+    [createDirectRoom, ensureOpenTab]
   );
 
   // 1:1 채팅 검색 결과 클릭 핸들러 (즉시 대화방 생성)
   const handleDirectFriendClick = React.useCallback(
-    async (relationship: ComponentRelationshipWithTargetUser) => {
+    async (relationship: ArcYouRelationWithTargetUser) => {
       await handleChatWithFriend(relationship);
       setDirectSearchQuery(''); // 검색어 초기화
     },
@@ -182,7 +159,7 @@ export function RightSidebarContent() {
 
   // 그룹 채팅 검색 결과 클릭 핸들러 (badge 추가)
   const handleGroupFriendClick = React.useCallback(
-    (relationship: ComponentRelationshipWithTargetUser) => {
+    (relationship: ArcYouRelationWithTargetUser) => {
       // 이미 선택된 친구인지 확인
       const isAlreadySelected = selectedGroupFriends.some(
         (f) => f.targetUser.id === relationship.targetUser.id
@@ -197,7 +174,7 @@ export function RightSidebarContent() {
 
   // 그룹 채팅 선택된 친구 제거 핸들러
   const handleRemoveGroupFriend = React.useCallback(
-    (relationship: ComponentRelationshipWithTargetUser) => {
+    (relationship: ArcYouRelationWithTargetUser) => {
       setSelectedGroupFriends((prev) =>
         prev.filter((f) => f.targetUser.id !== relationship.targetUser.id)
       );
@@ -241,143 +218,17 @@ export function RightSidebarContent() {
     [selectedGroupFriends, createGroupRoom, ensureOpenTab]
   );
 
-  // 검색 결과를 컴포넌트 타입으로 변환
-  const directSearchResultsTransformed: ComponentRelationshipWithTargetUser[] = React.useMemo(() => {
-    if (!directSearchResults) return [];
-    return directSearchResults.map((rel: ApiRelationshipWithTargetUser) => ({
-      ...rel,
-      requestedAt: rel.requestedAt ? new Date(rel.requestedAt) : null,
-      respondedAt: rel.respondedAt ? new Date(rel.respondedAt) : null,
-      blockedAt: rel.blockedAt ? new Date(rel.blockedAt) : null,
-    })) as ComponentRelationshipWithTargetUser[];
-  }, [directSearchResults]);
-
-  const groupSearchResultsTransformed: ComponentRelationshipWithTargetUser[] = React.useMemo(() => {
-    if (!groupSearchResults) return [];
-    return groupSearchResults.map((rel: ApiRelationshipWithTargetUser) => ({
-      ...rel,
-      requestedAt: rel.requestedAt ? new Date(rel.requestedAt) : null,
-      respondedAt: rel.respondedAt ? new Date(rel.respondedAt) : null,
-      blockedAt: rel.blockedAt ? new Date(rel.blockedAt) : null,
-    })) as ComponentRelationshipWithTargetUser[];
-  }, [groupSearchResults]);
-
   const handleDeleteFriend = React.useCallback(
-    async (relationship: ComponentRelationshipWithTargetUser) => {
+    async (relationship: ArcYouRelationWithTargetUser) => {
       try {
-        await deleteFriendRelation(relationship.targetUser.id);
+        await relationHandlers.delete(relationship);
       } catch (err) {
         console.error('친구 삭제 실패:', err);
         // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [deleteFriendRelation]
+    [relationHandlers]
   );
-
-  // API 응답을 컴포넌트 타입으로 변환 (Date 필드 변환)
-  const relationships: ComponentRelationshipWithTargetUser[] = React.useMemo(() => {
-    if (!relationshipsData) {
-      return [];
-    }
-
-    if (!Array.isArray(relationshipsData)) {
-      console.error('[RightSidebarContent] relationshipsData가 배열이 아님:', relationshipsData);
-      return [];
-    }
-
-    return relationshipsData.map((rel: ApiRelationshipWithTargetUser) => ({
-      ...rel,
-      requestedAt: rel.requestedAt ? new Date(rel.requestedAt) : null,
-      respondedAt: rel.respondedAt ? new Date(rel.respondedAt) : null,
-      blockedAt: rel.blockedAt ? new Date(rel.blockedAt) : null,
-    })) as ComponentRelationshipWithTargetUser[];
-  }, [relationshipsData]);
-
-  // 1:1 채팅방 데이터를 컴포넌트 props 형식으로 변환
-  const directRooms: ArcYouChatRoomListItemProps[] = React.useMemo(() => {
-    if (!directRoomsData) return [];
-
-    return directRoomsData.map((room) => ({
-      id: room.id,
-      name: room.name,
-      description: room.description || undefined,
-      lastMessageId: room.lastMessageId,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-      deletedAt: null, // API 응답에 없지만 타입 호환성을 위해 null 설정
-      onClick: () => {
-        console.log(`채팅방 선택: ${room.name} (${room.id})`);
-        // TODO: 채팅방 선택 로직 구현
-      },
-      menuOptions: [
-        {
-          label: '대화방 정보',
-          onClick: () => {
-            console.log(`대화방 정보: ${room.name} (${room.id})`);
-            // TODO: 대화방 정보 모달 표시
-          },
-        },
-        {
-          label: '알림 끄기',
-          onClick: () => {
-            console.log(`알림 끄기: ${room.name} (${room.id})`);
-            // TODO: 알림 설정 변경
-          },
-        },
-        {
-          label: '대화방 나가기',
-          onClick: () => {
-            console.log(`대화방 나가기: ${room.name} (${room.id})`);
-            // TODO: 대화방 나가기 로직 구현
-          },
-          separator: true,
-        },
-      ],
-    }));
-  }, [directRoomsData]);
-
-  // 그룹 채팅방 데이터를 컴포넌트 props 형식으로 변환
-  const groupRooms: ArcYouChatRoomListItemProps[] = React.useMemo(() => {
-    if (!groupRoomsData) return [];
-
-    return groupRoomsData.map((room) => ({
-      id: room.id,
-      name: room.name,
-      description: room.description || undefined,
-      lastMessageId: room.lastMessageId,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-      deletedAt: null, // API 응답에 없지만 타입 호환성을 위해 null 설정
-      onClick: () => {
-        console.log(`채팅방 선택: ${room.name} (${room.id})`);
-        // TODO: 채팅방 선택 로직 구현
-      },
-      menuOptions: [
-        {
-          label: '대화방 정보',
-          onClick: () => {
-            console.log(`대화방 정보: ${room.name} (${room.id})`);
-            // TODO: 대화방 정보 모달 표시
-          },
-        },
-        {
-          label: '알림 끄기',
-          onClick: () => {
-            console.log(`알림 끄기: ${room.name} (${room.id})`);
-            // TODO: 알림 설정 변경
-          },
-        },
-        {
-          label: '대화방 나가기',
-          onClick: () => {
-            console.log(`대화방 나가기: ${room.name} (${room.id})`);
-            // TODO: 대화방 나가기 로직 구현
-          },
-          separator: true,
-        },
-      ],
-    }));
-  }, [groupRoomsData]);
 
   const tabs = React.useMemo(
     () => [
@@ -423,28 +274,14 @@ export function RightSidebarContent() {
               searchQuery={directSearchQuery}
               onSearchQueryChange={setDirectSearchQuery}
               debouncedSearchQuery={directDebouncedQuery}
-              searchResults={directSearchResultsTransformed}
+              searchResults={directSearchResults}
               isSearching={isDirectSearching}
               onFriendClick={handleDirectFriendClick}
             />
           </div>
           {/* 채팅방 목록 */}
           <div className="flex-1 overflow-y-auto py-2 w-full">
-            {isDirectLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                1:1 채팅 목록을 불러오는 중...
-              </div>
-            ) : directError ? (
-              <div className="flex items-center justify-center py-8 text-sm text-destructive">
-                1:1 채팅 목록을 불러오는 중 오류가 발생했습니다.
-              </div>
-            ) : directRooms.length === 0 ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                참여 중인 1:1 채팅이 없습니다.
-              </div>
-            ) : (
-              <ArcYouChatRoomList rooms={directRooms} />
-            )}
+            <ArcYouChatRoomList type="direct" />
           </div>
         </div>
       </ArcManager.TabPanel>
@@ -459,7 +296,7 @@ export function RightSidebarContent() {
               searchQuery={groupSearchQuery}
               onSearchQueryChange={setGroupSearchQuery}
               debouncedSearchQuery={groupDebouncedQuery}
-              searchResults={groupSearchResultsTransformed}
+              searchResults={groupSearchResults}
               isSearching={isGroupSearching}
               onFriendClick={handleGroupFriendClick}
               selectedFriends={selectedGroupFriends}
@@ -470,21 +307,7 @@ export function RightSidebarContent() {
           </div>
           {/* 채팅방 목록 */}
           <div className="flex-1 overflow-y-auto py-2 w-full">
-            {isGroupLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                그룹 채팅 목록을 불러오는 중...
-              </div>
-            ) : groupError ? (
-              <div className="flex items-center justify-center py-8 text-sm text-destructive">
-                그룹 채팅 목록을 불러오는 중 오류가 발생했습니다.
-              </div>
-            ) : groupRooms.length === 0 ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                참여 중인 그룹 채팅방이 없습니다.
-              </div>
-            ) : (
-              <ArcYouChatRoomList rooms={groupRooms} />
-            )}
+            <ArcYouChatRoomList type="group" />
           </div>
         </div>
       </ArcManager.TabPanel>

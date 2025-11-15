@@ -128,7 +128,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
               (async () => {
                 try {
                   const res = await fetch(
-                    `/api/arcyou/chat/room/${roomId}/messages?limit=50`,
+                    `/api/arcyou/chat/rooms/${roomId}/messages?limit=50`,
                     { method: 'GET' },
                   );
                   if (res.ok) {

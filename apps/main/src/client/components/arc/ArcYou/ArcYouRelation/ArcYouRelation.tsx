@@ -3,7 +3,6 @@
 import * as React from 'react';
 
 import { cn } from '@/client/components/ui/utils';
-import type { ArcyouChatRelation } from '@/share/schema/drizzles/arcyou-chat-relation-drizzle';
 
 import { relationshipToItemPropsWithActions } from './ArcYouRelation-utils';
 import { ArcYouRelationAdd } from './components/ArcYouRelationAdd';
@@ -13,7 +12,31 @@ import { ArcYouRelationList } from './components/ArcYouRelationList';
 /**
  * 관계 데이터와 대상 사용자 정보를 결합한 타입
  */
-export interface RelationshipWithTargetUser extends ArcyouChatRelation {
+export interface RelationshipWithTargetUser {
+  /**
+   * 관계의 주체(현재 사용자)
+   */
+  userId: string;
+  /**
+   * 대상 사용자 ID
+   */
+  targetUserId: string;
+  /**
+   * 관계 상태
+   */
+  status: 'pending' | 'accepted' | 'rejected' | 'blocked';
+  /**
+   * 요청 시각
+   */
+  requestedAt: Date | null;
+  /**
+   * 응답 시각
+   */
+  respondedAt: Date | null;
+  /**
+   * 차단 시각
+   */
+  blockedAt: Date | null;
   /**
    * 대상 사용자 정보
    */

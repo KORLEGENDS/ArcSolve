@@ -1,4 +1,5 @@
 # 배경 지식
+## 타입검사 - `pnpm type-check`
 ## 사용자의 모든 입력은 검증되어야 하며, 서버측에서 악의적으로 동작하지 않도록 방어적으로 구현합니다.
 ## docs - md로 관련 정보를 업데이트 합니다.
 0. 지식 탐색이 필요한 경우 docs/에 관련 정보가 있는지 확인합니다.
@@ -21,7 +22,7 @@
   - 채팅방 업데이트
     - 채팅방 이름 변경: 로컬/원격 -> 모두 탭/목록 이름 동기화
 4. api
-  - `useArcYou.ts`: 친구 관계 관리 (목록 조회, 요청 보내기/수락/거절/취소, 삭제)
+  - `useArcYouRelation.ts`: 친구 관계 관리 (목록 조회, 요청 보내기/수락/거절/취소, 삭제, 검색)
   - `useArcyouChat.ts`: 채팅방 목록 조회/생성, 이름 수정, 멤버 조회, 활동 갱신 헬퍼
   - `useArcYouChatRoom.ts`: 개별 채팅방 WebSocket 연결 및 메시지 송수신/읽음 상태 관리
   - `useArcYouChatRooms.ts`: 채팅방 목록 실시간 갱신 (room-activity 스트림 구독)
@@ -66,7 +67,7 @@
 **방식**: `MutationVariables`, `Response` 타입 정의 / `createApiQueryOptions` 또는 `createApiMutation` 사용 / URL 빌더, 데이터 추출 함수, HTTP 메서드 지정 / `bodyExtractor`로 요청 본문 형식 커스터마이징 (필요시)
 
 ### 4. React Query 훅 추가
-**위치**: `src/share/api/client/useArcYou.ts`
+**위치**: `src/client/states/queries/arcyou/useArcYouRelation.ts`
 
 **방식**: `useQuery` 또는 `useMutation` 사용 / `onSuccess`에서 관련 쿼리 무효화 (`invalidateQueries`) / 반환값에 함수, 로딩 상태, 에러 상태 포함 / 함수는 간단한 래퍼로 제공 (예: `acceptFriendRequest(userId)`)
 
@@ -80,7 +81,7 @@
 ### 6. 최상위 컴포넌트에서 핸들러 연결
 **위치**: `src/app/(frontend)/[locale]/(user)/(core)/components/RightSidebarContent.tsx`
 
-**방식**: `useArcYou` 훅에서 필요한 함수 추출 / `useCallback`으로 핸들러 함수 생성 (의존성 배열 관리) / `ArcYouRelation` 컴포넌트에 props로 전달 / 에러는 React Query가 처리하므로 로그만 출력
+**방식**: `useArcYouRelation` 훅에서 목록/액션/검색 결과를 추출하고, `useCallback`으로 UI 핸들러를 구성하여 `ArcYouRelation`과 채팅 생성 컴포넌트에 전달합니다. 에러는 React Query가 처리하므로 로그만 출력합니다.
 
 ### 구현 시 주의사항
 1. **타입 일관성**: API 응답(ISO string)과 컴포넌트 props(Date 객체) 간 변환 필요

@@ -1,6 +1,6 @@
 ## ArcYou 채팅 구현 상세 (현행)
 
-최종 업데이트: 2025-11-XX
+최종 업데이트: 2025-11-15
 
 ### 1) 개요
 - 아키텍처
@@ -80,8 +80,8 @@
     - PEM 형식 오류: `500 Invalid private key format`
     - 토큰 생성 실패: `500 Token generation failed`
 
-- 히스토리 API (`apps/main/src/app/(backend)/api/arcyou/chat/room/[roomId]/messages/route.ts`)
-  - `GET /api/arcyou/chat/room/{roomId}/messages?limit=50&before={createdAtIso}`
+- 히스토리 API (`apps/main/src/app/(backend)/api/arcyou/chat/rooms/[roomId]/messages/route.ts`)
+  - `GET /api/arcyou/chat/rooms/{roomId}/messages?limit=50&before={createdAtIso}`
   - 인증: NextAuth 세션 확인 (`auth()`)
   - 파라미터 처리: Next 16 변경에 따라 `params`는 Promise → `await ctx.params`로 처리
   - 쿼리 파라미터:
@@ -161,7 +161,9 @@
     - `description`: 문자열 또는 null (선택)
     - `direct` 타입: `targetUserId` 필수
     - `group` 타입: `memberIds` 배열 필수 (최소 1명)
-  - 로직: `ArcyouChatRoomRepository.create()`로 채팅방 생성 및 멤버 추가
+  - 로직:
+    - direct 타입 요청은 `ArcyouChatRoomRepository.findDirectRoomBetweenUsers()`로 **기존 1:1 방이 있는지 먼저 조회**하고, 존재하면 새로운 방을 만들지 않고 해당 방을 그대로 반환
+    - 기존 방이 없을 때만 `ArcyouChatRoomRepository.create()`로 채팅방 생성 및 멤버 추가
   - 응답 형식 (`ok` 헬퍼 사용):
     ```typescript
     {
@@ -233,7 +235,7 @@
        - `open` 이벤트 시 `{ op:'auth', token }` 전송
     3) 인증 성공 처리 (`op:'auth'` 응답):
        - `success=true`, `userId` 수신 시 `isAuthedRef.current = true`, `currentUserId` 설정
-       - 초기 히스토리 로드: `GET /api/arcyou/chat/room/{roomId}/messages?limit=50`
+       - 초기 히스토리 로드: `GET /api/arcyou/chat/rooms/{roomId}/messages?limit=50`
          - 서버는 `id DESC`로 반환 → 클라이언트에서 `reverse()`로 ASC 정렬
          - 기존 메시지 앞에 배치 (`[...next, ...prev]`)
          - 받은 서버 `id`는 `persistedIdSetRef`에 기록하여 중복 방지
@@ -298,7 +300,7 @@
 2. 토큰 발급: `GET /api/arcyou/chat/ws/token` → JWT 수신
 3. WebSocket 연결: `NEXT_PUBLIC_CHAT_WS_URL`로 연결
 4. 인증: `{ op:'auth', token }` 전송 → `{ op:'auth', success:true, userId }` 수신
-5. 히스토리 로드: `GET /api/arcyou/chat/room/{roomId}/messages?limit=50`
+5. 히스토리 로드: `GET /api/arcyou/chat/rooms/{roomId}/messages?limit=50`
    - 서버는 `id DESC` 반환 → 클라이언트에서 ASC 정렬하여 앞에 배치
    - `persistedIdSetRef`에 ID 기록
 6. 조인: `{ op:'room', action:'join', roomId }` 전송 → `{ op:'room', event:'joined', success:true }` 수신 → `ready=true`
