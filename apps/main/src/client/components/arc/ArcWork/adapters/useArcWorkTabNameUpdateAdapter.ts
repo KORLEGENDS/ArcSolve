@@ -16,6 +16,14 @@ export interface ArcWorkTabNameUpdateAdapter {
    * 탭 이름 변경 이벤트를 도메인별 rename 훅으로 라우팅합니다.
    */
   handleRename: (payload: ArcWorkTabRenamePayload) => void;
+
+  /**
+   * 서버/WS 등 외부에서 이미 확정된 이름 변경을
+   * ArcWork 탭에만 반영할 때 사용합니다.
+   *
+   * - 서버 상태는 이미 최신이라고 가정하고, FlexLayout 탭 이름만 동기화합니다.
+   */
+  syncTabNameFromRemote: (payload: { id: string; type: string; newName: string }) => void;
 }
 
 /**
@@ -58,8 +66,30 @@ export function useArcWorkTabNameUpdateAdapter(): ArcWorkTabNameUpdateAdapter {
     [renameChatRoom, model]
   );
 
+  const syncTabNameFromRemote = useCallback(
+    (payload: { id: string; type: string; newName: string }) => {
+      const { id, type, newName } = payload;
+      const trimmed = newName.trim();
+      if (!trimmed) return;
+
+      if (!model) return;
+
+      const node = model.getNodeById(id) as TabNode | undefined;
+      if (!node || (node as any).getType?.() !== 'tab') return;
+
+      const nodeType = node.getComponent();
+      if (nodeType && nodeType !== type) {
+        return;
+      }
+
+      model.doAction(Actions.renameTab(id, trimmed));
+    },
+    [model]
+  );
+
   return {
     handleRename,
+    syncTabNameFromRemote,
   };
 }
 

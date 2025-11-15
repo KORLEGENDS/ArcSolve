@@ -2,6 +2,7 @@
 
 import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
 import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
+import { useArcWorkTabNameUpdateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabNameUpdateAdapter';
 import {
   ArcYouChatRoomCreate,
   ArcYouChatRoomList,
@@ -20,8 +21,23 @@ import { MessageCircle, MessageSquare, Users } from 'lucide-react';
 import * as React from 'react';
 
 export function RightSidebarContent() {
+  const { syncTabNameFromRemote } = useArcWorkTabNameUpdateAdapter();
+
   // 방 목록을 실시간으로 최신화하기 위한 room-activity WebSocket 연결
-  useRoomActivitySocket();
+  useRoomActivitySocket({
+    onRoomUpdated: React.useCallback(
+      (room: { id: string; name?: string | null }) => {
+        if (!room.id || !room.name) return;
+        // ArcWork에서 해당 채팅방 탭이 열려 있다면 탭 제목도 함께 동기화
+        syncTabNameFromRemote({
+          id: room.id,
+          type: 'arcyou-chat-room',
+          newName: room.name,
+        });
+      },
+      [syncTabNameFromRemote]
+    ),
+  });
 
   // 1:1 채팅방과 그룹 채팅방을 각각 조회
   const {

@@ -182,7 +182,8 @@ export class ArcyouChatRoomRepository {
           type: 'room.created',
           roomId: room.id,
           payload: {
-            op: 'event',
+            op: 'rooms',
+            event: 'room.created',
             type: 'room.created',
             roomId: room.id,
             room: {
@@ -295,6 +296,51 @@ export class ArcyouChatRoomRepository {
 
       if (!result) {
         throw new Error('채팅방 멤버 정보 조회에 실패했습니다.');
+      }
+
+      // 이름 변경 이벤트를 Outbox에 적재하여 다른 클라이언트의 목록/탭도 실시간으로 동기화
+      try {
+        // 현재 방의 모든 멤버 조회 (room.updated recipients용)
+        const members = await tx
+          .select({ userId: arcyouChatMembers.userId })
+          .from(arcyouChatMembers)
+          .where(
+            and(
+              eq(arcyouChatMembers.roomId, roomId),
+              isNull(arcyouChatMembers.deletedAt)
+            )
+          );
+
+        const recipients = members.map((m) => m.userId);
+
+        if (recipients.length > 0) {
+          await tx.insert(outbox).values({
+            type: 'room.updated',
+            roomId,
+            payload: {
+              op: 'rooms',
+              event: 'room.updated',
+              type: 'room.updated',
+              roomId,
+              room: {
+                id: result.id,
+                name: result.name,
+                description: result.description,
+                type: result.type,
+                lastMessageId: result.lastMessageId ?? null,
+                createdAt: result.createdAt?.toISOString() ?? new Date().toISOString(),
+                updatedAt: result.updatedAt?.toISOString() ?? null,
+              },
+              recipients,
+            },
+            status: 'pending',
+            attempts: 0,
+            nextAttemptAt: new Date(),
+          });
+        }
+      } catch {
+        // Outbox 적재 실패는 이름 변경 자체를 막지 않는다.
+        // 필요시 로깅/모니터링 연동 가능.
       }
 
       return result;

@@ -20,7 +20,7 @@
   2. 브라우저가 uws-gateway WS 엔드포인트에 접속 (`NEXT_PUBLIC_CHAT_WS_URL`)
   3. `{ op:'auth', token }` 으로 인증
   4. (대화방) `{ op:'join', room_id }` 로 방 조인
-  5. (방 목록) `{ op:'watch_rooms' }` 로 room-activity watcher 등록
+  5. (방 목록) `{ op:'rooms', action:'watch' }` 로 방 목록 watcher 등록
   6. 클라이언트는
      - 대화방 WS를 통해 메시지 전송/수신
      - 방 목록 WS를 통해 `op:'room-activity'` 이벤트 수신 후 React Query 캐시 갱신
@@ -182,12 +182,12 @@
   - `arcyou_chat_members.last_read_message_id` 를 `GREATEST(last_read_message_id, 123)` 로 갱신
   - 별도 응답은 없으며, 실패 시 `op:'error'` 로 통지될 수 있습니다.
 
-#### 2-7. 방 목록 watcher 등록 (`watch_rooms`)
+#### 2-7. 방 목록 watcher 등록 (`op: 'rooms', action: 'watch'`)
 
-- 클라이언트 → 서버:
+-- 클라이언트 → 서버:
 
 ```json
-{ "op": "watch_rooms" }
+{ "op": "rooms", "action": "watch" }
 ```
 
 - 서버 동작:
@@ -195,19 +195,20 @@
   - 이후 Outbox → Redis → 게이트웨이로 들어오는 메시지에 포함된 `recipients` 배열을 사용해
     해당 사용자 watcher 소켓으로 `op:'room-activity'` 이벤트를 브로드캐스트
 
-- 서버 → 클라이언트:
+-- 서버 → 클라이언트:
 
 ```json
-{ "op": "watch_rooms", "success": true }
+{ "op": "rooms", "event": "watch", "success": true }
 ```
 
 #### 2-8. 방 목록 실시간 업데이트 (`room-activity`)
 
-- 서버 → 클라이언트(watcher WS):
+-- 서버 → 클라이언트(watcher WS):
 
 ```json
 {
-  "op": "room-activity",
+  "op": "rooms",
+  "event": "room.activity",
   "roomId": "<room-uuid>",
   "lastMessageId": 123,
   "createdAt": "2025-11-15T00:00:00.000Z"

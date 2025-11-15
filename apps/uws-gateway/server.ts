@@ -336,309 +336,375 @@ wss.on('connection', (ws: WebSocket) => {
       );
     }
 
-    // ---- WATCH ROOMS (room-activity 스트림 등록) ----
+    // ---- ROOMS (방 목록 watcher 등록 등) ----
 
-    if (msg.op === 'watch_rooms') {
-      if (!ci.userId) {
-        return safeSend(
-          ws,
-          { op: 'watch_rooms', success: false, error: 'Unauthorized' },
-          WS_SEND_HIGH_WATER,
-        );
+    if (msg.op === 'rooms') {
+      const action: string | undefined = msg.action;
+
+      // watcher 등록
+      if (action === 'watch') {
+        if (!ci.userId) {
+          return safeSend(
+            ws,
+            { op: 'rooms', event: 'watch', success: false, error: 'Unauthorized' },
+            WS_SEND_HIGH_WATER,
+          );
+        }
+
+        let set = userWatchers.get(ci.userId);
+        if (!set) {
+          set = new Set();
+          userWatchers.set(ci.userId, set);
+        }
+        set.add(ws);
+
+        return safeSend(ws, { op: 'rooms', event: 'watch', success: true }, WS_SEND_HIGH_WATER);
       }
 
-      let set = userWatchers.get(ci.userId);
-      if (!set) {
-        set = new Set();
-        userWatchers.set(ci.userId, set);
-      }
-      set.add(ws);
-
-      return safeSend(ws, { op: 'watch_rooms', success: true }, WS_SEND_HIGH_WATER);
+      return safeSend(
+        ws,
+        { op: 'rooms', success: false, error: `Unknown rooms.action: ${String(action)}` },
+        WS_SEND_HIGH_WATER,
+      );
     }
 
-    // ---- JOIN ----
+    // ---- ROOM (단일 방 join/send/ack 등) ----
 
-    if (msg.op === 'join') {
-      const roomId = msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId;
+    if (msg.op === 'room') {
+      const action: string | undefined = msg.action;
 
-      if (!roomId)
-        return safeSend(ws, { op: 'join', success: false, error: 'room_id required' }, WS_SEND_HIGH_WATER);
+      // JOIN
+      if (action === 'join') {
+        const roomId =
+          msg.roomId || msg.room_id || msg.conversation_id || msg.conversationId;
 
-      // 멤버 검증
-
-      const p = await db
-        .select()
-
-        .from(arcyouChatMembers)
-
-        .where(
-          and(
-            eq(arcyouChatMembers.roomId, roomId),
-            eq(arcyouChatMembers.userId, ci.userId),
-            sql`${arcyouChatMembers.deletedAt} IS NULL`,
-          ),
-        )
-
-        .limit(1);
-
-      if (p.length === 0)
-        return safeSend(ws, { op: 'join', success: false, error: 'Forbidden: not a member' }, WS_SEND_HIGH_WATER);
-
-      // 이전 채널 제거
-
-      if (ci.roomId) {
-        const old = channelClients.get(ci.roomId);
-
-        if (old) {
-          old.delete(ws);
-
-          if (old.size === 0) channelClients.delete(ci.roomId);
+        if (!roomId) {
+          return safeSend(
+            ws,
+            { op: 'room', event: 'joined', success: false, error: 'roomId required' },
+            WS_SEND_HIGH_WATER,
+          );
         }
-      }
 
-      // 새 채널 등록
+        // 멤버 검증
+        const p = await db
+          .select()
+          .from(arcyouChatMembers)
+          .where(
+            and(
+              eq(arcyouChatMembers.roomId, roomId),
+              eq(arcyouChatMembers.userId, ci.userId),
+              sql`${arcyouChatMembers.deletedAt} IS NULL`,
+            ),
+          )
+          .limit(1);
 
-      ci.roomId = roomId;
-
-      if (!channelClients.has(roomId))
-        channelClients.set(roomId, new Set());
-
-      channelClients.get(roomId)!.add(ws);
-
-      // 합류 OK
-      safeSend(ws, { op: 'join', success: true, room_id: roomId }, WS_SEND_HIGH_WATER);
-
-      // 보강 전송
-      try {
-        const missed = await backfillSince(
-          db,
-          arcyouChatMembers,
-          arcyouChatMessages,
-          roomId,
-          ci.userId,
-          MAX_MSGS_ON_JOIN,
-        );
-
-        for (const m of missed) {
-          safeSend(
+        if (p.length === 0) {
+          return safeSend(
             ws,
             {
-              op: 'event',
-              type: 'message.created',
-              roomId,
-              message: {
-                id: m.id,
-                user_id: m.userId,
-                content: m.content,
-                created_at: m.createdAt ? m.createdAt.toISOString() : undefined,
-              },
-              timestamp: new Date().toISOString(),
-              source: 'backfill',
+              op: 'room',
+              event: 'joined',
+              success: false,
+              error: 'Forbidden: not a member',
             },
             WS_SEND_HIGH_WATER,
           );
         }
-      } catch (e) {
-        console.error('[JOIN backfill] failed:', e);
-      }
 
-      return;
-    }
+        // 기존 채널에서 제거
+        if (ci.roomId) {
+          const old = channelClients.get(ci.roomId);
+          if (old) {
+            old.delete(ws);
+            if (old.size === 0) channelClients.delete(ci.roomId);
+          }
+        }
 
-    // ---- SEND ----
+        // 새 채널 등록
+        ci.roomId = roomId;
+        if (!channelClients.has(roomId)) {
+          channelClients.set(roomId, new Set());
+        }
+        channelClients.get(roomId)!.add(ws);
 
-    if (msg.op === 'send') {
-      const roomId =
-        msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId || ci.roomId;
+        // 합류 OK
+        safeSend(
+          ws,
+          { op: 'room', event: 'joined', success: true, roomId },
+          WS_SEND_HIGH_WATER,
+        );
 
-      const content = msg.content || msg.body;
-
-      const tempId = msg.temp_id;
-
-      if (!roomId)
-        return safeSend(ws, { op: 'send', success: false, error: 'room_id required' }, WS_SEND_HIGH_WATER);
-
-      if (content == null)
-        return safeSend(ws, { op: 'send', success: false, error: 'content required' }, WS_SEND_HIGH_WATER);
-
-      // 간단한 크기 제한
-      const estBytes = Buffer.byteLength(JSON.stringify(content));
-
-      if (estBytes > MAX_BODY_BYTES) {
-        return safeSend(ws, { op: 'send', success: false, error: 'content too large' }, WS_SEND_HIGH_WATER);
-      }
-
-      // 멤버 검증
-
-      const isP = await db
-        .select()
-
-        .from(arcyouChatMembers)
-
-        .where(
-          and(
-            eq(arcyouChatMembers.roomId, roomId),
-            eq(arcyouChatMembers.userId, ci.userId),
-            sql`${arcyouChatMembers.deletedAt} IS NULL`,
-          ),
-        )
-
-        .limit(1);
-
-      if (isP.length === 0)
-        return safeSend(ws, { op: 'send', success: false, error: 'Forbidden: not a member' }, WS_SEND_HIGH_WATER);
-
-      // 트랜잭션: arcyouChatMessages + outbox(pending)
-
-      try {
-        const result = await db.transaction(async (tx) => {
-          const [m] = await tx
-            .insert(arcyouChatMessages)
-
-            .values({ 
-              roomId, 
-              userId: ci.userId!, 
-              type: 'text',
-              content: content as any 
-            })
-
-            .returning();
-
-          if (!m) throw new Error('insert arcyouChatMessages failed');
-
-          // 현재 방의 모든 멤버 조회 (room-activity recipients용)
-          const members = await tx
-            .select({ userId: arcyouChatMembers.userId })
-            .from(arcyouChatMembers)
-            .where(
-              and(
-                eq(arcyouChatMembers.roomId, roomId),
-                sql`${arcyouChatMembers.deletedAt} IS NULL`,
-              ),
-            );
-
-          const recipients = members.map((mm) => mm.userId);
-
-          // lastMessageId 업데이트
-          await tx
-            .update(arcyouChatRooms)
-            .set({ lastMessageId: m.id, updatedAt: new Date() })
-            .where(eq(arcyouChatRooms.id, roomId));
-
-          // outbox payload는 게이트웨이가 그대로 팬아웃 가능한 형태
-
-          await tx.insert(outbox).values({
-            type: 'message.created',
-
+        // 보강 전송
+        try {
+          const missed = await backfillSince(
+            db,
+            arcyouChatMembers,
+            arcyouChatMessages,
             roomId,
+            ci.userId,
+            MAX_MSGS_ON_JOIN,
+          );
 
-            payload: {
-              op: 'event',
-
-              type: 'message.created',
-
-              roomId,
-
-              message: {
-                id: m.id,
-
-                user_id: ci.userId,
-
-                content,
-
-                created_at: m.createdAt?.toISOString(),
-
-                temp_id: tempId,
+          for (const m of missed) {
+            safeSend(
+              ws,
+              {
+                op: 'room',
+                event: 'message.created',
+                roomId,
+                message: {
+                  id: m.id,
+                  user_id: m.userId,
+                  content: m.content,
+                  created_at: m.createdAt ? m.createdAt.toISOString() : undefined,
+                },
+                timestamp: new Date().toISOString(),
+                source: 'backfill',
               },
-              // 방 멤버 userId 목록 (room-activity 브로드캐스트용)
-              recipients,
+              WS_SEND_HIGH_WATER,
+            );
+          }
+        } catch (e) {
+          console.error('[ROOM join backfill] failed:', e);
+        }
+
+        return;
+      }
+
+      // SEND
+      if (action === 'send') {
+        const roomId: string | undefined =
+          msg.roomId ||
+          msg.room_id ||
+          msg.conversation_id ||
+          msg.conversationId ||
+          ci.roomId;
+
+        const content = msg.content || msg.body;
+        const tempId: string | undefined = msg.tempId || msg.temp_id;
+
+        if (!roomId) {
+          return safeSend(
+            ws,
+            { op: 'room', event: 'sent', success: false, error: 'roomId required', tempId },
+            WS_SEND_HIGH_WATER,
+          );
+        }
+
+        if (content == null) {
+          return safeSend(
+            ws,
+            { op: 'room', event: 'sent', success: false, error: 'content required', roomId, tempId },
+            WS_SEND_HIGH_WATER,
+          );
+        }
+
+        // 간단한 크기 제한
+        const estBytes = Buffer.byteLength(JSON.stringify(content));
+        if (estBytes > MAX_BODY_BYTES) {
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'sent',
+              success: false,
+              error: 'content too large',
+              roomId,
+              tempId,
             },
+            WS_SEND_HIGH_WATER,
+          );
+        }
 
-            status: 'pending',
+        // 멤버 검증
+        const isP = await db
+          .select()
+          .from(arcyouChatMembers)
+          .where(
+            and(
+              eq(arcyouChatMembers.roomId, roomId),
+              eq(arcyouChatMembers.userId, ci.userId),
+              sql`${arcyouChatMembers.deletedAt} IS NULL`,
+            ),
+          )
+          .limit(1);
 
-            attempts: 0,
+        if (isP.length === 0) {
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'sent',
+              success: false,
+              error: 'Forbidden: not a member',
+              roomId,
+              tempId,
+            },
+            WS_SEND_HIGH_WATER,
+          );
+        }
 
-            nextAttemptAt: new Date(),
+        // 트랜잭션: arcyouChatMessages + outbox(pending)
+        try {
+          const result = await db.transaction(async (tx) => {
+            const [m] = await tx
+              .insert(arcyouChatMessages)
+              .values({
+                roomId,
+                userId: ci.userId!,
+                type: 'text',
+                content: content as any,
+              })
+              .returning();
+
+            if (!m) throw new Error('insert arcyouChatMessages failed');
+
+            // 현재 방의 모든 멤버 조회 (room-activity recipients용)
+            const members = await tx
+              .select({ userId: arcyouChatMembers.userId })
+              .from(arcyouChatMembers)
+              .where(
+                and(
+                  eq(arcyouChatMembers.roomId, roomId),
+                  sql`${arcyouChatMembers.deletedAt} IS NULL`,
+                ),
+              );
+
+            const recipients = members.map((mm) => mm.userId);
+
+            // lastMessageId 업데이트
+            await tx
+              .update(arcyouChatRooms)
+              .set({ lastMessageId: m.id, updatedAt: new Date() })
+              .where(eq(arcyouChatRooms.id, roomId));
+
+            // outbox payload는 게이트웨이가 그대로 팬아웃 가능한 형태
+            await tx.insert(outbox).values({
+              type: 'message.created',
+              roomId,
+              payload: {
+                op: 'room',
+                event: 'message.created',
+                type: 'message.created',
+                roomId,
+                message: {
+                  id: m.id,
+                  user_id: ci.userId,
+                  content,
+                  created_at: m.createdAt?.toISOString(),
+                  temp_id: tempId,
+                },
+                // 방 멤버 userId 목록 (room-activity 브로드캐스트용)
+                recipients,
+              },
+              status: 'pending',
+              attempts: 0,
+              nextAttemptAt: new Date(),
+            });
+
+            return m.id;
           });
 
-          return m.id;
-        });
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'sent',
+              success: true,
+              roomId,
+              messageId: result,
+              tempId,
+            },
+            WS_SEND_HIGH_WATER,
+          );
+        } catch (e: any) {
+          console.error('[ROOM send tx] failed:', e);
 
-        return safeSend(
-          ws,
-          {
-            op: 'send',
-            success: true,
-            message_id: result,
-            temp_id: tempId,
-          },
-          WS_SEND_HIGH_WATER,
-        );
-      } catch (e: any) {
-        console.error('[SEND tx] failed:', e);
-
-        return safeSend(
-          ws,
-          {
-            op: 'send',
-            success: false,
-            error: String(e?.message ?? e),
-            temp_id: tempId,
-          },
-          WS_SEND_HIGH_WATER,
-        );
-      }
-    }
-
-    // ---- ACK (선택) : 읽은 위치 갱신 ----
-
-    if (msg.op === 'ack') {
-      const roomId =
-        msg.room_id || msg.roomId || msg.conversation_id || msg.conversationId || clients.get(ws)?.roomId;
-
-      const lastReadMessageId = Number(msg.last_read_message_id || msg.last_read_id);
-
-      if (!roomId || !Number.isFinite(lastReadMessageId)) {
-        return safeSend(
-          ws,
-          { op: 'ack', success: false, error: 'room_id & last_read_message_id required' },
-          WS_SEND_HIGH_WATER,
-        );
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'sent',
+              success: false,
+              roomId,
+              tempId,
+              error: String(e?.message ?? e),
+            },
+            WS_SEND_HIGH_WATER,
+          );
+        }
       }
 
-      try {
-        // lastReadMessageId를 올릴 때만 업데이트
+      // ACK (읽은 위치 갱신)
+      if (action === 'ack') {
+        const roomId: string | undefined =
+          msg.roomId ||
+          msg.room_id ||
+          msg.conversation_id ||
+          msg.conversationId ||
+          clients.get(ws)?.roomId;
 
-        await pool.query(
-          `
+        const lastReadMessageId = Number(
+          msg.lastReadMessageId || msg.last_read_message_id || msg.last_read_id,
+        );
 
+        if (!roomId || !Number.isFinite(lastReadMessageId)) {
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'ack',
+              success: false,
+              error: 'roomId & lastReadMessageId required',
+            },
+            WS_SEND_HIGH_WATER,
+          );
+        }
+
+        try {
+          // lastReadMessageId를 올릴 때만 업데이트
+          await pool.query(
+            `
           UPDATE arcyou_chat_members
-
           SET last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), $1)
-
           WHERE room_id = $2 AND user_id = $3 AND deleted_at IS NULL
-
         `,
+            [lastReadMessageId, roomId, clients.get(ws)!.userId],
+          );
 
-          [lastReadMessageId, roomId, clients.get(ws)!.userId],
-        );
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'ack',
+              success: true,
+              roomId,
+              lastReadMessageId,
+            },
+            WS_SEND_HIGH_WATER,
+          );
+        } catch (e) {
+          console.error('[ROOM ack] failed:', e);
 
-        return safeSend(
-          ws,
-          {
-            op: 'ack',
-            success: true,
-            room_id: roomId,
-            last_read_message_id: lastReadMessageId,
-          },
-          WS_SEND_HIGH_WATER,
-        );
-      } catch (e) {
-        console.error('[ACK] failed:', e);
-
-        return safeSend(ws, { op: 'ack', success: false, error: 'db error' }, WS_SEND_HIGH_WATER);
+          return safeSend(
+            ws,
+            {
+              op: 'room',
+              event: 'ack',
+              success: false,
+              error: 'db error',
+            },
+            WS_SEND_HIGH_WATER,
+          );
+        }
       }
+
+      return safeSend(
+        ws,
+        { op: 'room', success: false, error: `Unknown room.action: ${String(action)}` },
+        WS_SEND_HIGH_WATER,
+      );
     }
 
     // ---- Unknown ----
@@ -678,44 +744,81 @@ subscriber.on('message', (_channel, message) => {
       source: 'live',
     };
 
-    broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
+    // 단일 방 소켓으로는 room 계열 이벤트만 브로드캐스트
+    if (payload.op === 'room') {
+      broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
+    }
 
-    // 방 목록 실시간 갱신을 위한 room-activity 이벤트 (user 단위 브로드캐스트)
+    // 방 목록 실시간 갱신을 위한 rooms.* 이벤트 (user 단위 브로드캐스트)
     const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
     const messageId: number | undefined = data.message?.id;
     const createdAt: string | undefined = data.message?.created_at;
 
     if (recipients) {
-      // 메시지 생성 이벤트인 경우: room-activity 브로드캐스트
-      if (data.type === 'message.created' && typeof messageId === 'number') {
-        const activityPayload = {
-          op: 'room-activity' as const,
-          roomId,
-          lastMessageId: messageId,
-          createdAt: createdAt ?? new Date().toISOString(),
-        };
+      // 메시지 생성 이벤트인 경우: rooms.room.activity 브로드캐스트
+      if (
+        (data.op === 'room' && data.event === 'message.created') ||
+        data.type === 'message.created'
+      ) {
+        if (typeof messageId === 'number') {
+          const activityPayload = {
+            op: 'rooms' as const,
+            event: 'room.activity' as const,
+            roomId,
+            lastMessageId: messageId,
+            createdAt: createdAt ?? new Date().toISOString(),
+          };
 
-        for (const userId of recipients) {
-          const set = userWatchers.get(userId);
-          if (!set || set.size === 0) continue;
-          for (const ws of set) {
-            safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+          for (const userId of recipients) {
+            const set = userWatchers.get(userId);
+            if (!set || set.size === 0) continue;
+            for (const ws of set) {
+              safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+            }
           }
         }
       }
 
-      // 채팅방 생성 이벤트인 경우: room-created 브로드캐스트
-      if (data.type === 'room.created' && data.room) {
-        const roomCreatedPayload = {
-          op: 'room-created' as const,
-          room: data.room,
-        };
+      // 채팅방 생성 이벤트인 경우: rooms.room.created 브로드캐스트
+      if (
+        (data.op === 'rooms' && data.event === 'room.created') ||
+        data.type === 'room.created'
+      ) {
+        if (data.room) {
+          const roomCreatedPayload = {
+            op: 'rooms' as const,
+            event: 'room.created' as const,
+            room: data.room,
+          };
 
-        for (const userId of recipients) {
-          const set = userWatchers.get(userId);
-          if (!set || set.size === 0) continue;
-          for (const ws of set) {
-            safeSend(ws, roomCreatedPayload, WS_SEND_HIGH_WATER);
+          for (const userId of recipients) {
+            const set = userWatchers.get(userId);
+            if (!set || set.size === 0) continue;
+            for (const ws of set) {
+              safeSend(ws, roomCreatedPayload, WS_SEND_HIGH_WATER);
+            }
+          }
+        }
+      }
+
+      // 채팅방 정보(이름 등) 변경 이벤트인 경우: rooms.room.updated 브로드캐스트
+      if (
+        (data.op === 'rooms' && data.event === 'room.updated') ||
+        data.type === 'room.updated'
+      ) {
+        if (data.room) {
+          const roomUpdatedPayload = {
+            op: 'rooms' as const,
+            event: 'room.updated' as const,
+            room: data.room,
+          };
+
+          for (const userId of recipients) {
+            const set = userWatchers.get(userId);
+            if (!set || set.size === 0) continue;
+            for (const ws of set) {
+              safeSend(ws, roomUpdatedPayload, WS_SEND_HIGH_WATER);
+            }
           }
         }
       }
@@ -741,44 +844,80 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
       source: 'live',
     };
 
-    broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
+    if (payload.op === 'room') {
+      broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER);
+    }
 
-    // 방 목록 실시간 갱신을 위한 room-activity 이벤트 (user 단위 브로드캐스트)
+    // 방 목록 실시간 갱신을 위한 rooms.* 이벤트 (user 단위 브로드캐스트)
     const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
     const messageId: number | undefined = data.message?.id;
     const createdAt: string | undefined = data.message?.created_at;
 
     if (recipients) {
-      // 메시지 생성 이벤트인 경우: room-activity 브로드캐스트
-      if (data.type === 'message.created' && typeof messageId === 'number') {
-        const activityPayload = {
-          op: 'room-activity' as const,
-          roomId,
-          lastMessageId: messageId,
-          createdAt: createdAt ?? new Date().toISOString(),
-        };
+      // 메시지 생성 이벤트인 경우: rooms.room.activity 브로드캐스트
+      if (
+        (data.op === 'room' && data.event === 'message.created') ||
+        data.type === 'message.created'
+      ) {
+        if (typeof messageId === 'number') {
+          const activityPayload = {
+            op: 'rooms' as const,
+            event: 'room.activity' as const,
+            roomId,
+            lastMessageId: messageId,
+            createdAt: createdAt ?? new Date().toISOString(),
+          };
 
-        for (const userId of recipients) {
-          const set = userWatchers.get(userId);
-          if (!set || set.size === 0) continue;
-          for (const ws of set) {
-            safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+          for (const userId of recipients) {
+            const set = userWatchers.get(userId);
+            if (!set || set.size === 0) continue;
+            for (const ws of set) {
+              safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+            }
           }
         }
       }
 
-      // 채팅방 생성 이벤트인 경우: room-created 브로드캐스트
-      if (data.type === 'room.created' && data.room) {
-        const roomCreatedPayload = {
-          op: 'room-created' as const,
-          room: data.room,
-        };
+      // 채팅방 생성 이벤트인 경우: rooms.room.created 브로드캐스트
+      if (
+        (data.op === 'rooms' && data.event === 'room.created') ||
+        data.type === 'room.created'
+      ) {
+        if (data.room) {
+          const roomCreatedPayload = {
+            op: 'rooms' as const,
+            event: 'room.created' as const,
+            room: data.room,
+          };
 
-        for (const userId of recipients) {
-          const set = userWatchers.get(userId);
-          if (!set || set.size === 0) continue;
-          for (const ws of set) {
-            safeSend(ws, roomCreatedPayload, WS_SEND_HIGH_WATER);
+          for (const userId of recipients) {
+            const set = userWatchers.get(userId);
+            if (!set || set.size === 0) continue;
+            for (const ws of set) {
+              safeSend(ws, roomCreatedPayload, WS_SEND_HIGH_WATER);
+            }
+          }
+        }
+      }
+
+      // 채팅방 정보(이름 등) 변경 이벤트인 경우: rooms.room.updated 브로드캐스트
+      if (
+        (data.op === 'rooms' && data.event === 'room.updated') ||
+        data.type === 'room.updated'
+      ) {
+        if (data.room) {
+          const roomUpdatedPayload = {
+            op: 'rooms' as const,
+            event: 'room.updated' as const,
+            room: data.room,
+          };
+
+          for (const userId of recipients) {
+            const set = userWatchers.get(userId);
+            if (!set || set.size === 0) continue;
+            for (const ws of set) {
+              safeSend(ws, roomUpdatedPayload, WS_SEND_HIGH_WATER);
+            }
           }
         }
       }

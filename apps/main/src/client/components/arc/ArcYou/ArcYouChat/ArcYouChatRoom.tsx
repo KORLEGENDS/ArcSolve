@@ -50,7 +50,14 @@ export function ArcYouChatRoom({
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const lastId = lastMessageIdRef.current;
     if (lastId == null || !Number.isFinite(lastId)) return;
-    ws.send(JSON.stringify({ op: 'ack', room_id: id, last_read_message_id: lastId }));
+    ws.send(
+      JSON.stringify({
+        op: 'room',
+        action: 'ack',
+        roomId: id,
+        lastReadMessageId: lastId,
+      }),
+    );
   }, [id]);
 
   const scheduleAck = useCallback(() => {
@@ -132,22 +139,32 @@ export function ArcYouChatRoom({
                     }
                   } catch {
                     // ignore
-                  } finally {
-                    ws?.send(JSON.stringify({ op: 'join', room_id: id }));
-                  }
+                    } finally {
+                      ws?.send(
+                        JSON.stringify({
+                          op: 'room',
+                          action: 'join',
+                          roomId: id,
+                        }),
+                      );
+                    }
                 })();
               } else {
                 isAuthedRef.current = false;
               }
               return;
             }
-            if (data.op === 'join') {
+            if (data.op === 'room' && data.event === 'joined' && data.roomId === id) {
               // 성공/실패 UI는 필요 시 확장
               isJoinedRef.current = !!data?.success;
               setReady(!!data?.success);
               return;
             }
-            if (data.op === 'event' && data.type === 'message.created' && data.roomId === id) {
+            if (
+              data.op === 'room' &&
+              data.event === 'message.created' &&
+              data.roomId === id
+            ) {
               const contentText = toDisplayText(data.message?.content);
               const createdAt = data.message?.created_at ?? new Date().toISOString();
               const tempId = data.message?.temp_id as string | undefined;
@@ -204,10 +221,14 @@ export function ArcYouChatRoom({
               });
               return;
             }
-            if (data.op === 'send') {
-              const res = data as { success: boolean; message_id?: number; temp_id?: string };
-              if (!res.temp_id) return;
-              const idx = pendingMapRef.current[res.temp_id];
+            if (data.op === 'room' && data.event === 'sent') {
+              const res = data as {
+                success: boolean;
+                messageId?: number;
+                tempId?: string;
+              };
+              if (!res.tempId) return;
+              const idx = pendingMapRef.current[res.tempId];
               if (typeof idx !== 'number') return;
               setMessages((prev) => {
                 const copy = prev.slice();
@@ -215,16 +236,19 @@ export function ArcYouChatRoom({
                 if (!target) return prev;
                 copy[idx] = {
                   ...target,
-                  id: res.success && typeof res.message_id === 'number' ? res.message_id : target.id,
+                  id:
+                    res.success && typeof res.messageId === 'number'
+                      ? res.messageId
+                      : target.id,
                   status: res.success ? 'sent' : 'failed',
                 };
                 const nextMap = { ...pendingMapRef.current };
-                delete nextMap[res.temp_id!];
+                delete nextMap[res.tempId!];
                 pendingMapRef.current = nextMap;
-                if (res.success && typeof res.message_id === 'number') {
-                  lastMessageIdRef.current = res.message_id;
+                if (res.success && typeof res.messageId === 'number') {
+                  lastMessageIdRef.current = res.messageId;
                   // 중복 방지용으로 서버 확정 id 기록
-                  persistedIdSetRef.current.add(res.message_id);
+                  persistedIdSetRef.current.add(res.messageId);
                 }
                 return copy;
               });
@@ -296,7 +320,15 @@ export function ArcYouChatRoom({
           // 아직 서버 id 없으므로 lastMessageIdRef 갱신 없음
           return [...prev, optimistic];
         });
-        ws.send(JSON.stringify({ op: 'send', room_id: id, content: { text: messageValue }, temp_id: tempId }));
+        ws.send(
+          JSON.stringify({
+            op: 'room',
+            action: 'send',
+            roomId: id,
+            content: { text: messageValue },
+            tempId,
+          }),
+        );
       }
       setMessage('');
     }

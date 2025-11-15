@@ -148,7 +148,15 @@ export function useBumpChatRoomActivity() {
  * - auth → watch_rooms 순으로 한 번만 등록
  * - RightSidebar 레벨에서 한 번만 호출하는 것을 예상
  */
-export function useRoomActivitySocket() {
+export interface RoomActivitySocketOptions {
+  /**
+   * 방 정보(이름 등)가 업데이트되었을 때 호출되는 콜백
+   * - ArcWork 탭 이름 동기화 등에 사용 가능
+   */
+  onRoomUpdated?: (room: { id: string; name?: string | null }) => void;
+}
+
+export function useRoomActivitySocket(options?: RoomActivitySocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const { bump } = useBumpChatRoomActivity();
   const queryClient = useQueryClient();
@@ -181,17 +189,21 @@ export function useRoomActivitySocket() {
 
             if (data.op === 'auth') {
               if (data.success) {
-                ws.send(JSON.stringify({ op: 'watch_rooms' }));
+                ws.send(JSON.stringify({ op: 'rooms', action: 'watch' }));
               }
               return;
             }
 
-            if (data.op === 'watch_rooms') {
+            if (data.op === 'rooms' && data.event === 'watch') {
               // 필요 시 에러/상태 처리 확장 가능
               return;
             }
 
-            if (data.op === 'room-activity' && typeof data.roomId === 'string') {
+            if (
+              data.op === 'rooms' &&
+              data.event === 'room.activity' &&
+              typeof data.roomId === 'string'
+            ) {
               const lastMessageId =
                 typeof data.lastMessageId === 'number' ? data.lastMessageId : undefined;
               const updatedAt =
@@ -201,7 +213,12 @@ export function useRoomActivitySocket() {
               return;
             }
 
-            if (data.op === 'room-created' && data.room && typeof data.room.id === 'string') {
+            if (
+              data.op === 'rooms' &&
+              data.event === 'room.created' &&
+              data.room &&
+              typeof data.room.id === 'string'
+            ) {
               const roomData = data.room as Partial<ArcyouChatRoom>;
 
               const room: ArcyouChatRoom = {
@@ -244,6 +261,60 @@ export function useRoomActivitySocket() {
 
               return;
             }
+
+            if (
+              data.op === 'rooms' &&
+              data.event === 'room.updated' &&
+              data.room &&
+              typeof data.room.id === 'string'
+            ) {
+              const roomData = data.room as Partial<ArcyouChatRoom>;
+
+              const patch = (rooms?: ArcyouChatRoom[]) => {
+                if (!rooms) return rooms;
+                const idx = rooms.findIndex((r) => r.id === roomData.id);
+                if (idx === -1) return rooms;
+
+                const original = rooms[idx];
+                const updated: ArcyouChatRoom = {
+                  ...original,
+                  name: roomData.name ?? original.name,
+                  description: roomData.description ?? original.description,
+                  updatedAt:
+                    roomData.updatedAt ??
+                    original.updatedAt ??
+                    new Date().toISOString(),
+                };
+
+                const next = [...rooms];
+                next[idx] = updated;
+                return next;
+              };
+
+              // 전체/타입별 목록의 해당 room name/description/updatedAt 패치
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list(),
+                patch,
+              );
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list('direct'),
+                patch,
+              );
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list('group'),
+                patch,
+              );
+
+              // ArcWork 탭 등 외부 동기화를 위한 콜백
+              if (options?.onRoomUpdated) {
+                options.onRoomUpdated({
+                  id: roomData.id!,
+                  name: roomData.name,
+                });
+              }
+
+              return;
+            }
           } catch {
             // ignore malformed messages
           }
@@ -266,6 +337,6 @@ export function useRoomActivitySocket() {
       }
       wsRef.current = null;
     };
-  }, [wsUrl, bump]);
+  }, [wsUrl, bump, queryClient, options]);
 }
 
