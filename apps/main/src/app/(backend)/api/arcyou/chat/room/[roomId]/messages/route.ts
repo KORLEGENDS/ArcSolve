@@ -19,23 +19,20 @@ export async function GET(
     }
 
     const sp = request.nextUrl.searchParams;
-    const beforeIdRaw = sp.get('before');
+    const beforeCreatedAtRaw = sp.get('before');
     const limitRaw = sp.get('limit');
-    const beforeId = beforeIdRaw ? Number(beforeIdRaw) : undefined;
+    const beforeCreatedAt = beforeCreatedAtRaw ? beforeCreatedAtRaw : undefined;
     const limit = limitRaw ? Number(limitRaw) : undefined;
-    if (beforeIdRaw && (Number.isNaN(beforeId) || beforeId! <= 0)) {
-      return error('BAD_REQUEST', 'before는 양의 정수여야 합니다.');
-    }
     if (limitRaw && (Number.isNaN(limit) || limit! <= 0)) {
       return error('BAD_REQUEST', 'limit은 양의 정수여야 합니다.');
     }
 
     const repo = new ArcyouChatMessageRepository();
-    const rows = await repo.listByRoomId(userId, roomId, { beforeId, limit });
+    const rows = await repo.listByRoomId(userId, roomId, { beforeCreatedAt, limit });
 
     // 최신 우선으로 반환되므로 클라이언트에서 필요시 역순 정렬 가능
     const hasMore = rows.length === Math.min(Math.max(limit ?? 50, 1), 200);
-    const nextBefore = rows.length > 0 ? rows[rows.length - 1].id : undefined;
+    const nextBefore = rows.length > 0 ? rows[rows.length - 1].createdAt?.toISOString() : undefined;
 
     return ok(
       {

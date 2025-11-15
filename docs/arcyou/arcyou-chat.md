@@ -8,8 +8,12 @@
   - 게이트웨이는 메시지를 DB에 저장하면서 Outbox에 적재
   - Outbox 워커(outbox-worker)가 Redis Pub/Sub으로 팬아웃
   - 게이트웨이는 Redis를 구독하여
-    - 각 방(room)의 연결 클라이언트들에게 `op:'event'` 메시지를 브로드캐스트하고
-    - 각 사용자(userId)의 watcher 소켓에게 `op:'room-activity'` 이벤트를 전송하여 채팅방 목록을 실시간으로 갱신
+    - 각 방(room)의 연결 클라이언트들에게 `op:'room', event:'message.created'` 메시지를 브로드캐스트하고
+    - 각 사용자(userId)의 watcher 소켓에게
+      - `op:'rooms', event:'room.activity'`
+      - `op:'rooms', event:'room.created'`
+      - `op:'rooms', event:'room.updated'`
+      이벤트를 전송하여 채팅방 목록을 실시간으로 갱신
   - 클라이언트는 ArcWork 탭에서 `ArcYouChatRoom` 컴포넌트를 통해 직접 WS 연결
 
 - 핵심 테이블 (PostgreSQL / Drizzle)
@@ -31,20 +35,25 @@
 - uws-gateway (`apps/uws-gateway/server.ts`)
   - WebSocket 엔드포인트(기본 8080)
   - `op: 'auth'` → RS256 검증(issuer/audience 옵션 지원)
-  - `op: 'join'` → 멤버십 검증 후 채널 등록 및 backfill 전송
-  - `op: 'send'` → 트랜잭션으로 `arcyou_chat_messages` 저장 + `outbox(pending)` 기록 후 즉시 ACK
-  - `op: 'ack'` → `arcyou_chat_members.last_read_message_id` 갱신(GREATEST)
-  - `op: 'watch_rooms'` → 인증된 사용자에 대해 user watcher 소켓을 등록 (채팅방 목록 실시간 갱신용)
+  - `op: 'room'` + `action: 'join'` → 멤버십 검증 후 채널 등록 및 backfill 전송
+  - `op: 'room'` + `action: 'send'` → 트랜잭션으로 `arcyou_chat_messages` 저장 + `outbox(pending)` 기록 후 즉시 ACK
+  - `op: 'room'` + `action: 'ack'` → `arcyou_chat_members.last_read_message_id` 갱신(GREATEST)
+  - `op: 'rooms'` + `action: 'watch'` → 인증된 사용자에 대해 user watcher 소켓을 등록 (채팅방 목록 실시간 갱신용)
   - Redis 구독(`chat:message` 또는 `conv:*`) → 
-    - `op:'event'`로 해당 방에 조인한 모든 소켓에 브로드캐스트
-    - Outbox payload에 포함된 `recipients: userId[]`를 기준으로 각 사용자 watcher 소켓에 `op:'room-activity'` 이벤트 전송
+    - `op:'room', event:'message.created'` 로 해당 방에 조인한 모든 소켓에 브로드캐스트
+    - Outbox payload에 포함된 `recipients: userId[]`를 기준으로 각 사용자 watcher 소켓에
+      - `op:'rooms', event:'room.activity'`
+      - `op:'rooms', event:'room.created'`
+      - `op:'rooms', event:'room.updated'`
+      이벤트 전송
 
 - Outbox 워커 (`apps/outbox-worker/worker.ts`)
   - `pending` → `in_progress` → 발행 성공 시 `published`, 실패 시 지수 백오프 재시도
   - `PUBSUB_MODE`에 따라 채널 `chat:message` 또는 `conv:{roomId}`
   - payload는 게이트웨이가 그대로 팬아웃 가능한 형태:
-    - `op:'event', type:'message.created', roomId, message:{ id, user_id, content, created_at, temp_id }`
-    - `recipients: string[]` (해당 방의 멤버 userId 목록, `room-activity` 브로드캐스트에 사용)
+    - 메시지 생성: `op:'room', event:'message.created', type:'message.created', roomId, message:{ id, user_id, content, created_at, temp_id }, recipients:string[]`
+    - 방 생성: `op:'rooms', event:'room.created', type:'room.created', roomId, room:{ id, name, description, type, lastMessageId, createdAt, updatedAt }, recipients:string[]`
+    - 방 정보 변경(이름 등): `op:'rooms', event:'room.updated', type:'room.updated', roomId, room:{ id, name, description, type, lastMessageId, createdAt, updatedAt }, recipients:string[]`
 
 - 토큰 발급 API (`apps/main/src/app/(backend)/api/arcyou/chat/ws/token/route.ts`)
   - `GET /api/arcyou/chat/ws/token`
@@ -179,10 +188,13 @@
     - `useArcyouChat('group')`: 그룹 채팅방 목록 조회
     - React Query로 자동 캐싱 및 새로고침
   - 채팅방 목록 실시간 갱신:
-    - `useRoomActivitySocket()` 훅을 통해 별도의 WebSocket을 열어 `op:'watch_rooms'` 등록
-    - 게이트웨이로부터 `op:'room-activity'` 수신 시 `useBumpChatRoomActivity()`를 통해
-      - React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)의 해당 방 `lastMessageId`/`updatedAt`을 갱신
-      - 해당 방을 배열의 맨 앞으로 이동시켜 “최신 메시지 방이 상단에 위치”하도록 정렬
+    - `useRoomActivitySocket()` 훅을 통해 별도의 WebSocket을 열어 `op:'rooms', action:'watch'` 등록
+    - 게이트웨이로부터
+      - `op:'rooms', event:'room.activity'` 수신 시 `useBumpChatRoomActivity()`를 통해
+        - React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)의 해당 방 `lastMessageId`/`updatedAt`을 갱신
+        - 해당 방을 배열의 맨 앞으로 이동시켜 “최신 메시지 방이 상단에 위치”하도록 정렬
+      - `op:'rooms', event:'room.created'` 수신 시 방 목록 캐시에 새 방을 prepend
+      - `op:'rooms', event:'room.updated'` 수신 시 방 목록 캐시의 해당 room `name`/`description`/`updatedAt` 을 패치하고, ArcWork 탭 이름도 동기화
   - 채팅방 생성:
     - 1:1 채팅: 친구 검색 → 클릭 시 즉시 채팅방 생성 및 탭 열기
     - 그룹 채팅: 친구 검색 → 선택(badge) → 생성 버튼 클릭 → 채팅방 생성 및 탭 열기
@@ -230,13 +242,13 @@
       - 임시 ID 생성: `temp-${Date.now()}`
       - 상태: `status: 'sending'`, `id: tempId`
       - `pendingMapRef`에 `{ [tempId]: index }` 기록
-      - `{ op:'send', room_id, content:{text}, temp_id }` 전송
-    - 게이트웨이 ACK 처리 (`op:'send'` 응답):
-      - `success=true`, `message_id=n` → 낙관적 항목의 `id`를 `n`으로 교체, `status='sent'`
-      - `message_id`를 `persistedIdSetRef`에 추가(중복 방지용)
+      - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
+    - 게이트웨이 ACK 처리 (`op:'room', event:'sent'` 응답):
+      - `success=true`, `messageId=n` → 낙관적 항목의 `id`를 `n`으로 교체, `status:'sent'`
+      - `messageId`를 `persistedIdSetRef`에 추가(중복 방지용)
       - `lastMessageIdRef` 갱신
       - `pendingMapRef`에서 `tempId` 제거
-    - Live 이벤트 처리 (`op:'event'`, `type:'message.created'`):
+    - Live 이벤트 처리 (`op:'room', event:'message.created'`):
       - `temp_id` 매칭 시: 낙관적 메시지를 `status='delivered'`로 승격, `id` 교체, `createdAt` 갱신
       - `temp_id` 없이 서버 `id`만 온 경우:
         - `id`가 `persistedIdSetRef`에 있으면: 기존 항목을 `delivered`로 갱신 (중복 방지)
@@ -244,8 +256,8 @@
       - `lastMessageIdRef` 갱신 후 `scheduleAck()` 호출
   - 읽음 동기화(ACK)
     - `scheduleAck()`: 새 메시지 반영마다 300ms 디바운스로 ACK 전송
-    - `sendAck()`: `{ op:'ack', room_id, last_read_message_id }` 전송
-      - `lastMessageIdRef.current`를 `last_read_message_id`로 사용
+    - `sendAck()`: `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송
+      - `lastMessageIdRef.current`를 `lastReadMessageId`로 사용
     - 게이트웨이는 `arcyou_chat_members.last_read_message_id`를 GREATEST로 갱신
   - 연결 가드/정리
     - 전송 가드: `isAuthedRef.current && isJoinedRef.current` 확인
@@ -282,27 +294,27 @@
 5. 히스토리 로드: `GET /api/arcyou/chat/room/{roomId}/messages?limit=50`
    - 서버는 `id DESC` 반환 → 클라이언트에서 ASC 정렬하여 앞에 배치
    - `persistedIdSetRef`에 ID 기록
-6. 조인: `{ op:'join', room_id }` 전송 → `{ op:'join', success:true }` 수신 → `ready=true`
+6. 조인: `{ op:'room', action:'join', roomId }` 전송 → `{ op:'room', event:'joined', success:true }` 수신 → `ready=true`
 7. 메시지 전송:
    - 낙관적 메시지 추가 (`status: 'sending'`)
-   - `{ op:'send', room_id, content:{text}, temp_id }` 전송
-   - ACK 수신: `{ op:'send', success:true, message_id }` → `status: 'sent'`
+   - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
+   - ACK 수신: `{ op:'room', event:'sent', success:true, messageId }` → `status: 'sent'`
    - 게이트웨이: DB 저장 + Outbox 적재(해당 방 멤버 userId를 `recipients`로 포함) → 워커 발행 → Redis Pub/Sub
-   - Live 이벤트 수신: `{ op:'event', type:'message.created' }` → `status: 'delivered'`
-8. 읽음 동기화: 새 메시지마다 300ms 디바운스로 `{ op:'ack', room_id, last_read_message_id }` 전송
+   - Live 이벤트 수신: `{ op:'room', event:'message.created' }` → `status: 'delivered'`
+8. 읽음 동기화: 새 메시지마다 300ms 디바운스로 `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송
 
 #### 채팅방 목록 실시간 갱신 흐름
-1. 어떤 사용자가 채팅방에 메시지를 전송하면 게이트웨이 `op:'send'` 처리에서
+1. 어떤 사용자가 채팅방에 메시지를 전송하면 게이트웨이 `op:'room', action:'send'` 처리에서
    - `arcyou_chat_messages`에 메시지를 저장하고
    - 해당 방의 모든 멤버를 조회하여 `recipients: userId[]`를 구성
-   - `outbox`에 `type:'message.created'`, `payload:{ op:'event', message:{...}, recipients }` 를 적재
+   - `outbox`에 `type:'message.created'`, `payload:{ op:'room', event:'message.created', message:{...}, recipients }` 를 적재
 2. Outbox 워커가 `pending` 레코드를 가져와 Redis 채널(`chat:message` 또는 `conv:{roomId}`)로 payload를 발행
 3. uws-gateway Redis subscriber는 payload를 수신하여
-   - `op:'event', type:'message.created'`를 해당 `roomId`에 조인한 모든 소켓에 브로드캐스트하고
+   - `op:'room', event:'message.created'`를 해당 `roomId`에 조인한 모든 소켓에 브로드캐스트하고
    - `recipients` 목록을 기준으로 각 user watcher 소켓에
-     - `{ op:'room-activity', roomId, lastMessageId, createdAt }` 이벤트를 전송
+     - `{ op:'rooms', event:'room.activity', roomId, lastMessageId, createdAt }` 이벤트를 전송
 4. 클라이언트 RightSidebar에서 동작하는 `useRoomActivitySocket()` 훅은
-   - `room-activity` 이벤트를 수신할 때마다 `useBumpChatRoomActivity()`를 통해
+   - `rooms.room.activity` 이벤트를 수신할 때마다 `useBumpChatRoomActivity()`를 통해
      - React Query 캐시에 있는 해당 방의 `lastMessageId`/`updatedAt`을 갱신하고
      - 방 목록 배열에서 해당 방을 맨 앞으로 이동
    - 결과적으로 “열려 있지 않은 방에 새 메시지가 와도” 방 목록에서 해당 방이 즉시 상단으로 올라감

@@ -1,6 +1,4 @@
 import {
-    bigint,
-    bigserial,
     jsonb,
     pgEnum,
     pgTable,
@@ -25,7 +23,7 @@ export const arcyouChatMessageStatusEnum = pgEnum('arcyou_chat_message_status', 
 ]);
 
 export const arcyouChatMessages = pgTable('arcyou_chat_messages', {
-  id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
   roomId: uuid('room_id')
     .notNull()
     .references(() => arcyouChatRooms.id, { onDelete: 'cascade' }),
@@ -34,7 +32,7 @@ export const arcyouChatMessages = pgTable('arcyou_chat_messages', {
     .references(() => users.id, { onDelete: 'cascade' }),
   type: arcyouChatMessageTypeEnum('type').default('text').notNull(),
   content: jsonb('content').notNull(),
-  replyToMessageId: bigint('reply_to_message_id', { mode: 'number' })
+  replyToMessageId: uuid('reply_to_message_id')
     .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
   status: arcyouChatMessageStatusEnum('status').default('sent').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })

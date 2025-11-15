@@ -110,15 +110,28 @@ export type ArcyouChatRoom = {
   name: string;
   description: string | null;
   type: 'direct' | 'group';
-  lastMessageId: number | null;
+  lastMessageId: string | null;
   role: 'owner' | 'manager' | 'participant';
-  lastReadMessageId: number | null;
+  lastReadMessageId: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
 
 export type ChatRoomsListResponse = {
   rooms: ArcyouChatRoom[];
+};
+
+export type ChatRoomMember = {
+  userId: string;
+  role: 'owner' | 'manager' | 'participant';
+  lastReadMessageId: string | null;
+  name: string;
+  email: string;
+  imageUrl: string | null;
+};
+
+export type ChatRoomMembersResponse = {
+  members: ChatRoomMember[];
 };
 
 /**
@@ -203,6 +216,22 @@ export const chatRoomQueryOptions = {
       bodyExtractor: ({ roomId: _roomId, ...body }) => body,
     }
   ),
+
+  /**
+   * 채팅방 멤버 목록 조회
+   */
+  members: (roomId: string) =>
+    queryOptions({
+      queryKey: queryKeys.chatRooms.members(roomId),
+      ...createApiQueryOptions<ChatRoomMembersResponse['members'], ChatRoomMembersResponse>(
+        `/api/arcyou/chat/rooms/${roomId}/members`,
+        (data) => data.members,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
+        }
+      ),
+    }),
 } as const;
 
 // ==================== 친구 관계 Query Options ====================

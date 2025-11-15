@@ -47,7 +47,7 @@ export interface ArcYouChatRoomListItemProps {
   /**
    * 마지막 메시지 ID
    */
-  lastMessageId?: number | null;
+  lastMessageId?: string | null;
   /**
    * 생성일시
    */
@@ -94,7 +94,7 @@ export function ArcYouChatRoomListItem({
   return (
     <div
       className={cn(
-        'w-full grid grid-cols-[1fr_auto] items-center gap-3 px-3 py-1 group',
+        'w-full grid grid-cols-[1fr_auto] items-center gap-3 p-1 group',
         'text-left rounded-md',
         onClick && 'cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors',
         className

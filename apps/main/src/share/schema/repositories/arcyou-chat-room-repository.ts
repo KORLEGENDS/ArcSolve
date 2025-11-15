@@ -1,6 +1,6 @@
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
 import { throwApi } from '@/share/api/server/errors';
-import { arcyouChatMembers, arcyouChatRooms, outbox } from '@/share/schema/drizzles';
+import { arcyouChatMembers, arcyouChatRooms, outbox, users } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { ArcyouChatRelationRepository } from './arcyou-chat-relation-repository';
 import type { DB } from './base-repository';
@@ -10,11 +10,20 @@ export type ArcyouChatRoomWithMemberInfo = {
   name: string;
   description: string | null;
   type: 'direct' | 'group';
-  lastMessageId: number | null;
+  lastMessageId: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
   role: 'owner' | 'manager' | 'participant';
-  lastReadMessageId: number | null;
+  lastReadMessageId: string | null;
+};
+
+export type ArcyouChatRoomMemberWithUser = {
+  userId: string;
+  role: 'owner' | 'manager' | 'participant';
+  lastReadMessageId: string | null;
+  name: string;
+  email: string;
+  imageUrl: string | null;
 };
 
 export type CreateChatRoomInput = {
@@ -209,6 +218,57 @@ export class ArcyouChatRoomRepository {
 
       return member;
     });
+  }
+
+  /**
+   * 채팅방 멤버 목록을 조회합니다.
+   *
+   * - 요청 사용자가 해당 채팅방의 멤버가 아닌 경우 FORBIDDEN 에러를 발생시킵니다.
+   * - 각 멤버에 대한 기본 프로필 정보와 읽음 위치(lastReadMessageId)를 함께 반환합니다.
+   */
+  async listMembersByRoomId(
+    roomId: string,
+    requesterUserId: string
+  ): Promise<ArcyouChatRoomMemberWithUser[]> {
+    // 요청 사용자가 해당 방의 멤버인지 검증
+    const [membership] = await this.database
+      .select({
+        userId: arcyouChatMembers.userId,
+      })
+      .from(arcyouChatMembers)
+      .where(
+        and(
+          eq(arcyouChatMembers.roomId, roomId),
+          eq(arcyouChatMembers.userId, requesterUserId),
+          isNull(arcyouChatMembers.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (!membership) {
+      throwApi('FORBIDDEN', '채팅방 멤버가 아닙니다.');
+    }
+
+    const members = await this.database
+      .select({
+        userId: arcyouChatMembers.userId,
+        role: arcyouChatMembers.role,
+        lastReadMessageId: arcyouChatMembers.lastReadMessageId,
+        name: users.name,
+        email: users.email,
+        imageUrl: users.imageUrl,
+      })
+      .from(arcyouChatMembers)
+      .innerJoin(users, eq(arcyouChatMembers.userId, users.id))
+      .where(
+        and(
+          eq(arcyouChatMembers.roomId, roomId),
+          isNull(arcyouChatMembers.deletedAt)
+        )
+      )
+      .orderBy(arcyouChatMembers.createdAt);
+
+    return members;
   }
 
   /**

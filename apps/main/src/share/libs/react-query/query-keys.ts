@@ -69,6 +69,8 @@ export const queryKeys = {
         ? ([...queryKeys.chatRooms.all(), 'list', normalizeParams({ type })] as const)
         : ([...queryKeys.chatRooms.all(), 'list'] as const),
     byId: (roomId: string) => [...queryKeys.chatRooms.all(), 'detail', roomId] as const,
+    members: (roomId: string) =>
+      [...queryKeys.chatRooms.all(), 'members', roomId] as const,
   },
 
   // 친구 관계 관련

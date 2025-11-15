@@ -174,7 +174,7 @@ export function ArcYouRelationItem({
   return (
     <div
       className={cn(
-        'w-full grid items-center gap-3 px-3 py-1',
+        'w-full grid items-center gap-3 p-1',
         'text-left rounded-md',
         onClick && 'cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors',
         // 프로필과 액션 버튼 유무에 따라 grid 구조 조정

@@ -20,7 +20,7 @@ export default function ArcYouDemoPage() {
   const [roomMessages, setRoomMessages] = useState<Record<string, ArcyouChatMessage[]>>({
     'room-1': [
       {
-        id: 3,
+        id: '3',
         roomId: 'room-1',
         userId: 'user-2',
         type: 'text' as const,
@@ -29,7 +29,7 @@ export default function ArcYouDemoPage() {
         createdAt: tenMinutesAgo,
       },
       {
-        id: 4,
+        id: '4',
         roomId: 'room-1',
         userId: 'user-1',
         type: 'text' as const,
@@ -38,7 +38,7 @@ export default function ArcYouDemoPage() {
         createdAt: fiveMinutesAgo,
       },
       {
-        id: 5,
+        id: '5',
         roomId: 'room-1',
         userId: 'user-2',
         type: 'text' as const,
@@ -47,7 +47,7 @@ export default function ArcYouDemoPage() {
         createdAt: now,
       },
       {
-        id: 6,
+        id: '6',
         roomId: 'room-1',
         userId: 'user-1',
         type: 'text' as const,
@@ -57,19 +57,19 @@ export default function ArcYouDemoPage() {
         createdAt: now,
       },
       {
-        id: 7,
+        id: '7',
         roomId: 'room-1',
         userId: 'user-1',
         type: 'text' as const,
         content: '이전 메시지에 대한 답장입니다.',
-        replyToMessageId: 3,
+        replyToMessageId: '3',
         status: 'sent' as const,
         createdAt: now,
       },
     ],
     'room-2': [
       {
-        id: 20,
+        id: '20',
         roomId: 'room-2',
         userId: 'user-3',
         type: 'text' as const,
@@ -78,7 +78,7 @@ export default function ArcYouDemoPage() {
         createdAt: twoHoursAgo,
       },
       {
-        id: 21,
+        id: '21',
         roomId: 'room-2',
         userId: 'user-1',
         type: 'text' as const,
@@ -89,7 +89,7 @@ export default function ArcYouDemoPage() {
     ],
     'room-3': [
       {
-        id: 30,
+        id: '30',
         roomId: 'room-3',
         userId: 'user-4',
         type: 'text' as const,
@@ -173,7 +173,7 @@ export default function ArcYouDemoPage() {
 
   const handleSubmit = (message: string) => {
     const newMessage: ArcyouChatMessage = {
-      id: Date.now(),
+      id: String(Date.now()),
       roomId: selectedRoomId,
       userId: 'user-1',
       type: 'text',

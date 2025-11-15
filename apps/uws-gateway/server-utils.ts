@@ -111,7 +111,7 @@ export async function backfillSince<
   limit: number,
 ): Promise<
   Array<{
-    id: number;
+    id: string;
     userId: string;
     content: unknown;
     createdAt: Date | null;
@@ -130,7 +130,15 @@ export async function backfillSince<
     )
     .limit(1);
 
-  const lastRead = (p[0] as any)?.lastReadMessageId ?? 0;
+  const lastReadMessageId = (p[0] as any)?.lastReadMessageId as string | null | undefined;
+  const lastReadCreatedAt = lastReadMessageId
+    ? await db
+        .select({ createdAt: (messagesTable as any).createdAt })
+        .from(messagesTable)
+        .where(eq((messagesTable as any).id, lastReadMessageId))
+        .limit(1)
+        .then((rows) => (rows[0] as any)?.createdAt ?? null)
+    : null;
 
   const rows = await db
     .select({
@@ -143,11 +151,13 @@ export async function backfillSince<
     .where(
       and(
         eq((messagesTable as any).roomId, roomId),
-        gt((messagesTable as any).id, lastRead),
+        lastReadCreatedAt
+          ? gt((messagesTable as any).createdAt, lastReadCreatedAt)
+          : undefined,
         sql`${(messagesTable as any).deletedAt} IS NULL`,
       ),
     )
-    .orderBy((messagesTable as any).id)
+    .orderBy((messagesTable as any).createdAt)
     .limit(limit);
 
   return rows as any;

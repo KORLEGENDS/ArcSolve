@@ -1,11 +1,11 @@
 import {
-  bigint,
   pgEnum,
   pgTable,
   primaryKey,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { arcyouChatMessages } from './arcyou-chat-message-drizzle';
 import { arcyouChatRooms } from './arcyou-chat-room-drizzle';
 import { users } from './user-drizzle';
 
@@ -31,7 +31,8 @@ export const arcyouChatMembers = pgTable(
       .defaultNow()
       .notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
-    lastReadMessageId: bigint('last_read_message_id', { mode: 'number' }),
+    lastReadMessageId: uuid('last_read_message_id')
+      .references(() => arcyouChatMessages.id, { onDelete: 'set null' }),
   },
   (member) => [
     primaryKey({ columns: [member.roomId, member.userId] }),

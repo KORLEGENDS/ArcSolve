@@ -2,27 +2,45 @@
 @theme base {
     --color-background: var(--color-neutral-50);
     --color-foreground: var(--color-neutral-950);
+
     --color-input: var(--color-neutral-50);
     --color-input-button: var(--color-neutral-700);
+
     --color-tab: var(--color-neutral-150);
     --color-tab-foreground: var(--color-neutral-50);
+
     --color-card: var(--color-neutral-150);
     --color-card-foreground: var(--color-neutral-950);
+
     --color-popover: var(--color-neutral-100);
     --color-popover-foreground: var(--color-neutral-950);
+
     --color-primary: var(--color-neutral-200);
     --color-primary-foreground: var(--color-neutral-900);
+
     --color-secondary: var(--color-neutral-200);
     --color-secondary-foreground: var(--color-neutral-900);
-    --color-muted: var(--color-neutral-150);
-    --color-muted-foreground: var(--color-neutral-500);
+
+    --color-neutral: var(--color-neutral-100);
+    --color-neutral-foreground: var(--color-neutral-900);
+
+    --color-subtle: var(--color-neutral-150);
+    --color-subtle-foreground: var(--color-neutral-700);
+
+    --color-muted: var(--color-neutral-200);
+    --color-muted-foreground: var(--color-neutral-600);
+
+    --color-surface: var(--color-neutral-250);
+    --color-surface-foreground: var(--color-neutral-900);
+
     --color-accent: var(--color-neutral-300);
     --color-accent-foreground: var(--color-neutral-900);
-    --color-neutral: var(--color-neutral-200);
-    --color-neutral-foreground: var(--color-neutral-900);
+
     --color-brand: var(--color-brand);
     --color-brand-foreground: var(--color-white);
+
     --color-destructive: var(--color-red-600);
+    
     --color-border: var(--color-neutral-400);
     --color-ring: var(--color-neutral-400);
   

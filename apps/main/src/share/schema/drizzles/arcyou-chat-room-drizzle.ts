@@ -1,11 +1,11 @@
 import {
-  bigint,
   pgEnum,
   pgTable,
   text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { arcyouChatMessages } from './arcyou-chat-message-drizzle';
 
 export const arcyouChatRoomTypeEnum = pgEnum('arcyou_chat_room_type', [
   'direct',
@@ -20,7 +20,8 @@ export const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
   name: text('name').notNull(),
   description: text('description'),
   type: arcyouChatRoomTypeEnum('type').default('direct').notNull(),
-  lastMessageId: bigint('last_message_id', { mode: 'number' }),
+  lastMessageId: uuid('last_message_id')
+    .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

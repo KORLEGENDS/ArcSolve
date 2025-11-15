@@ -7,7 +7,7 @@ import { and, desc, eq, isNull, lt } from 'drizzle-orm';
 import type { DB } from './base-repository';
 
 export type ArcyouChatMessageItem = {
-  id: number;
+  id: string;
   roomId: string;
   userId: string;
   content: unknown;
@@ -41,22 +41,28 @@ export class ArcyouChatMessageRepository {
   }
 
   /**
-   * room 별 메시지 히스토리 조회 (커서: beforeId)
-   * 결과는 id DESC(최신 우선)로 반환합니다.
+   * room 별 메시지 히스토리 조회 (커서: beforeCreatedAt)
+   * 결과는 createdAt DESC(최신 우선)로 반환합니다.
    */
   async listByRoomId(
     userId: string,
     roomId: string,
-    options?: { beforeId?: number; limit?: number },
+    options?: { beforeCreatedAt?: Date | string; limit?: number },
   ): Promise<ArcyouChatMessageItem[]> {
     await this.assertMember(userId, roomId);
 
     const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
 
+    const beforeDate = options?.beforeCreatedAt
+      ? typeof options.beforeCreatedAt === 'string'
+        ? new Date(options.beforeCreatedAt)
+        : options.beforeCreatedAt
+      : undefined;
+
     const where = and(
       eq(arcyouChatMessages.roomId, roomId),
       isNull(arcyouChatMessages.deletedAt),
-      options?.beforeId ? lt(arcyouChatMessages.id, options.beforeId) : undefined,
+      beforeDate ? lt(arcyouChatMessages.createdAt, beforeDate) : undefined,
     );
 
     const rows = await this.database
@@ -69,7 +75,7 @@ export class ArcyouChatMessageRepository {
       })
       .from(arcyouChatMessages)
       .where(where)
-      .orderBy(desc(arcyouChatMessages.id))
+      .orderBy(desc(arcyouChatMessages.createdAt))
       .limit(limit);
 
     return rows;

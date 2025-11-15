@@ -9,6 +9,7 @@ import { queryKeyUtils, queryKeys } from '@/share/libs/react-query/query-keys';
 import {
   chatRoomQueryOptions,
   type ArcyouChatRoom,
+  type ChatRoomMember,
 } from '@/share/libs/react-query/query-options';
 import {
   useMutation,
@@ -107,13 +108,20 @@ export function useRenameChatRoom() {
 }
 
 /**
+ * 특정 채팅방 멤버 목록 조회 훅
+ */
+export function useChatRoomMembers(roomId: string) {
+  return useQuery(chatRoomQueryOptions.members(roomId));
+}
+
+/**
  * 방 목록 캐시에서 특정 room의 lastMessageId/updatedAt을 갱신하고
  * 최신 방이 상단에 오도록 재정렬하는 헬퍼 훅
  */
 export function useBumpChatRoomActivity() {
   const queryClient = useQueryClient();
 
-  const bump = (roomId: string, opts: { lastMessageId?: number; updatedAt?: string }) => {
+  const bump = (roomId: string, opts: { lastMessageId?: string; updatedAt?: string }) => {
     const updateList = (rooms?: ArcyouChatRoom[]) => {
       if (!rooms) return rooms;
       const idx = rooms.findIndex((r) => r.id === roomId);
@@ -205,7 +213,7 @@ export function useRoomActivitySocket(options?: RoomActivitySocketOptions) {
               typeof data.roomId === 'string'
             ) {
               const lastMessageId =
-                typeof data.lastMessageId === 'number' ? data.lastMessageId : undefined;
+                typeof data.lastMessageId === 'string' ? data.lastMessageId : undefined;
               const updatedAt =
                 typeof data.createdAt === 'string' ? data.createdAt : undefined;
 

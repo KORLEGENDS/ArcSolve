@@ -19,11 +19,11 @@
   1. 브라우저가 Next 메인 서버에서 **JWT 토큰 발급** (`/api/arcyou/chat/ws/token`)
   2. 브라우저가 uws-gateway WS 엔드포인트에 접속 (`NEXT_PUBLIC_CHAT_WS_URL`)
   3. `{ op:'auth', token }` 으로 인증
-  4. (대화방) `{ op:'join', room_id }` 로 방 조인
+  4. (대화방) `{ op:'room', action:'join', roomId }` 로 방 조인
   5. (방 목록) `{ op:'rooms', action:'watch' }` 로 방 목록 watcher 등록
   6. 클라이언트는
-     - 대화방 WS를 통해 메시지 전송/수신
-     - 방 목록 WS를 통해 `op:'room-activity'` 이벤트 수신 후 React Query 캐시 갱신
+     - 대화방 WS를 통해 `op:'room', action:'send'` / `event:'message.created'` 로 메시지 전송/수신
+     - 방 목록 WS를 통해 `op:'rooms', event:'room.activity' | 'room.created' | 'room.updated'` 이벤트 수신 후 React Query 캐시 갱신
 
 자세한 API/REST 레이어 설명은 `arcyou-chat.md`를 참고하고,
 여기서는 WS 레이어에 집중합니다.
@@ -64,41 +64,47 @@
 - 토큰은 Next 메인 서버의 `GET /api/arcyou/chat/ws/token` 에서 발급되며,
   RS256, `sub = userId`, 선택적 `issuer/audience` 를 포함합니다.
 
-#### 2-3. 방 참가 (`join`)
+#### 2-3. 방 참가 (`op: 'room', action: 'join'`)
 
 - 클라이언트 → 서버:
 
 ```json
-{ "op": "join", "room_id": "<room-uuid>" }
+{ "op": "room", "action": "join", "roomId": "<room-uuid>" }
 ```
 
 - 서버 동작:
   - `arcyou_chat_members` 에서 `(roomId, userId)` 로 멤버십 검증
   - 성공 시 `channelClients[roomId]` 에 현재 WebSocket 등록
-  - `backfillSince` 를 통해 사용자가 읽지 않은 메시지들을 `op:'event'`로 보강 전송
+  - `backfillSince` 를 통해 사용자가 읽지 않은 메시지들을 `op:'room', event:'message.created'` 로 보강 전송
 
 - 서버 → 클라이언트:
 
 ```json
-{ "op": "join", "success": true, "room_id": "<room-uuid>" }
+{ "op": "room", "event": "joined", "success": true, "roomId": "<room-uuid>" }
 ```
 
 실패 시:
 
 ```json
-{ "op": "join", "success": false, "error": "Forbidden: not a member" }
+{
+  "op": "room",
+  "event": "joined",
+  "success": false,
+  "error": "Forbidden: not a member"
+}
 ```
 
-#### 2-4. 메시지 전송 (`send`)
+#### 2-4. 메시지 전송 (`op: 'room', action: 'send'`)
 
 - 클라이언트 → 서버:
 
 ```json
 {
-  "op": "send",
-  "room_id": "<room-uuid>",
+  "op": "room",
+  "action": "send",
+  "roomId": "<room-uuid>",
   "content": { "text": "hello" },
-  "temp_id": "temp-1700000000000"
+  "tempId": "temp-1700000000000"
 }
 ```
 
@@ -115,7 +121,8 @@
   "type": "message.created",
   "roomId": "<room-uuid>",
   "payload": {
-    "op": "event",
+    "op": "room",
+    "event": "message.created",
     "type": "message.created",
     "roomId": "<room-uuid>",
     "message": {
@@ -134,23 +141,25 @@
 
 ```json
 {
-  "op": "send",
+  "op": "room",
+  "event": "sent",
   "success": true,
-  "message_id": 123,
-  "temp_id": "temp-1700000000000"
+  "roomId": "<room-uuid>",
+  "messageId": 123,
+  "tempId": "temp-1700000000000"
 }
 ```
 
 클라이언트는 이 ACK를 이용해 낙관적 메시지의 상태를 `sending → sent` 로 전환합니다.
 
-#### 2-5. 라이브 이벤트 (`event`)
+#### 2-5. 라이브 이벤트 (`op: 'room', event: 'message.created'`)
 
 - 게이트웨이가 Redis Pub/Sub → 방 소켓으로 전달하는 메시지 형식:
 
 ```json
 {
-  "op": "event",
-  "type": "message.created",
+  "op": "room",
+  "event": "message.created",
   "roomId": "<room-uuid>",
   "message": {
     "id": 123,
@@ -166,21 +175,32 @@
 
 - `source: "backfill"` 인 경우는 `join` 이후, 아직 읽지 못한 메시지에 대한 보강 전송입니다.
 
-#### 2-6. 읽음 동기화 (`ack`)
+#### 2-6. 읽음 동기화 (`op: 'room', action: 'ack'`)
 
 - 클라이언트 → 서버:
 
 ```json
 {
-  "op": "ack",
-  "room_id": "<room-uuid>",
-  "last_read_message_id": 123
+  "op": "room",
+  "action": "ack",
+  "roomId": "<room-uuid>",
+  "lastReadMessageId": 123
 }
 ```
 
 - 서버 동작:
   - `arcyou_chat_members.last_read_message_id` 를 `GREATEST(last_read_message_id, 123)` 로 갱신
-  - 별도 응답은 없으며, 실패 시 `op:'error'` 로 통지될 수 있습니다.
+  - 아래와 같은 응답을 통해 성공/실패를 통지:
+
+```json
+{
+  "op": "room",
+  "event": "ack",
+  "success": true,
+  "roomId": "<room-uuid>",
+  "lastReadMessageId": 123
+}
+```
 
 #### 2-7. 방 목록 watcher 등록 (`op: 'rooms', action: 'watch'`)
 
@@ -193,7 +213,11 @@
 - 서버 동작:
   - 인증된 사용자(`ci.userId`)를 기준으로 `userWatchers[userId]` Set에 현재 WebSocket 등록
   - 이후 Outbox → Redis → 게이트웨이로 들어오는 메시지에 포함된 `recipients` 배열을 사용해
-    해당 사용자 watcher 소켓으로 `op:'room-activity'` 이벤트를 브로드캐스트
+    해당 사용자 watcher 소켓으로
+    - `op:'rooms', event:'room.activity'`
+    - `op:'rooms', event:'room.created'`
+    - `op:'rooms', event:'room.updated'`
+    이벤트를 브로드캐스트
 
 -- 서버 → 클라이언트:
 
@@ -201,7 +225,7 @@
 { "op": "rooms", "event": "watch", "success": true }
 ```
 
-#### 2-8. 방 목록 실시간 업데이트 (`room-activity`)
+#### 2-8. 방 목록 실시간 업데이트 (`rooms.room.activity`)
 
 -- 서버 → 클라이언트(watcher WS):
 
@@ -255,13 +279,17 @@ subscriber.on('message', (channel, message) => { ... });
 subscriber.on('pmessage', (pattern, channel, message) => { ... });
 ```
 
-- 처리 로직:
+- 처리 로직(요약):
   1. `message` 를 JSON parse → `data`
   2. `roomId` 계산
-  3. `broadcastToRoom(channelClients, roomId, payload, WS_SEND_HIGH_WATER)`
-     - `payload` = `{ ...data, timestamp, source:'live' }`
-  4. `recipients` 가 있다면 `userWatchers` 를 통해 각 사용자 watcher 소켓에
-     - `{ op:'room-activity', roomId, lastMessageId, createdAt }` 를 전송
+  3. `payload = { ...data, timestamp, source:'live' }` 생성
+  4. `payload.op === 'room'` 인 경우 → 해당 `roomId` 로 join 된 소켓에 브로드캐스트  
+     (예: `op:'room', event:'message.created'`)
+  5. `recipients` 가 있다면 `userWatchers` 를 통해 각 사용자 watcher 소켓에
+     - `{ op:'rooms', event:'room.activity', roomId, lastMessageId, createdAt }`
+     - `{ op:'rooms', event:'room.created', room: {...} }`
+     - `{ op:'rooms', event:'room.updated', room: {...} }`
+     를 전송
 
 ---
 
@@ -301,20 +329,20 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
   - 특정 `roomId` 에 대한 메시지 히스토리 로딩
   - 실시간 메시지 송수신
   - 낙관적 업데이트 및 ACK/이벤트 기반 상태 전환
-  - 읽음 ACK(`op:'ack'`) 전송
+  - 읽음 ACK(`op:'room', action:'ack'`) 전송
 - 주요 포인트:
   - 마운트 시:
     1. `/api/arcyou/chat/ws/token` 으로 JWT 발급
     2. `NEXT_PUBLIC_CHAT_WS_URL` 로 WS 연결
     3. `{ op:'auth', token }` → `{ op:'auth', success:true, userId }` 수신
     4. REST로 히스토리 로드 → ASC 정렬하여 로컬 상태 앞쪽에 배치
-    5. `{ op:'join', room_id }` 전송 → `{ op:'join', success:true }` 수신 시 `ready=true`
+    5. `{ op:'room', action:'join', roomId }` 전송 → `{ op:'room', event:'joined', success:true }` 수신 시 `ready=true`
   - 전송:
     - 입력값으로 낙관적 메시지를 `status:'sending'` 으로 추가
-    - `{ op:'send', room_id, content:{text}, temp_id }` 전송
-    - `{ op:'send', success:true, message_id, temp_id }` ACK 수신 시 `status:'sent'` 로 전환
+    - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
+    - `{ op:'room', event:'sent', success:true, messageId, tempId }` ACK 수신 시 `status:'sent'` 로 전환
   - 라이브 이벤트:
-    - `op:'event', type:'message.created'` 수신 시
+    - `op:'room', event:'message.created'` 수신 시
       - `temp_id` 매칭이면 기존 낙관적 메시지를 `status:'delivered'` 로 승격
       - 아니라면 중복 체크 후 새 메시지 추가
     - 매 메시지 처리 후 `scheduleAck()` 로 읽음 ACK 디바운스 전송
@@ -339,14 +367,23 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
 GET /api/arcyou/chat/ws/token
 
 // 2) WebSocket 연결 후
-{ "op": "auth", "token": "<JWT>" } 전송
+{ op: 'auth', token: '<JWT>' } 전송
 
 // 3) auth 성공 시
-{ "op": "watch_rooms" } 전송
+{ op: 'rooms', action: 'watch' } 전송
 
-// 4) room-activity 수신
-{ "op": "room-activity", "roomId": "...", "lastMessageId": 123, "createdAt": "..." }
+// 4) room.activity 수신
+{ op: 'rooms', event: 'room.activity', roomId, lastMessageId, createdAt }
 → useBumpChatRoomActivity(roomId, { lastMessageId, updatedAt: createdAt })
+
+// 5) room.created 수신
+{ op: 'rooms', event: 'room.created', room: { ... } }
+→ React Query 캐시에 새 방을 prepend
+
+// 6) room.updated 수신
+{ op: 'rooms', event: 'room.updated', room: { id, name, ... } }
+→ 해당 room의 name/description/updatedAt 패치
+→ onRoomUpdated 콜백을 통해 ArcWork 탭 이름도 동기화
 ```
 
    - 사용 위치:
@@ -356,7 +393,7 @@ GET /api/arcyou/chat/ws/token
 
 결과적으로,
 대화방 단위 WebSocket(`ArcYouChatRoom`)은 메시지 스트림을 담당하고,
-전역 WebSocket(`useRoomActivitySocket`)은 **방 목록 메타데이터(마지막 메시지/정렬)를 실시간으로 동기화하는 역할**을 담당합니다.
+전역 WebSocket(`useRoomActivitySocket`)은 **방 목록 메타데이터(마지막 메시지/정렬 및 이름 변경)**를 실시간으로 동기화하는 역할을 담당합니다.
 
 ---
 
@@ -394,7 +431,7 @@ curl -i -H "Cookie: <NextAuth 세션 쿠키>" \
      - 동일한 1:1 채팅방을 열고 메시지 전송
   4. 기대 결과:
      - A 브라우저의 RightSidebar에서 해당 채팅방이 즉시(WS round-trip 지연 내에서) 목록 상단으로 이동
-     - 방을 따로 열지 않았더라도, room-activity 이벤트를 통해 목록 정렬이 갱신됨
+     - 방을 따로 열지 않았더라도, `rooms.room.activity` 이벤트를 통해 목록 정렬이 갱신됨
 
 상세 API/비즈니스 플로우는 `arcyou-chat.md` 및 `arcyou-mvp.md` 를 참고하고,
 WS 레이어에 대한 변경/확장은 본 문서를 우선적으로 업데이트합니다.

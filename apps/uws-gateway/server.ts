@@ -5,7 +5,6 @@ import { and, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 
 import {
-  bigint,
   bigserial,
   integer,
   jsonb,
@@ -105,7 +104,8 @@ const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
     .defaultRandom(),
   name: text('name').notNull(),
   description: text('description'),
-  lastMessageId: bigint('last_message_id', { mode: 'number' }),
+  lastMessageId: uuid('last_message_id')
+    .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -113,7 +113,7 @@ const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
 });
 
 const arcyouChatMessages = pgTable('arcyou_chat_messages', {
-  id: bigserial('id', { mode: 'number' }).primaryKey().notNull(),
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
 
   roomId: uuid('room_id')
     .notNull()
@@ -125,7 +125,8 @@ const arcyouChatMessages = pgTable('arcyou_chat_messages', {
 
   content: jsonb('content').notNull(),
 
-  replyToMessageId: bigint('reply_to_message_id', { mode: 'number' }),
+  replyToMessageId: uuid('reply_to_message_id')
+    .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
 
   status: arcyouChatMessageStatusEnum('status').default('sent').notNull(),
 
@@ -154,7 +155,8 @@ const arcyouChatMembers = pgTable(
 
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
-    lastReadMessageId: bigint('last_read_message_id', { mode: 'number' }),
+    lastReadMessageId: uuid('last_read_message_id')
+      .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
   },
 
   (p) => [primaryKey({ columns: [p.roomId, p.userId] })],
@@ -579,6 +581,18 @@ wss.on('connection', (ws: WebSocket) => {
               .set({ lastMessageId: m.id, updatedAt: new Date() })
               .where(eq(arcyouChatRooms.id, roomId));
 
+            // 송신자의 마지막 읽은 메시지 위치를 방금 보낸 메시지로 갱신
+            await tx
+              .update(arcyouChatMembers)
+              .set({ lastReadMessageId: m.id })
+              .where(
+                and(
+                  eq(arcyouChatMembers.roomId, roomId),
+                  eq(arcyouChatMembers.userId, ci.userId!),
+                  sql`${arcyouChatMembers.deletedAt} IS NULL`,
+                ),
+              );
+
             // outbox payload는 게이트웨이가 그대로 팬아웃 가능한 형태
             await tx.insert(outbox).values({
               type: 'message.created',
@@ -605,6 +619,20 @@ wss.on('connection', (ws: WebSocket) => {
 
             return m.id;
           });
+
+          // 송신자도 해당 메시지까지 읽었다는 room.read 이벤트를 즉시 브로드캐스트
+          if (result && ci.userId) {
+            const readPayload = {
+              op: 'room' as const,
+              event: 'read' as const,
+              roomId,
+              userId: ci.userId,
+              lastReadMessageId: String(result),
+              readAt: new Date().toISOString(),
+            };
+
+            broadcastToRoom(channelClients, roomId, readPayload, WS_SEND_HIGH_WATER);
+          }
 
           return safeSend(
             ws,
@@ -643,13 +671,13 @@ wss.on('connection', (ws: WebSocket) => {
           msg.room_id ||
           msg.conversation_id ||
           msg.conversationId ||
-          clients.get(ws)?.roomId;
+          ci.roomId;
 
-        const lastReadMessageId = Number(
-          msg.lastReadMessageId || msg.last_read_message_id || msg.last_read_id,
+        const lastReadMessageId = String(
+          msg.lastReadMessageId || msg.last_read_message_id || msg.last_read_id || '',
         );
 
-        if (!roomId || !Number.isFinite(lastReadMessageId)) {
+        if (!roomId || !lastReadMessageId) {
           return safeSend(
             ws,
             {
@@ -663,15 +691,40 @@ wss.on('connection', (ws: WebSocket) => {
         }
 
         try {
-          // lastReadMessageId를 올릴 때만 업데이트
+          console.debug('[WS][room:ack] received', {
+            roomId,
+            userId: ci.userId,
+            lastReadMessageId,
+          });
+
+          // lastReadMessageId를 직접 업데이트 (uuid이므로 비교는 클라이언트에서 createdAt 기반으로 처리)
           await pool.query(
             `
           UPDATE arcyou_chat_members
-          SET last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), $1)
+          SET last_read_message_id = $1
           WHERE room_id = $2 AND user_id = $3 AND deleted_at IS NULL
         `,
-            [lastReadMessageId, roomId, clients.get(ws)!.userId],
+            [lastReadMessageId, roomId, ci.userId],
           );
+
+          // 같은 room에 join 중인 다른 참가자들에게 읽음 위치를 브로드캐스트
+          // - Outbox/Redis를 거치지 않고 WS 레벨에서만 전송
+          const readPayload = {
+            op: 'room' as const,
+            event: 'read' as const,
+            roomId,
+            userId: ci.userId!,
+            lastReadMessageId,
+            readAt: new Date().toISOString(),
+          };
+
+          console.debug('[WS][room:read] broadcasting', {
+            roomId,
+            userId: ci.userId,
+            lastReadMessageId,
+          });
+
+          broadcastToRoom(channelClients, roomId, readPayload, WS_SEND_HIGH_WATER);
 
           return safeSend(
             ws,
@@ -751,7 +804,7 @@ subscriber.on('message', (_channel, message) => {
 
     // 방 목록 실시간 갱신을 위한 rooms.* 이벤트 (user 단위 브로드캐스트)
     const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
-    const messageId: number | undefined = data.message?.id;
+    const messageId: string | undefined = data.message?.id;
     const createdAt: string | undefined = data.message?.created_at;
 
     if (recipients) {
@@ -760,7 +813,7 @@ subscriber.on('message', (_channel, message) => {
         (data.op === 'room' && data.event === 'message.created') ||
         data.type === 'message.created'
       ) {
-        if (typeof messageId === 'number') {
+        if (typeof messageId === 'string') {
           const activityPayload = {
             op: 'rooms' as const,
             event: 'room.activity' as const,
@@ -850,7 +903,7 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
 
     // 방 목록 실시간 갱신을 위한 rooms.* 이벤트 (user 단위 브로드캐스트)
     const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
-    const messageId: number | undefined = data.message?.id;
+    const messageId: string | undefined = data.message?.id;
     const createdAt: string | undefined = data.message?.created_at;
 
     if (recipients) {
@@ -859,7 +912,7 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
         (data.op === 'room' && data.event === 'message.created') ||
         data.type === 'message.created'
       ) {
-        if (typeof messageId === 'number') {
+        if (typeof messageId === 'string') {
           const activityPayload = {
             op: 'rooms' as const,
             event: 'room.activity' as const,
