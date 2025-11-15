@@ -123,10 +123,13 @@ export function ArcYouRelationItem({
 }: ArcYouRelationItemProps) {
   const isPending = status === 'pending';
   const isAccepted = status === 'accepted';
-  const showPendingReceivedActions = isPending && (onAccept || onReject); // 받은 요청: 수락/거절
-  const showPendingSentActions = isPending && onCancel; // 보낸 요청: 취소
-  const showAcceptedActions = isAccepted && (onChat || onDelete);
-  const showActions = showPendingReceivedActions || showPendingSentActions || showAcceptedActions;
+
+  const showPendingReceivedActions =
+    isPending && (!!onAccept || !!onReject); // 받은 요청: 수락/거절
+  const showPendingSentActions = isPending && !!onCancel; // 보낸 요청: 취소
+  const showAcceptedActions = isAccepted && (!!onChat || !!onDelete);
+  const showActions =
+    showPendingReceivedActions || showPendingSentActions || showAcceptedActions;
 
   const handleAccept = React.useCallback(
     (e: React.MouseEvent) => {
@@ -242,25 +245,21 @@ export function ArcYouRelationItem({
           )}
           {/* pending 상태: 보낸 요청 - 취소 버튼 */}
           {showPendingSentActions && (
-            <>
-              {onCancel && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={cancelDisabled}
-                >
-                  취소
-                </Button>
-              )}
-            </>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              disabled={cancelDisabled}
+            >
+              취소
+            </Button>
           )}
           {/* accepted 상태: 대화/삭제 버튼 */}
           {showAcceptedActions && (
             <>
               {onChat && (
                 <Button
-                  variant="default"
+                  variant="brand"
                   size="sm"
                   onClick={handleChat}
                   disabled={chatDisabled}

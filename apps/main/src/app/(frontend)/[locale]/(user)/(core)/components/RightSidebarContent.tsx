@@ -1,6 +1,7 @@
 'use client';
 
 import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
+import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
 import {
   ArcYouChatRoomCreate,
   ArcYouChatRoomList,
@@ -11,7 +12,6 @@ import {
   type RelationshipWithTargetUser as ComponentRelationshipWithTargetUser,
 } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
 import { useArcyouChat, useRoomActivitySocket } from '@/client/states/queries/useArcyouChat';
-import { useServiceEnsureOpenTab } from '@/client/states/stores/service-store';
 import { useArcYou } from '@/share/api/client/useArcYou';
 import type { RelationshipWithTargetUser as ApiRelationshipWithTargetUser } from '@/share/libs/react-query/query-options';
 import { relationQueryOptions } from '@/share/libs/react-query/query-options';
@@ -46,7 +46,7 @@ export function RightSidebarContent() {
     cancelFriendRequest,
     deleteFriendRelation,
   } = useArcYou();
-  const ensureOpen = useServiceEnsureOpenTab();
+  const { ensureOpenTab } = useArcWorkTabCreateAdapter();
   const [addEmail, setAddEmail] = React.useState('');
   const [directSearchQuery, setDirectSearchQuery] = React.useState('');
   const [groupSearchQuery, setGroupSearchQuery] = React.useState('');
@@ -145,14 +145,14 @@ export function RightSidebarContent() {
         });
         // 채팅방 열기
         if (room?.id) {
-          ensureOpen({ id: room.id, type: 'arcyou-chat-room', name: room.name });
+          ensureOpenTab({ id: room.id, type: 'arcyou-chat-room', name: room.name });
         }
       } catch (err) {
         console.error('1:1 채팅방 생성 실패:', err);
         // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [createRoom, ensureOpen]
+    [createRoom, ensureOpenTab]
   );
 
   // 1:1 채팅 검색 결과 클릭 핸들러 (즉시 대화방 생성)
@@ -213,7 +213,7 @@ export function RightSidebarContent() {
 
         // 생성 성공 후 처리
         if (room?.id) {
-          ensureOpen({ id: room.id, type: 'arcyou-chat-room', name: room.name });
+          ensureOpenTab({ id: room.id, type: 'arcyou-chat-room', name: room.name });
           setSelectedGroupFriends([]); // 선택된 친구 목록 초기화
           setGroupSearchQuery(''); // 검색어 초기화
         }
@@ -222,7 +222,7 @@ export function RightSidebarContent() {
         // 에러는 React Query가 처리하므로 여기서는 로그만 출력
       }
     },
-    [selectedGroupFriends, createGroupRoom, ensureOpen]
+    [selectedGroupFriends, createGroupRoom, ensureOpenTab]
   );
 
   // 검색 결과를 컴포넌트 타입으로 변환

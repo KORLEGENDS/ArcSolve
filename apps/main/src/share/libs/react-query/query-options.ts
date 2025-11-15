@@ -137,6 +137,18 @@ export type CreateChatRoomResponse = {
 };
 
 /**
+ * 채팅방 이름 수정 뮤테이션 변수 타입
+ */
+export interface RenameChatRoomMutationVariables {
+  roomId: string;
+  name: string;
+}
+
+export type RenameChatRoomResponse = {
+  room: ArcyouChatRoom;
+};
+
+/**
  * 채팅방 관련 Query Options
  */
 export const chatRoomQueryOptions = {
@@ -173,6 +185,22 @@ export const chatRoomQueryOptions = {
     (data) => data.room,
     {
       method: 'POST',
+    }
+  ),
+
+  /**
+   * 채팅방 이름 수정 뮤테이션 옵션
+   */
+  rename: createApiMutation<
+    RenameChatRoomResponse['room'],
+    RenameChatRoomResponse,
+    RenameChatRoomMutationVariables
+  >(
+    (variables) => `/api/arcyou/chat/rooms/${variables.roomId}`,
+    (data) => data.room,
+    {
+      method: 'PATCH',
+      bodyExtractor: ({ roomId: _roomId, ...body }) => body,
     }
   ),
 } as const;

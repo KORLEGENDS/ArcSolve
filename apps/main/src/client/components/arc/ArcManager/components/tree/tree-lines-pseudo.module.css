@@ -1,0 +1,48 @@
+.row {
+  position: relative;
+}
+
+.row::before,
+.row::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+/* 세로 라인: 부모에서 내려오는 느낌 */
+.row::before {
+  /* --tree-line-left 를 기준으로 수직선 배치 (상위 아이콘 중앙 x축과 정렬) */
+  left: var(--tree-line-left, 0rem);
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--color-accent);
+}
+
+/* 가로 L-라인: 현재 노드의 세로 중앙에서 가지가 뻗어 나옴 */
+.row::after {
+  left: var(--tree-line-left, 0rem);
+  top: 50%;
+  width: 1rem;
+  border-bottom: 1px solid var(--color-accent);
+  transform: translateY(-0.5px); /* 안티엘리어싱 보정 */
+}
+
+/* 마지막 자식이면 세로 라인을 세로 중앙까지만 내려오도록 잘라서 └ 모양 연출 */
+.row[data-last='true']::before {
+  bottom: 50%;
+}
+
+/* 루트 레벨(level 0)에서는 L-라인을 숨겨, 상위 없는 루트 노드 느낌 유지 */
+.row[data-level='0']::before,
+.row[data-level='0']::after {
+  display: none;
+}
+
+.ancestor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--color-accent);
+}
+
+

@@ -1,6 +1,6 @@
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
 import { throwApi } from '@/share/api/server/errors';
-import { arcyouChatMembers, arcyouChatRooms } from '@/share/schema/drizzles';
+import { arcyouChatMembers, arcyouChatRooms, outbox } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { ArcyouChatRelationRepository } from './arcyou-chat-relation-repository';
 import type { DB } from './base-repository';
@@ -176,7 +176,128 @@ export class ArcyouChatRoomRepository {
         throw new Error('채팅방 멤버 정보 조회에 실패했습니다.');
       }
 
+      // Outbox에 room.created 이벤트 적재 (WS를 통해 방 목록에 새 방 추가)
+      try {
+        await tx.insert(outbox).values({
+          type: 'room.created',
+          roomId: room.id,
+          payload: {
+            op: 'event',
+            type: 'room.created',
+            roomId: room.id,
+            room: {
+              id: room.id,
+              name: room.name,
+              description: room.description,
+              type: room.type,
+              lastMessageId: room.lastMessageId ?? null,
+              createdAt: room.createdAt?.toISOString() ?? new Date().toISOString(),
+              updatedAt: room.updatedAt?.toISOString() ?? null,
+            },
+            // 방 멤버 userId 목록 (room-created 브로드캐스트 대상)
+            recipients: memberIdsToAdd,
+          },
+          status: 'pending',
+          attempts: 0,
+          nextAttemptAt: new Date(),
+        });
+      } catch {
+        // Outbox 적재 실패는 채팅방 생성 자체를 막지 않는다.
+        // 필요시 로깅/모니터링 연동 가능.
+      }
+
       return member;
+    });
+  }
+
+  /**
+   * 채팅방 이름을 수정합니다.
+   *
+   * - 호출자는 해당 채팅방의 멤버여야 합니다.
+   * - 이름은 1~255자의 문자열이어야 합니다.
+   *
+   * @param roomId 채팅방 ID
+   * @param userId 요청 사용자 ID
+   * @param name 변경할 채팅방 이름
+   */
+  async updateName(
+    roomId: string,
+    userId: string,
+    name: string
+  ): Promise<ArcyouChatRoomWithMemberInfo> {
+    const trimmed = name.trim();
+
+    if (!trimmed) {
+      throwApi('BAD_REQUEST', '채팅방 이름은 비어 있을 수 없습니다.');
+    }
+    if (trimmed.length > 255) {
+      throwApi('BAD_REQUEST', '채팅방 이름은 255자 이하여야 합니다.');
+    }
+
+    return await this.database.transaction(async (tx) => {
+      // 멤버십 검증 (삭제되지 않은 멤버여야 함)
+      const [membership] = await tx
+        .select({
+          role: arcyouChatMembers.role,
+        })
+        .from(arcyouChatMembers)
+        .where(
+          and(
+            eq(arcyouChatMembers.roomId, roomId),
+            eq(arcyouChatMembers.userId, userId),
+            isNull(arcyouChatMembers.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (!membership) {
+        throwApi('FORBIDDEN', '채팅방 멤버가 아닙니다.');
+      }
+
+      // 이름 및 updatedAt 갱신
+      const [room] = await tx
+        .update(arcyouChatRooms)
+        .set({
+          name: trimmed,
+          // updatedAt은 trigger가 없으므로 여기서 직접 now()로 갱신
+          updatedAt: sql`now()`,
+        })
+        .where(eq(arcyouChatRooms.id, roomId))
+        .returning();
+
+      if (!room) {
+        throwApi('NOT_FOUND', '채팅방을 찾을 수 없습니다.');
+      }
+
+      // 호출자 기준 멤버 정보와 함께 반환 (listByUserId와 동일한 셀렉터)
+      const [result] = await tx
+        .select({
+          id: arcyouChatRooms.id,
+          name: arcyouChatRooms.name,
+          description: arcyouChatRooms.description,
+          type: arcyouChatRooms.type,
+          lastMessageId: arcyouChatRooms.lastMessageId,
+          createdAt: arcyouChatRooms.createdAt,
+          updatedAt: arcyouChatRooms.updatedAt,
+          role: arcyouChatMembers.role,
+          lastReadMessageId: arcyouChatMembers.lastReadMessageId,
+        })
+        .from(arcyouChatMembers)
+        .innerJoin(arcyouChatRooms, eq(arcyouChatMembers.roomId, arcyouChatRooms.id))
+        .where(
+          and(
+            eq(arcyouChatMembers.roomId, roomId),
+            eq(arcyouChatMembers.userId, userId),
+            isNull(arcyouChatMembers.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (!result) {
+        throw new Error('채팅방 멤버 정보 조회에 실패했습니다.');
+      }
+
+      return result;
     });
   }
 }

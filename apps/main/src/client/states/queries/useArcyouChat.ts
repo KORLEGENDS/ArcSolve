@@ -5,7 +5,7 @@
  */
 
 import { clientEnv } from '@/share/configs/environments/client-constants';
-import { queryKeys } from '@/share/libs/react-query/query-keys';
+import { queryKeyUtils, queryKeys } from '@/share/libs/react-query/query-keys';
 import {
   chatRoomQueryOptions,
   type ArcyouChatRoom,
@@ -87,6 +87,26 @@ export function useCreateChatRoom() {
 }
 
 /**
+ * 채팅방 이름 수정 훅
+ *
+ * - 성공 시 채팅방 목록 및 상세 쿼리를 무효화하여 최신 이름을 반영합니다.
+ */
+export function useRenameChatRoom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...chatRoomQueryOptions.rename,
+    onSuccess: (room) => {
+      // 목록/상세 캐시를 모두 무효화하여 이름/updatedAt 변경사항 반영
+      queryKeyUtils.invalidateChatRoomsList(queryClient);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chatRooms.byId(room.id),
+      });
+    },
+  });
+}
+
+/**
  * 방 목록 캐시에서 특정 room의 lastMessageId/updatedAt을 갱신하고
  * 최신 방이 상단에 오도록 재정렬하는 헬퍼 훅
  */
@@ -131,6 +151,7 @@ export function useBumpChatRoomActivity() {
 export function useRoomActivitySocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const { bump } = useBumpChatRoomActivity();
+  const queryClient = useQueryClient();
   const wsUrl = clientEnv.NEXT_PUBLIC_CHAT_WS_URL;
 
   useEffect(() => {
@@ -177,6 +198,50 @@ export function useRoomActivitySocket() {
                 typeof data.createdAt === 'string' ? data.createdAt : undefined;
 
               bump(data.roomId, { lastMessageId, updatedAt });
+              return;
+            }
+
+            if (data.op === 'room-created' && data.room && typeof data.room.id === 'string') {
+              const roomData = data.room as Partial<ArcyouChatRoom>;
+
+              const room: ArcyouChatRoom = {
+                id: roomData.id!,
+                name: roomData.name ?? '',
+                description: roomData.description ?? null,
+                type: roomData.type ?? 'direct',
+                lastMessageId: roomData.lastMessageId ?? null,
+                // WS 이벤트에는 role/lastReadMessageId 정보가 없으므로 기본값 사용
+                role: roomData.role ?? 'participant',
+                lastReadMessageId: roomData.lastReadMessageId ?? null,
+                createdAt: roomData.createdAt ?? null,
+                updatedAt: roomData.updatedAt ?? null,
+              };
+
+              const upsert = (rooms?: ArcyouChatRoom[]) => {
+                if (!rooms || rooms.length === 0) return [room];
+                if (rooms.some((r) => r.id === room.id)) return rooms;
+                return [room, ...rooms];
+              };
+
+              // 전체 목록에 추가
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list(),
+                upsert,
+              );
+
+              // 타입별 목록에도 추가
+              if (room.type === 'direct') {
+                queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                  queryKeys.chatRooms.list('direct'),
+                  upsert,
+                );
+              } else if (room.type === 'group') {
+                queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                  queryKeys.chatRooms.list('group'),
+                  upsert,
+                );
+              }
+
               return;
             }
           } catch {

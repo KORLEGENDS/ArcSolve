@@ -685,19 +685,38 @@ subscriber.on('message', (_channel, message) => {
     const messageId: number | undefined = data.message?.id;
     const createdAt: string | undefined = data.message?.created_at;
 
-    if (recipients && typeof messageId === 'number') {
-      const activityPayload = {
-        op: 'room-activity' as const,
-        roomId,
-        lastMessageId: messageId,
-        createdAt: createdAt ?? new Date().toISOString(),
-      };
+    if (recipients) {
+      // 메시지 생성 이벤트인 경우: room-activity 브로드캐스트
+      if (data.type === 'message.created' && typeof messageId === 'number') {
+        const activityPayload = {
+          op: 'room-activity' as const,
+          roomId,
+          lastMessageId: messageId,
+          createdAt: createdAt ?? new Date().toISOString(),
+        };
 
-      for (const userId of recipients) {
-        const set = userWatchers.get(userId);
-        if (!set || set.size === 0) continue;
-        for (const ws of set) {
-          safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+        for (const userId of recipients) {
+          const set = userWatchers.get(userId);
+          if (!set || set.size === 0) continue;
+          for (const ws of set) {
+            safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+          }
+        }
+      }
+
+      // 채팅방 생성 이벤트인 경우: room-created 브로드캐스트
+      if (data.type === 'room.created' && data.room) {
+        const roomCreatedPayload = {
+          op: 'room-created' as const,
+          room: data.room,
+        };
+
+        for (const userId of recipients) {
+          const set = userWatchers.get(userId);
+          if (!set || set.size === 0) continue;
+          for (const ws of set) {
+            safeSend(ws, roomCreatedPayload, WS_SEND_HIGH_WATER);
+          }
         }
       }
     }
@@ -729,19 +748,38 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
     const messageId: number | undefined = data.message?.id;
     const createdAt: string | undefined = data.message?.created_at;
 
-    if (recipients && typeof messageId === 'number') {
-      const activityPayload = {
-        op: 'room-activity' as const,
-        roomId,
-        lastMessageId: messageId,
-        createdAt: createdAt ?? new Date().toISOString(),
-      };
+    if (recipients) {
+      // 메시지 생성 이벤트인 경우: room-activity 브로드캐스트
+      if (data.type === 'message.created' && typeof messageId === 'number') {
+        const activityPayload = {
+          op: 'room-activity' as const,
+          roomId,
+          lastMessageId: messageId,
+          createdAt: createdAt ?? new Date().toISOString(),
+        };
 
-      for (const userId of recipients) {
-        const set = userWatchers.get(userId);
-        if (!set || set.size === 0) continue;
-        for (const ws of set) {
-          safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+        for (const userId of recipients) {
+          const set = userWatchers.get(userId);
+          if (!set || set.size === 0) continue;
+          for (const ws of set) {
+            safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
+          }
+        }
+      }
+
+      // 채팅방 생성 이벤트인 경우: room-created 브로드캐스트
+      if (data.type === 'room.created' && data.room) {
+        const roomCreatedPayload = {
+          op: 'room-created' as const,
+          room: data.room,
+        };
+
+        for (const userId of recipients) {
+          const set = userWatchers.get(userId);
+          if (!set || set.size === 0) continue;
+          for (const ws of set) {
+            safeSend(ws, roomCreatedPayload, WS_SEND_HIGH_WATER);
+          }
         }
       }
     }
