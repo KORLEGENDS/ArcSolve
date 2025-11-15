@@ -145,12 +145,22 @@
       --color-primary-foreground: var(--color-neutral-50);
       --color-secondary: var(--color-neutral-800);
       --color-secondary-foreground: var(--color-neutral-50);
+
+      --color-neutral: var(--color-neutral-900);
+      --color-neutral-foreground: var(--color-neutral-100);
+
+      --color-subtle: var(--color-neutral-850);
+      --color-subtle-foreground: var(--color-neutral-300);
+
       --color-muted: var(--color-neutral-800);
       --color-muted-foreground: var(--color-neutral-400);
+
+      --color-surface: var(--color-neutral-750);
+      --color-surface-foreground: var(--color-neutral-100);
+
       --color-accent: var(--color-neutral-700);
       --color-accent-foreground: var(--color-neutral-50);
-      --color-neutral: var(--color-neutral-800);
-      --color-neutral-foreground: var(--color-neutral-50);
+      
       --color-brand: var(--color-brand);
       --color-brand-foreground: var(--color-white);
       --color-destructive: var(--color-red-400);

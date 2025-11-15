@@ -1,5 +1,5 @@
+import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
-import { throwApi } from '@/share/api/server/errors';
 import { arcyouChatMembers, arcyouChatRooms, outbox, users } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { ArcyouChatRelationRepository } from './arcyou-chat-relation-repository';

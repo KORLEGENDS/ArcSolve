@@ -5,13 +5,13 @@ import { useSession } from 'next-auth/react';
 import * as React from 'react';
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { cn } from '@/client/components/ui/utils';
-import { useLogoutWithCacheClear } from '@/share/api/client/useAuth';
+import { useLogoutWithCacheClear } from '@/client/states/queries/useAuth';
 
 import { ArcUserItem } from './components/ArcUserItem';
 

@@ -1,5 +1,5 @@
-import { ApiException } from '@/share/api/server/errors';
-import { error, ok } from '@/share/api/server/response';
+import { ApiException } from '@/server/api/errors';
+import { error, ok } from '@/server/api/response';
 import { ArcyouChatRelationRepository } from '@/share/schema/repositories/arcyou-chat-relation-repository';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';

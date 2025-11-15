@@ -7,7 +7,7 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import { useEffect, useState } from 'react';
-import { pdfManager } from '../../core/PDFManager';
+import { pdfManager } from '../../managers/PDFManager';
 
 interface PDFDocumentState {
   document: PDFDocumentProxy | null;

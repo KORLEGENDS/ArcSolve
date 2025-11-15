@@ -66,6 +66,8 @@
 
 .flexlayout__tabset-selected {
   /* 선택된 탭셋 */
+  background-image: none !important;
+  background-color: var(--color-subtle);
 }
 
 .flexlayout__tabset-maximized {
@@ -102,6 +104,10 @@
 .flexlayout__tabset_tabbar_outer {
   /* 탭 바 외부 컨테이너 */
   height: 40px;
+}
+
+.flexlayout__tabset_tabbar_outer.flexlayout__tabset-selected .flexlayout__tab_button--selected {
+  border-bottom: 1px solid var(--color-foreground);
 }
 
 .flexlayout__tabset_tabbar_outer_top {

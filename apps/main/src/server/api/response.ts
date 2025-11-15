@@ -1,9 +1,9 @@
-import { HTTP_STATUS_BY_ERROR_CODE } from '@/share/api/server/errors';
 import type { UserMeta } from '@/share/schema/zod/user-zod';
 import { generateUUID } from '@/share/share-utils/id-utils';
 import type { StandardApiError, StandardApiErrorResponse } from '@/share/types/api/error-types';
 import type { ApiResponseMeta, StandardApiResponse } from '@/share/types/api/response-types';
 import { NextResponse } from 'next/server';
+import { HTTP_STATUS_BY_ERROR_CODE } from './errors';
 
 type BuildMetaInput = { user?: UserMeta; correlationId?: string } | undefined;
 

@@ -1,10 +1,12 @@
+
 @import "tailwindcss";
 @import "tw-animate-css";
+
+@import "./shadcn-style.css"; 
 
 @import "./custom-style.css" layer(base);
 @import "./fix-style.css" layer(utilities);
 
-@import "./shadcn-style.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

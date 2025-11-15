@@ -12,8 +12,8 @@ import {
   ArcYouRelation,
   type RelationshipWithTargetUser as ComponentRelationshipWithTargetUser,
 } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
-import { useArcyouChat, useRoomActivitySocket } from '@/client/states/queries/useArcyouChat';
-import { useArcYou } from '@/share/api/client/useArcYou';
+import { useArcYou } from '@/client/states/queries/arcyou/useArcYou';
+import { useArcyouChat, useArcYouChatRooms } from '@/client/states/queries/arcyou/useArcyouChat';
 import type { RelationshipWithTargetUser as ApiRelationshipWithTargetUser } from '@/share/libs/react-query/query-options';
 import { relationQueryOptions } from '@/share/libs/react-query/query-options';
 import { useQuery } from '@tanstack/react-query';
@@ -24,7 +24,7 @@ export function RightSidebarContent() {
   const { syncTabNameFromRemote } = useArcWorkTabNameUpdateAdapter();
 
   // 방 목록을 실시간으로 최신화하기 위한 room-activity WebSocket 연결
-  useRoomActivitySocket({
+  useArcYouChatRooms({
     onRoomUpdated: React.useCallback(
       (room: { id: string; name?: string | null }) => {
         if (!room.id || !room.name) return;

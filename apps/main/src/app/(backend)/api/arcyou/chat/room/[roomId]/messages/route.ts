@@ -1,4 +1,4 @@
-import { error, ok } from '@/share/api/server/response';
+import { error, ok } from '@/server/api/response';
 import { ArcyouChatMessageRepository } from '@/share/schema/repositories/arcyou-chat-message-repository';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';

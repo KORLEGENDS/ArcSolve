@@ -10,6 +10,7 @@
 2. apps/.env.docker 에는 docker의 환경 변수가 있습니다.
 3. uws-gateway, outbox-worker를 수정한 경우, 재빌드 후 재기동 필요합니다.
 4. 내부 서비스는 이미지 빌드 시점에 코드가 복사되고, 컨테이너에는 dist만 들어가는 구조입니다. -> 이미지를 최신 코드 기준으로 재빌드 + 재기동
+
 ## arcyou - `docs/arcyou/` 에 기록
 1. 일반적인 채팅 서비스와 동일한 기능을 제공
 2. '일반 채팅방'과, '친구 목록 / 1:1 채팅 목록 / 그룹 채팅 목록'을 관리
@@ -19,7 +20,17 @@
     - 그룹 채팅방: 전체 그룹 채팅방 갯수 제한 확인 후 생성
   - 채팅방 업데이트
     - 채팅방 이름 변경: 로컬/원격 -> 모두 탭/목록 이름 동기화
-
+4. api
+  - `useArcYou.ts`: 친구 관계 관리 (목록 조회, 요청 보내기/수락/거절/취소, 삭제)
+  - `useArcyouChat.ts`: 채팅방 목록 조회/생성, 이름 수정, 멤버 조회, 활동 갱신 헬퍼
+  - `useArcYouChatRoom.ts`: 개별 채팅방 WebSocket 연결 및 메시지 송수신/읽음 상태 관리
+  - `useArcYouChatRooms.ts`: 채팅방 목록 실시간 갱신 (room-activity 스트림 구독)
+  - `useArcYouSockets.ts`: 공통 WebSocket 핸드셰이크 유틸 (토큰 발급 및 연결 생성)
+  - **사용 지침**: 
+    - `useArcYouChatRooms`: 앱 최상위(RightSidebar)에서 한 번만 호출하여 전체 채팅방 목록 실시간 갱신
+    - `useArcYouChatRoom`: 각 채팅방 컴포넌트에서 개별 호출, roomId 변경 시 자동으로 재연결 및 메시지 초기화
+    - `useArcYouSockets`: 직접 사용 금지, `useArcYouChatRooms`와 `useArcYouChatRoom` 내부에서만 사용
+    - WebSocket 연결은 공통 훅(`useArcYouGatewaySocket`)을 통해 일관되게 관리하며, 토큰 발급 실패 시 자동 재시도 없음
 
 # ArcYou 개발 가이드
 **데이터 흐름:**

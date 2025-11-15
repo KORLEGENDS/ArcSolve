@@ -1,4 +1,4 @@
-import { useRenameChatRoom } from '@/client/states/queries/useArcyouChat';
+import { useRenameChatRoom } from '@/client/states/queries/arcyou/useArcyouChat';
 import { useServiceModel } from '@/client/states/stores/service-store';
 import type { TabNode } from 'flexlayout-react';
 import { Actions } from 'flexlayout-react';

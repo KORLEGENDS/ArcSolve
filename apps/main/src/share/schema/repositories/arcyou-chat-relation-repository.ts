@@ -1,5 +1,5 @@
+import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
-import { throwApi } from '@/share/api/server/errors';
 import {
   arcyouChatRelations,
   users,
