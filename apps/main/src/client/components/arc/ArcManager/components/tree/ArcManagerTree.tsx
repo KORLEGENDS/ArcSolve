@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { ArcManagerList, type ArcManagerListItem } from '../list';
+import s from './ArcManagerTree.module.css';
 
 export interface ArcManagerTreeItem extends ArcManagerListItem {
   children?: ArcManagerTreeItem[];
@@ -13,7 +14,10 @@ export interface ArcManagerTreeProps {
 }
 
 /**
- * Tree 컴포넌트 - 폴더 확장/축소 기능이 있는 중첩 리스트
+ * ArcManagerTree - pseudo-element 기반 L자 라인 트리
+ *
+ * - 각 행(row)에 CSS custom property(--tree-line-left)를 심어서
+ *   ::before / ::after 및 .ancestor가 들여쓰기 수준에 맞춰 L자 라인을 렌더링합니다.
  */
 export function ArcManagerTree({ items, className }: ArcManagerTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -30,12 +34,16 @@ export function ArcManagerTree({ items, className }: ArcManagerTreeProps) {
     });
   };
 
-  const renderItem = (item: ArcManagerTreeItem, level: number = 0) => {
+  const renderItem = (
+    item: ArcManagerTreeItem,
+    level: number = 0,
+    isLast: boolean = false,
+    ancestorsHasNextSibling: boolean[] = []
+  ) => {
     const isExpanded = expandedFolders.has(item.id);
     const hasChildren = item.children && item.children.length > 0;
     const isFolder = item.itemType === 'folder';
 
-    // 폴더인 경우 아이콘 클릭으로 확장/축소 처리 및 확장 상태 전달
     const itemWithIconClick: ArcManagerTreeItem = {
       ...item,
       isExpanded: isFolder ? isExpanded : undefined,
@@ -46,19 +54,57 @@ export function ArcManagerTree({ items, className }: ArcManagerTreeProps) {
         : undefined,
     };
 
+    const indentRem = level * 1.5;
+    // 세로 라인이 상위 폴더 아이콘의 중앙 아래에서 내려오도록 x 좌표를 계산합니다.
+    // - 버튼 내부 좌측 padding: px-3 => 0.75rem
+    // - 아이콘 너비: size-4 => 1rem ⇒ 중앙까지 0.5rem
+    // ⇒ 상위 레벨 기준 아이콘 중앙 x = indentParent + 0.75rem + 0.5rem = indentParent + 1.25rem
+    // 현재 level의 라인은 (level - 1) 단계의 indent 기준으로 이어져야 하므로:
+    //   lineLeftRem = (level - 1) * 1.5rem + 1.25rem
+    const lineLeftRem = level > 0 ? (level - 1) * 1.5 + 1.25 : 0;
+
+    const rowStyle: CSSProperties = {
+      paddingLeft: `${indentRem}rem`,
+      // pseudo-element에서 사용할 라인 x 좌표
+      '--tree-line-left': `${lineLeftRem}rem`,
+    } as CSSProperties;
+
     return (
       <div key={item.id} className="w-full">
         <div
-          className="flex items-center gap-2"
-          style={{ paddingLeft: `${level * 1.5}rem` }}
+          className={`${s.row} flex items-center gap-2`}
+          data-last={isLast ? 'true' : 'false'}
+          data-level={level}
+          style={rowStyle}
         >
+          {/* 상위 레벨에서 아직 다음 형제가 남아 있는 경우, 해당 레벨의 세로 라인을 계속 그려줍니다. */}
+          {ancestorsHasNextSibling.map(
+            (hasNextSibling, depth) =>
+              hasNextSibling && (
+                <div
+                  key={depth}
+                  className={s.ancestor}
+                  style={{
+                    left: `${depth * 1.5 + 1.25}rem`,
+                  }}
+                  aria-hidden="true"
+                />
+              )
+          )}
           <div className="flex-1">
             <ArcManagerList items={[itemWithIconClick]} />
           </div>
         </div>
         {isFolder && isExpanded && hasChildren && (
-          <div className="">
-            {item.children!.map((child) => renderItem(child, level + 1))}
+          <div>
+            {item.children!.map((child, index) =>
+              renderItem(
+                child,
+                level + 1,
+                index === item.children!.length - 1,
+                [...ancestorsHasNextSibling, !isLast]
+              )
+            )}
           </div>
         )}
       </div>
@@ -67,8 +113,7 @@ export function ArcManagerTree({ items, className }: ArcManagerTreeProps) {
 
   return (
     <div className={className}>
-      {items.map((item) => renderItem(item, 0))}
+      {items.map((item, index) => renderItem(item, 0, index === items.length - 1, []))}
     </div>
   );
 }
-

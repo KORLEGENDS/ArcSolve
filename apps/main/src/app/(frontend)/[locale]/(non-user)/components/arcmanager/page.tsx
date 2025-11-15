@@ -2,11 +2,7 @@
 
 import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
 import { ArcManagerList, type ArcManagerListItem } from '@/client/components/arc/ArcManager/components/list';
-import {
-  ArcManagerTree,
-  ArcManagerTreeLines,
-  type ArcManagerTreeItem,
-} from '@/client/components/arc/ArcManager/components/tree';
+import { ArcManagerTree, type ArcManagerTreeItem } from '@/client/components/arc/ArcManager/components/tree';
 import { Card, CardContent, CardHeader, CardTitle } from '@/client/components/ui/card';
 import { Input } from '@/client/components/ui/input';
 import { FolderOpenDot, MessageSquare, Notebook } from 'lucide-react';
@@ -284,18 +280,10 @@ export default function ArcManagerDemoPage() {
                 </div>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">ArcManagerTree (기본)</h3>
-                  <div className="p-4 border rounded-lg">
-                    <ArcManagerTree items={treeItems} />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">ArcManagerTree (L-라인 변형)</h3>
-                  <div className="p-4 border rounded-lg">
-                    <ArcManagerTreeLines items={treeItems} />
-                  </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">ArcManagerTree</h3>
+                <div className="p-4 border rounded-lg">
+                  <ArcManagerTree items={treeItems} />
                 </div>
               </div>
             </CardContent>
@@ -319,10 +307,10 @@ export default function ArcManagerDemoPage() {
                     <ArcManagerTree items={treeItems} />
                   </ArcManager.TabPanel>
                   <ArcManager.TabPanel value="files">
-                    <ArcManagerTreeLines items={treeItems} />
+                    <ArcManagerTree items={treeItems} />
                   </ArcManager.TabPanel>
                   <ArcManager.TabPanel value="chat">
-                    <ArcManagerTreeLines items={treeItems} />
+                    <ArcManagerTree items={treeItems} />
                   </ArcManager.TabPanel>
                 </ArcManager>
               </div>
