@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import type { RelationshipWithTargetUser } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
+import { relationshipToItemPropsWithClick } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation-utils';
 import type { ArcYouRelationItemProps } from '@/client/components/arc/ArcYou/ArcYouRelation/components/ArcYouRelationItem';
 import { ArcYouRelationList } from '@/client/components/arc/ArcYou/ArcYouRelation/components/ArcYouRelationList';
 import { Badge } from '@/client/components/ui/badge';
@@ -64,25 +65,6 @@ export interface ArcYouChatRoomCreateProps {
   className?: string;
 }
 
-/**
- * 관계 데이터를 ArcYouRelationItemProps로 변환하는 헬퍼 함수
- */
-function relationshipToItemProps(
-  relationship: RelationshipWithTargetUser,
-  onFriendClick: (relationship: RelationshipWithTargetUser) => void
-): ArcYouRelationItemProps {
-  return {
-    userId: relationship.targetUser.id,
-    name: relationship.targetUser.name,
-    email: relationship.targetUser.email,
-    profile: {
-      imageUrl: relationship.targetUser.imageUrl || undefined,
-      name: relationship.targetUser.name,
-    },
-    status: relationship.status,
-    onClick: () => onFriendClick(relationship),
-  };
-}
 
 export function ArcYouChatRoomCreate({
   type,
@@ -103,7 +85,7 @@ export function ArcYouChatRoomCreate({
   const searchItems: ArcYouRelationItemProps[] = React.useMemo(() => {
     const selectedIds = new Set(selectedFriends.map((f) => f.targetUser.id));
     const filteredResults = searchResults.filter((rel) => !selectedIds.has(rel.targetUser.id));
-    return filteredResults.map((rel) => relationshipToItemProps(rel, onFriendClick));
+    return filteredResults.map((rel) => relationshipToItemPropsWithClick(rel, onFriendClick));
   }, [searchResults, selectedFriends, onFriendClick]);
 
   return (

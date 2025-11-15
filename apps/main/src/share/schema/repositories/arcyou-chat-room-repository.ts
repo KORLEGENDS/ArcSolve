@@ -2,6 +2,7 @@ import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
 import { arcyouChatMembers, arcyouChatRooms, outbox, users } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { ArcyouChatRelationRepository } from './arcyou-chat-relation-repository';
 import type { DB } from './base-repository';
 
@@ -75,6 +76,50 @@ export class ArcyouChatRoomRepository {
       .orderBy(desc(sql`COALESCE(${arcyouChatRooms.updatedAt}, ${arcyouChatRooms.createdAt})`));
 
     return rooms;
+  }
+
+  /**
+   * 두 사용자가 이미 참여 중인 direct 채팅방을 조회합니다.
+   * @returns 존재하면 채팅방 정보, 없으면 null
+   */
+  async findDirectRoomBetweenUsers(
+    userId: string,
+    targetUserId: string
+  ): Promise<ArcyouChatRoomWithMemberInfo | null> {
+    const targetMember = alias(arcyouChatMembers, 'target_member');
+
+    const [room] = await this.database
+      .select({
+        id: arcyouChatRooms.id,
+        name: arcyouChatRooms.name,
+        description: arcyouChatRooms.description,
+        type: arcyouChatRooms.type,
+        lastMessageId: arcyouChatRooms.lastMessageId,
+        createdAt: arcyouChatRooms.createdAt,
+        updatedAt: arcyouChatRooms.updatedAt,
+        role: arcyouChatMembers.role,
+        lastReadMessageId: arcyouChatMembers.lastReadMessageId,
+      })
+      .from(arcyouChatMembers)
+      .innerJoin(arcyouChatRooms, eq(arcyouChatMembers.roomId, arcyouChatRooms.id))
+      .innerJoin(
+        targetMember,
+        and(
+          eq(targetMember.roomId, arcyouChatMembers.roomId),
+          eq(targetMember.userId, targetUserId),
+          isNull(targetMember.deletedAt)
+        )
+      )
+      .where(
+        and(
+          eq(arcyouChatMembers.userId, userId),
+          isNull(arcyouChatMembers.deletedAt),
+          eq(arcyouChatRooms.type, 'direct')
+        )
+      )
+      .limit(1);
+
+    return room ?? null;
   }
 
   /**

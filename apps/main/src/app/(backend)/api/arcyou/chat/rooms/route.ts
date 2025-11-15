@@ -1,5 +1,8 @@
 import { error, ok } from '@/server/api/response';
-import { ArcyouChatRoomRepository } from '@/share/schema/repositories/arcyou-chat-room-repository';
+import {
+  ArcyouChatRoomRepository,
+  type ArcyouChatRoomWithMemberInfo,
+} from '@/share/schema/repositories/arcyou-chat-room-repository';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 
@@ -125,8 +128,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 채팅방 생성
     const repository = new ArcyouChatRoomRepository();
+
+    // direct 타입은 기존 방이 있는지 먼저 확인
+    if (type === 'direct' && targetUserId) {
+      const existingRoom = await repository.findDirectRoomBetweenUsers(
+        userId,
+        targetUserId
+      );
+      if (existingRoom) {
+        return ok(
+          {
+            room: serializeRoom(existingRoom),
+          },
+          {
+            user: { id: userId, email: session.user.email || undefined },
+            message: '이미 존재하는 1:1 채팅방을 반환했습니다.',
+          }
+        );
+      }
+    }
+
+    // 채팅방 생성
     const room = await repository.create(
       {
         type,
@@ -140,17 +163,7 @@ export async function POST(request: NextRequest) {
 
     return ok(
       {
-        room: {
-          id: room.id,
-          name: room.name,
-          description: room.description,
-          type: room.type,
-          lastMessageId: room.lastMessageId,
-          role: room.role,
-          lastReadMessageId: room.lastReadMessageId,
-          createdAt: room.createdAt?.toISOString(),
-          updatedAt: room.updatedAt?.toISOString(),
-        },
+        room: serializeRoom(room),
       },
       {
         user: { id: userId, email: session.user.email || undefined },
@@ -167,5 +180,19 @@ export async function POST(request: NextRequest) {
       }
     );
   }
+}
+
+function serializeRoom(room: ArcyouChatRoomWithMemberInfo) {
+  return {
+    id: room.id,
+    name: room.name,
+    description: room.description,
+    type: room.type,
+    lastMessageId: room.lastMessageId,
+    role: room.role,
+    lastReadMessageId: room.lastReadMessageId,
+    createdAt: room.createdAt?.toISOString(),
+    updatedAt: room.updatedAt?.toISOString(),
+  };
 }
 

@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  useServiceMakeExternalDragHandler,
+  useServiceSaveLayout,
+  useServiceSetLayoutRef,
+  useServiceSetModel,
+} from '@/client/states/stores/service-store';
 import type {
   Action,
   BorderNode,
@@ -18,18 +24,10 @@ import type {
   TabSetPlaceHolderCallback,
 } from 'flexlayout-react';
 import { Layout, Model } from 'flexlayout-react';
-// combined.css에는 모든 테마(light, dark)가 포함되어 있으며 클래스명으로 활성화됩니다
-import {
-  useServiceMakeExternalDragHandler,
-  useServiceSaveLayout,
-  useServiceSetModel,
-  useServiceSetLayoutRef,
-} from '@/client/states/stores/service-store';
-import 'flexlayout-react/style/combined.css';
+
 import { useTheme } from 'next-themes';
 import * as React from 'react';
 import { ARCWORK_DEFAULT_THEME, type ArcWorkTheme } from './ArcWork-config';
-import './ArcWork.css';
 import {
   createClassNameMapper,
   createDragRectRenderCallback,
@@ -42,6 +40,9 @@ import {
   createTabSetRenderCallback,
   defaultArcWorkFactory,
 } from './components';
+
+import './ArcWork.css';
+
 
 export interface ArcWorkGlobalOptions extends Partial<IGlobalAttributes> {
   /**

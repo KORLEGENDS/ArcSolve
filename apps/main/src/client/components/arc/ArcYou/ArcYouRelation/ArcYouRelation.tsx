@@ -5,6 +5,7 @@ import * as React from 'react';
 import { cn } from '@/client/components/ui/utils';
 import type { ArcyouChatRelation } from '@/share/schema/drizzles/arcyou-chat-relation-drizzle';
 
+import { relationshipToItemPropsWithActions } from './ArcYouRelation-utils';
 import { ArcYouRelationAdd } from './components/ArcYouRelationAdd';
 import type { ArcYouRelationItemProps } from './components/ArcYouRelationItem';
 import { ArcYouRelationList } from './components/ArcYouRelationList';
@@ -119,47 +120,6 @@ function splitRelationshipsByStatus(
   return { pending, accepted };
 }
 
-/**
- * 관계 데이터를 ArcYouRelationItemProps로 변환하는 헬퍼 함수
- * pending 상태에서 받은 요청만 수락/거부 버튼 표시
- */
-function relationshipToItemProps(
-  relationship: RelationshipWithTargetUser,
-  onAccept?: (relationship: RelationshipWithTargetUser) => void,
-  onReject?: (relationship: RelationshipWithTargetUser) => void,
-  onCancel?: (relationship: RelationshipWithTargetUser) => void,
-  onChat?: (relationship: RelationshipWithTargetUser) => void,
-  onDelete?: (relationship: RelationshipWithTargetUser) => void,
-  onItemClick?: (relationship: RelationshipWithTargetUser) => void
-): ArcYouRelationItemProps {
-  // pending 상태이고 받은 요청인 경우만 수락/거부 버튼 표시
-  const canAcceptOrReject =
-    relationship.status === 'pending' && relationship.isReceivedRequest === true;
-
-  // pending 상태이고 보낸 요청인 경우 취소 버튼 표시
-  const canCancel =
-    relationship.status === 'pending' && relationship.isReceivedRequest === false;
-
-  // accepted 상태일 때 대화/삭제 버튼 표시
-  const canChatOrDelete = relationship.status === 'accepted';
-
-  return {
-    userId: relationship.targetUser.id,
-    name: relationship.targetUser.name,
-    email: relationship.targetUser.email,
-    profile: {
-      imageUrl: relationship.targetUser.imageUrl || undefined,
-      name: relationship.targetUser.name,
-    },
-    status: relationship.status,
-    onAccept: canAcceptOrReject && onAccept ? () => onAccept(relationship) : undefined,
-    onReject: canAcceptOrReject && onReject ? () => onReject(relationship) : undefined,
-    onCancel: canCancel && onCancel ? () => onCancel(relationship) : undefined,
-    onChat: canChatOrDelete && onChat ? () => onChat(relationship) : undefined,
-    onDelete: canChatOrDelete && onDelete ? () => onDelete(relationship) : undefined,
-    onClick: onItemClick ? () => onItemClick(relationship) : undefined,
-  };
-}
 
 export function ArcYouRelation({
   relationships,
@@ -209,7 +169,7 @@ export function ArcYouRelation({
 
     const pendingItems: ArcYouRelationItemProps[] = pending.map(
       (relationship) =>
-        relationshipToItemProps(
+        relationshipToItemPropsWithActions(
           relationship,
           onAcceptHandler,
           onRejectHandler,
@@ -222,7 +182,7 @@ export function ArcYouRelation({
 
     const friendItems: ArcYouRelationItemProps[] = accepted.map(
       (relationship) =>
-        relationshipToItemProps(
+        relationshipToItemPropsWithActions(
           relationship,
           onAcceptHandler,
           onRejectHandler,
