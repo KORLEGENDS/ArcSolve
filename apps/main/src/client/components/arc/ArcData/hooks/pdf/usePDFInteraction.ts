@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { PDFViewerHandle } from '../../components/viewers/PDFViewer/PDFViewer';
+import type { PDFViewerHandle } from '../../components/core/ArcDataPDF/PDFViewer';
 
 interface PDFInteractionState {
   visiblePage: number;

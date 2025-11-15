@@ -36,8 +36,15 @@
   - WebSocket 엔드포인트(기본 8080)
   - `op: 'auth'` → RS256 검증(issuer/audience 옵션 지원)
   - `op: 'room'` + `action: 'join'` → 멤버십 검증 후 채널 등록 및 backfill 전송
-  - `op: 'room'` + `action: 'send'` → 트랜잭션으로 `arcyou_chat_messages` 저장 + `outbox(pending)` 기록 후 즉시 ACK
-  - `op: 'room'` + `action: 'ack'` → `arcyou_chat_members.last_read_message_id` 갱신(GREATEST)
+  - `op: 'room'` + `action: 'send'`
+    - 트랜잭션으로 `arcyou_chat_messages` 저장
+    - 해당 방의 `arcyou_chat_rooms.last_message_id`, `updated_at` 업데이트
+    - **송신자의 `arcyou_chat_members.last_read_message_id` 를 방금 보낸 메시지의 UUID로 업데이트**
+    - `outbox(pending)`에 `message.created` payload 기록
+    - 트랜잭션 이후 송신자를 기준으로 `op:'room', event:'sent'` ACK 응답 및 `op:'room', event:'read'` 읽음 이벤트를 같은 방의 모든 소켓에 브로드캐스트
+  - `op: 'room'` + `action: 'ack'`
+    - 클라이언트가 보고한 `lastReadMessageId`(메시지 UUID)를 기준으로 `arcyou_chat_members.last_read_message_id` 갱신
+    - 요청을 보낸 사용자를 기준으로 `op:'room', event:'read'` 이벤트를 같은 방의 모든 소켓에 브로드캐스트
   - `op: 'rooms'` + `action: 'watch'` → 인증된 사용자에 대해 user watcher 소켓을 등록 (채팅방 목록 실시간 갱신용)
   - Redis 구독(`chat:message` 또는 `conv:*`) → 
     - `op:'room', event:'message.created'` 로 해당 방에 조인한 모든 소켓에 브로드캐스트
@@ -74,28 +81,28 @@
     - 토큰 생성 실패: `500 Token generation failed`
 
 - 히스토리 API (`apps/main/src/app/(backend)/api/arcyou/chat/room/[roomId]/messages/route.ts`)
-  - `GET /api/arcyou/chat/room/{roomId}/messages?limit=50&before={id}`
+  - `GET /api/arcyou/chat/room/{roomId}/messages?limit=50&before={createdAtIso}`
   - 인증: NextAuth 세션 확인 (`auth()`)
   - 파라미터 처리: Next 16 변경에 따라 `params`는 Promise → `await ctx.params`로 처리
   - 쿼리 파라미터:
-    - `before`: 양의 정수 (선택, 이전 메시지 ID)
+    - `before`: ISO 문자열 (선택, 이전 페이지의 마지막 메시지 `createdAt` — 이 시각보다 **이전** 메시지만 조회)
     - `limit`: 양의 정수 (선택, 기본값 50, 최대 200)
   - 멤버십 검증: `ArcyouChatMessageRepository.listByRoomId()`에서 사용자 멤버십 확인
-  - 정렬: 서버는 `id DESC`로 반환 (최신 메시지가 먼저)
+  - 정렬: 서버는 `createdAt DESC`로 반환 (최신 메시지가 먼저)
   - 응답 형식 (`ok` 헬퍼 사용):
     ```typescript
     {
       success: true,
       data: {
         messages: Array<{
-          id: number;
+          id: string;      // 메시지 UUID
           roomId: string;
           userId: string;
           content: unknown;
           createdAt: string; // ISO string
         }>;
         hasMore: boolean; // limit만큼 반환되면 true
-        nextBefore?: number; // 다음 페이지 조회용 (마지막 메시지 ID)
+        nextBefore?: string; // 다음 페이지 조회용 (이 createdAt 보다 이전 메시지를 가져오기 위한 기준 시각)
       }
     }
     ```
@@ -121,9 +128,9 @@
           name: string;
           description: string | null;
           type: 'direct' | 'group';
-          lastMessageId: number | null;
+          lastMessageId: string | null;    // 메시지 UUID
           role: string;
-          lastReadMessageId: number | null;
+          lastReadMessageId: string | null; // 메시지 UUID
           createdAt: string; // ISO string
           updatedAt: string; // ISO string
         }>;
@@ -165,9 +172,9 @@
           name: string;
           description: string | null;
           type: 'direct' | 'group';
-          lastMessageId: number | null;
+          lastMessageId: string | null;    // 메시지 UUID
           role: string;
-          lastReadMessageId: number | null;
+          lastReadMessageId: string | null; // 메시지 UUID
           createdAt: string; // ISO string
           updatedAt: string; // ISO string
         };

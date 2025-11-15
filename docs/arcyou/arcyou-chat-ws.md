@@ -113,6 +113,8 @@
   2. 트랜잭션 내에서
      - `arcyou_chat_messages` insert
      - `arcyou_chat_rooms.last_message_id`, `updated_at` 업데이트
+     - **송신자의 `arcyou_chat_members.last_read_message_id` 를 방금 insert 된 메시지의 UUID로 업데이트**
+       - “메시지를 보냈다 = 최소한 그 메시지까지는 읽었다”는 의미를 서버에서 보장
      - `arcyou_chat_members` 에서 해당 방 멤버 목록 조회 → `recipients: userId[]` 생성
      - `outbox` 에 다음 payload로 insert:
 
@@ -126,7 +128,7 @@
     "type": "message.created",
     "roomId": "<room-uuid>",
     "message": {
-      "id": 123,
+      "id": "<message-uuid>",
       "user_id": "<sender-user-uuid>",
       "content": { "text": "hello" },
       "created_at": "2025-11-15T00:00:00.000Z",
@@ -145,12 +147,27 @@
   "event": "sent",
   "success": true,
   "roomId": "<room-uuid>",
-  "messageId": 123,
+  "messageId": "<message-uuid>",
   "tempId": "temp-1700000000000"
 }
 ```
 
 클라이언트는 이 ACK를 이용해 낙관적 메시지의 상태를 `sending → sent` 로 전환합니다.
+
+- 추가로, 게이트웨이는 송신자도 해당 메시지까지 읽었다고 간주하고 **즉시 읽음 이벤트**를 브로드캐스트합니다.
+
+```json
+{
+  "op": "room",
+  "event": "read",
+  "roomId": "<room-uuid>",
+  "userId": "<sender-user-uuid>",
+  "lastReadMessageId": "<message-uuid>",
+  "readAt": "2025-11-15T00:00:00.000Z"
+}
+```
+
+이 이벤트는 같은 `roomId`에 `join` 되어 있는 모든 클라이언트(송신자 포함)에 전달되며, 각 클라이언트는 이를 기반으로 “누가 어디까지 읽었는지”를 계산합니다.
 
 #### 2-5. 라이브 이벤트 (`op: 'room', event: 'message.created'`)
 
@@ -162,7 +179,7 @@
   "event": "message.created",
   "roomId": "<room-uuid>",
   "message": {
-    "id": 123,
+    "id": "<message-uuid>",
     "user_id": "<sender-user-uuid>",
     "content": { "text": "hello" },
     "created_at": "2025-11-15T00:00:00.000Z",
@@ -184,13 +201,14 @@
   "op": "room",
   "action": "ack",
   "roomId": "<room-uuid>",
-  "lastReadMessageId": 123
+  "lastReadMessageId": "<message-uuid>"
 }
 ```
 
 - 서버 동작:
-  - `arcyou_chat_members.last_read_message_id` 를 `GREATEST(last_read_message_id, 123)` 로 갱신
+  - `arcyou_chat_members.last_read_message_id` 를 요청에 포함된 `lastReadMessageId`(UUID 문자열)로 갱신
   - 아래와 같은 응답을 통해 성공/실패를 통지:
+  - 동시에, 요청을 보낸 사용자를 기준으로 **읽음 이벤트(`op:'room', event:'read'`)** 를 같은 방의 모든 소켓에 브로드캐스트합니다.
 
 ```json
 {
@@ -198,9 +216,24 @@
   "event": "ack",
   "success": true,
   "roomId": "<room-uuid>",
-  "lastReadMessageId": 123
+  "lastReadMessageId": "<message-uuid>"
 }
 ```
+
+- 브로드캐스트되는 읽음 이벤트 형식:
+
+```json
+{
+  "op": "room",
+  "event": "read",
+  "roomId": "<room-uuid>",
+  "userId": "<reader-user-uuid>",
+  "lastReadMessageId": "<message-uuid>",
+  "readAt": "2025-11-15T00:00:00.000Z"
+}
+```
+
+클라이언트는 이 이벤트를 기반으로 각 메시지에 대해 “아직 읽지 않은 사용자 수/목록”을 계산합니다.
 
 #### 2-7. 방 목록 watcher 등록 (`op: 'rooms', action: 'watch'`)
 
@@ -234,7 +267,7 @@
   "op": "rooms",
   "event": "room.activity",
   "roomId": "<room-uuid>",
-  "lastMessageId": 123,
+  "lastMessageId": "<message-uuid>",
   "createdAt": "2025-11-15T00:00:00.000Z"
 }
 ```
