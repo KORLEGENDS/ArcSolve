@@ -43,7 +43,7 @@ PDF 뷰어 관련 주요 구성요소는 다음과 같습니다.
 - `hooks/pdf/usePDFInteraction.ts`
   - 현재 페이지, 총 페이지 수, 스크롤 기반 페이지 감지 등을 관리
 
-- `hooks/pdf/usePDFSetting.ts` (`useViewerSetting`)
+- `hooks/pdf/usePDFSetting.ts` (`usePDFSetting` / `useViewerSetting`)
   - 줌 레벨, 너비 맞춤, 뷰어 컨테이너 ref를 관리하는 뷰 설정 훅
 
 - `managers/PDFManager.ts`
@@ -266,7 +266,7 @@ function usePDFLoad(src: string | null): {
 }
 ```
 
-### 6.3. `useViewerSetting` (`usePDFSetting.ts`)
+### 6.3. `usePDFSetting` / `useViewerSetting` (`usePDFSetting.ts`)
 
 - **줌/너비 맞춤/사이드바 상태**를 캡슐화하는 훅입니다.
 
@@ -282,14 +282,14 @@ export const ZOOM_LEVELS = {
 - 파라미터:
 
 ```ts
-useViewerSetting({
+usePDFSetting({
   isPDF: boolean;
   pdfDocument: PDFDocumentProxy | null;
   imageNaturalWidth: number | null;
   imageNaturalHeight?: number | null;
   fitMode?: 'width' | 'longer-edge';
 });
-```
+// 기존 코드 호환을 위해 useViewerSetting() 별칭도 제공합니다.
 
 - 반환값 (주요 필드):
 
@@ -397,7 +397,7 @@ async renderPage(options: RenderOptions): Promise<void> {
 2. `useDocumentDownloadUrl(documentId)`로 R2 사인 URL을 발급받습니다.
 3. `usePDFLoad(pdfUrl)` → `pdfManager.loadDocument(pdfUrl)`로 PDF 문서를 로드합니다.
 4. `usePDFInteraction()` → `visiblePage`, `totalPages`, `viewerRef`, `handleSidebarPageClick` 등을 초기화합니다.
-5. `useViewerSetting()` → `zoomLevel`, `isFitWidth`, `viewerContentRef`, `fitWidthOnce` 등을 초기화합니다.
+5. `usePDFSetting()` → `zoomLevel`, `isFitWidth`, `viewerContentRef`, `fitWidthOnce` 등을 초기화합니다.
 6. `ArcDataTopbar` / `ArcDataSidebar` / `PDFViewer`가 위 상태를 기반으로 렌더링됩니다.
 7. 사용자의 스크롤/썸네일 클릭/툴바 버튼 액션에 따라:
    - `visiblePage`가 갱신되고,

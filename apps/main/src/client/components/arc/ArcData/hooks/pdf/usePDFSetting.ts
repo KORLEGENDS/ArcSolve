@@ -1,6 +1,7 @@
 /**
  * 뷰 설정 훅 (PDF/이미지 공용)
  * - 줌/사이드바/너비맞춤/기준폭측정/리사이즈 대응을 캡슐화
+ * - 파일명에 맞춰 PDF 전용 훅처럼 사용하지만, 파라미터 구조는 이미지 등으로 확장 가능하도록 유지합니다.
  */
 
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
@@ -13,7 +14,11 @@ export const ZOOM_LEVELS = {
   STEP: 25, // 25% 단위
 } as const;
 
-interface UseViewerSettingParams {
+/**
+ * PDF 뷰 설정 훅 파라미터
+ * - 현재는 ArcData PDF 전용으로 사용되지만, 이미지 뷰어 등으로 확장 가능하도록 제너릭 형태를 유지합니다.
+ */
+export interface UsePDFSettingParams {
   isPDF: boolean;
   pdfDocument: PDFDocumentProxy | null;
   imageNaturalWidth: number | null;
@@ -22,7 +27,11 @@ interface UseViewerSettingParams {
   fitMode?: 'width' | 'longer-edge';
 }
 
-interface UseViewerSettingReturn {
+/**
+ * PDF 뷰 설정 훅 반환 타입
+ * - 외부 컴포넌트는 이 인터페이스에만 의존하도록 고정합니다.
+ */
+export interface UsePDFSettingReturn {
   // 상태
   zoomLevel: number;
   isSidebarOpen: boolean;
@@ -43,13 +52,18 @@ interface UseViewerSettingReturn {
   fitWidthOnce: () => void;
 }
 
-export function useViewerSetting({
+/**
+ * PDF 뷰 설정 훅
+ * - 파일명(`usePDFSetting.ts`)에 맞춘 기본 이름은 `usePDFSetting`입니다.
+ * - 기존 코드 및 문서 호환을 위해 `useViewerSetting` 이름으로도 export 합니다.
+ */
+export function usePDFSetting({
   isPDF,
   pdfDocument,
   imageNaturalWidth,
   imageNaturalHeight = null,
   fitMode = 'width',
-}: UseViewerSettingParams): UseViewerSettingReturn {
+}: UsePDFSettingParams): UsePDFSettingReturn {
   // 상태
   const [zoomLevel, setZoomLevel] = useState<number>(ZOOM_LEVELS.DEFAULT);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -233,5 +247,8 @@ export function useViewerSetting({
     fitWidthOnce,
   };
 }
+
+// 레거시 이름 유지: 기존 문서/코드에서 사용하던 `useViewerSetting` 별칭
+export const useViewerSetting = usePDFSetting;
 
 

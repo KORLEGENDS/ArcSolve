@@ -9,7 +9,7 @@ import { ArcDataTopbar } from '../components/base/ArcDataTopbar';
 import { PDFViewer } from '../components/core/ArcDataPDF';
 import { usePDFInteraction } from '../hooks/pdf/usePDFInteraction';
 import { usePDFLoad } from '../hooks/pdf/usePDFLoad';
-import { ZOOM_LEVELS, useViewerSetting } from '../hooks/pdf/usePDFSetting';
+import { ZOOM_LEVELS, usePDFSetting } from '../hooks/pdf/usePDFSetting';
 
 export interface ArcDataPDFHostProps {
   /** ArcWork 탭 메타데이터에서 넘어오는 문서 ID (document.documentId) */
@@ -70,7 +70,7 @@ export function ArcDataPDFHost({
     handleZoomOut,
     fitWidthOnce,
     toggleFitWidth,
-  } = useViewerSetting({
+  } = usePDFSetting({
     isPDF: true,
     pdfDocument,
     imageNaturalWidth: null,
