@@ -3,7 +3,7 @@ import { useDocument } from '@/client/states/queries/document/useDocument';
 import { allowedDocumentFileMimeTypes } from '@/share/schema/zod/document-upload-zod';
 import * as React from 'react';
 
-export function useFileUpload() {
+export function useFileUpload(parentPath: string) {
   const documentHook = useDocument();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -37,9 +37,7 @@ export function useFileUpload() {
         toast.setProgress(10, 'requesting');
         const requestResponse = await documentHook.requestUpload({
           name: filename,
-          // NOTE: 현재는 files 트리의 루트("files")에만 업로드합니다.
-          // 추후 폴더 선택 기능이 들어가면 선택된 노드의 ltree 경로를 전달하도록 변경합니다.
-          parentPath: 'files',
+          parentPath,
           fileSize,
           mimeType: mimeType as any,
         });
@@ -103,7 +101,7 @@ export function useFileUpload() {
         console.error('파일 업로드 실패:', error);
       }
     },
-    [documentHook]
+    [documentHook, parentPath]
   );
 
   const handleFileChange = React.useCallback(

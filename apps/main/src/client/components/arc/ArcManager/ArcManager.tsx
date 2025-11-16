@@ -3,6 +3,7 @@
 import { ArcManagerTree, type ArcManagerTreeItem } from '@/client/components/arc/ArcManager/components/tree';
 import { useFileUpload } from '@/client/components/arc/ArcManager/hooks/useFileUpload';
 import { Button } from '@/client/components/ui/button';
+import { Collapsible, CollapsibleContent } from '@/client/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/client/components/ui/custom/tabs';
 import { Input } from '@/client/components/ui/input';
 import { useDocumentFiles } from '@/client/states/queries/document/useDocument';
@@ -18,25 +19,64 @@ export interface ArcManagerTabConfig {
   label: string;
 }
 
+interface ArcManagerTabViewState {
+  /** 검색 입력값 */
+  searchQuery: string;
+  /** 현재 경로 ('' = 루트) */
+  currentPath: string;
+  /** 트리/패널 접힘 여부 */
+  isCollapsed: boolean;
+}
+
 const DEFAULT_TABS: ArcManagerTabConfig[] = [
   { value: 'notes', icon: Notebook, label: '노트' },
   { value: 'files', icon: FolderOpenDot, label: '파일' },
   { value: 'chat', icon: MessageSquare, label: '채팅' },
 ];
 
+function findTreeNodeByPath(
+  items: ArcManagerTreeItem[],
+  path: string
+): ArcManagerTreeItem | undefined {
+  for (const item of items) {
+    if (item.path === path) return item;
+    if (item.children && item.children.length > 0) {
+      const found = findTreeNodeByPath(item.children, path);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function buildBreadcrumbItems(
+  currentPath: string
+): { label: string; path: string }[] {
+  const segments = currentPath ? currentPath.split('.').filter(Boolean) : [];
+  const crumbs: { label: string; path: string }[] = [{ label: '홈', path: '' }];
+
+  let acc = '';
+  for (const seg of segments) {
+    acc = acc ? `${acc}.${seg}` : seg;
+    crumbs.push({ label: seg, path: acc });
+  }
+
+  return crumbs;
+}
+
 export function ArcManager(): React.ReactElement {
   // 1. 현재 탭 상태 (내부 관리)
   const [currentTab, setCurrentTab] = React.useState<ArcDataType>(DEFAULT_TABS[0]?.value ?? 'notes');
 
-  // 2. 탭별 검색어 상태
-  const [searchQueries, setSearchQueries] = React.useState<Record<ArcDataType, string>>({
-    notes: '',
-    files: '',
-    chat: '',
+  // 2. 탭별 뷰 상태 (검색어 / 현재 경로 / 접힘 여부)
+  const [tabStates, setTabStates] = React.useState<Record<ArcDataType, ArcManagerTabViewState>>({
+    notes: { searchQuery: '', currentPath: '', isCollapsed: true },
+    files: { searchQuery: '', currentPath: '', isCollapsed: true },
+    chat: { searchQuery: '', currentPath: '', isCollapsed: true },
   });
 
   // 3. 파일 탭용 업로드 훅 (다른 탭은 사용하지 않음)
-  const { fileInputRef, handleUploadClick, handleFileChange } = useFileUpload();
+  const filesTabState = tabStates.files;
+  const { fileInputRef, handleUploadClick, handleFileChange } = useFileUpload(filesTabState.currentPath);
 
   // 4. 파일 문서 목록 조회 (kind = 'file')
   const { data: fileDocuments } = useDocumentFiles();
@@ -92,26 +132,23 @@ export function ArcManager(): React.ReactElement {
     return roots;
   }, [fileDocuments]);
 
-  // 공통: 탭별 검색어 가져오기/변경하기
-  const getSearchQuery = React.useCallback(
-    (tabValue: ArcDataType) => searchQueries[tabValue] ?? '',
-    [searchQueries],
+  // 공통: 탭별 상태 조회/갱신
+  const getTabState = React.useCallback(
+    (tabValue: ArcDataType) => tabStates[tabValue],
+    [tabStates],
   );
 
-  const setSearchQuery = React.useCallback((tabValue: ArcDataType, query: string) => {
-    setSearchQueries((prev) => ({ ...prev, [tabValue]: query }));
-  }, []);
-
-  // 공통: 탭별 트리 데이터
-  // TODO: 각 탭에 맞는 훅(노트/파일/채팅)을 붙여서 실제 데이터를 반환하도록 확장
-  const getTreeItems = React.useCallback(
-    (_tab: ArcDataType): ArcManagerTreeItem[] => {
-      if (_tab === 'files') {
-        return fileTreeItems;
-      }
-      return [];
+  const patchTabState = React.useCallback(
+    (tabValue: ArcDataType, patch: Partial<ArcManagerTabViewState>) => {
+      setTabStates((prev) => ({
+        ...prev,
+        [tabValue]: {
+          ...prev[tabValue],
+          ...patch,
+        },
+      }));
     },
-    [fileTreeItems],
+    [],
   );
 
   return (
@@ -140,8 +177,19 @@ export function ArcManager(): React.ReactElement {
         {/* 탭별 동일 레이아웃: 검색창 + 우측 버튼 + 트리 */}
         {DEFAULT_TABS.map((tab) => {
           const isFileTab = tab.value === 'files';
-          const searchQuery = getSearchQuery(tab.value);
-          const treeItems = getTreeItems(tab.value);
+          const tabState = getTabState(tab.value);
+          const { searchQuery, currentPath, isCollapsed } = tabState;
+
+          const treeItems: ArcManagerTreeItem[] = (() => {
+            if (!isFileTab) return [];
+            if (!currentPath) {
+              // 루트에서는 전체 트리 루트를 그대로 보여줍니다.
+              return fileTreeItems;
+            }
+            // 특정 폴더로 이동한 경우, 해당 폴더의 자식들을 루트처럼 보여줍니다.
+            const node = findTreeNodeByPath(fileTreeItems, currentPath);
+            return node?.children ?? [];
+          })();
 
           return (
             <TabsContent key={tab.value} value={tab.value} className="flex-1 min-h-0 flex flex-col">
@@ -151,7 +199,7 @@ export function ArcManager(): React.ReactElement {
                     type="search"
                     placeholder="검색..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(tab.value, e.target.value)}
+                    onChange={(e) => patchTabState(tab.value, { searchQuery: e.target.value })}
                     className="flex-1"
                   />
 
@@ -186,9 +234,40 @@ export function ArcManager(): React.ReactElement {
                   )}
                 </div>
               </div>
-
               <div className="flex-1 overflow-y-auto py-2">
-                <ArcManagerTree items={treeItems} />
+                {isFileTab && (
+                  <Collapsible open={!isCollapsed}>
+                    <CollapsibleContent>
+                      <div className="px-2 pb-1 text-xs text-muted-foreground flex flex-wrap gap-1">
+                        {buildBreadcrumbItems(currentPath).map((crumb, index) => (
+                          <span key={crumb.path} className="flex items-center gap-1">
+                            {index > 0 && <span>/</span>}
+                            <button
+                              type="button"
+                              className="hover:underline"
+                              onClick={() =>
+                                patchTabState('files', {
+                                  currentPath: crumb.path,
+                                  ...(crumb.path ? { isCollapsed: false } : {}),
+                                })
+                              }
+                            >
+                              {crumb.label}
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                <ArcManagerTree
+                  items={treeItems}
+                  {...(isFileTab && {
+                    onFolderEnter: (path: string) =>
+                      patchTabState('files', { currentPath: path, isCollapsed: false }),
+                  })}
+                />
               </div>
             </TabsContent>
           );

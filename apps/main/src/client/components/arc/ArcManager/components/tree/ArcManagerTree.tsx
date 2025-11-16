@@ -11,6 +11,11 @@ export interface ArcManagerTreeItem extends ArcManagerListItem {
 export interface ArcManagerTreeProps {
   items: ArcManagerTreeItem[];
   className?: string;
+  /**
+   * 폴더 항목을 더블 클릭했을 때 호출됩니다.
+   * - path는 해당 폴더의 ltree 경로입니다.
+   */
+  onFolderEnter?: (path: string) => void;
 }
 
 /**
@@ -19,7 +24,7 @@ export interface ArcManagerTreeProps {
  * - 각 행(row)에 CSS custom property(--tree-line-left)를 심어서
  *   ::before / ::after 및 .ancestor가 들여쓰기 수준에 맞춰 L자 라인을 렌더링합니다.
  */
-export function ArcManagerTree({ items, className }: ArcManagerTreeProps) {
+export function ArcManagerTree({ items, className, onFolderEnter }: ArcManagerTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   const toggleFolder = (itemId: string) => {
@@ -52,6 +57,12 @@ export function ArcManagerTree({ items, className }: ArcManagerTreeProps) {
             toggleFolder(item.id);
           }
         : undefined,
+      onDoubleClick:
+        isFolder && onFolderEnter
+          ? () => {
+              onFolderEnter(item.path);
+            }
+          : item.onDoubleClick,
     };
 
     const indentRem = level * 1.5;

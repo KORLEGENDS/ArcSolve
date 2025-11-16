@@ -19,6 +19,7 @@ export interface ArcManagerListItem {
   onClick?: () => void;
   onMenuClick?: () => void;
   onIconClick?: () => void; // 아이콘 클릭 이벤트 (폴더 확장용)
+  onDoubleClick?: () => void;
 }
 
 export interface ArcManagerListProps {
@@ -62,6 +63,7 @@ export function ArcManagerList({ items, className }: ArcManagerListProps) {
             layout="item"
             variant="ghost"
             onClick={item.onClick}
+            onDoubleClick={item.onDoubleClick}
             className="w-full"
           >
             <div
