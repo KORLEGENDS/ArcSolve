@@ -489,7 +489,7 @@ wss.on('connection', (ws: WebSocket) => {
         if (!roomId) {
           return safeSend(
             ws,
-            { op: 'room', event: 'sent', success: false, error: 'roomId required', tempId },
+            { op: 'error', error: 'roomId required', action: 'send', tempId },
             WS_SEND_HIGH_WATER,
           );
         }
@@ -497,7 +497,7 @@ wss.on('connection', (ws: WebSocket) => {
         if (content == null) {
           return safeSend(
             ws,
-            { op: 'room', event: 'sent', success: false, error: 'content required', roomId, tempId },
+            { op: 'error', error: 'content required', action: 'send', roomId, tempId },
             WS_SEND_HIGH_WATER,
           );
         }
@@ -508,10 +508,9 @@ wss.on('connection', (ws: WebSocket) => {
           return safeSend(
             ws,
             {
-              op: 'room',
-              event: 'sent',
-              success: false,
+              op: 'error',
               error: 'content too large',
+              action: 'send',
               roomId,
               tempId,
             },
@@ -536,10 +535,9 @@ wss.on('connection', (ws: WebSocket) => {
           return safeSend(
             ws,
             {
-              op: 'room',
-              event: 'sent',
-              success: false,
+              op: 'error',
               error: 'Forbidden: not a member',
+              action: 'send',
               roomId,
               tempId,
             },
@@ -634,30 +632,19 @@ wss.on('connection', (ws: WebSocket) => {
             broadcastToRoom(channelClients, roomId, readPayload, WS_SEND_HIGH_WATER);
           }
 
-          return safeSend(
-            ws,
-            {
-              op: 'room',
-              event: 'sent',
-              success: true,
-              roomId,
-              messageId: result,
-              tempId,
-            },
-            WS_SEND_HIGH_WATER,
-          );
+          // 성공 시 별도 ACK 없음: message.created 이벤트로 처리됨
+          return;
         } catch (e: any) {
           console.error('[ROOM send tx] failed:', e);
 
           return safeSend(
             ws,
             {
-              op: 'room',
-              event: 'sent',
-              success: false,
+              op: 'error',
+              error: String(e?.message ?? e),
+              action: 'send',
               roomId,
               tempId,
-              error: String(e?.message ?? e),
             },
             WS_SEND_HIGH_WATER,
           );

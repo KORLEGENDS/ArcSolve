@@ -19,7 +19,7 @@ import { env, isDevelopment, isProduction } from '@/share/configs/environments/s
 import {
   authAccounts as adapterAccounts,
   authUsers as adapterUsers,
-} from '@/share/schema/drizzles/auth-adapter-drizzle';
+} from '@/share/schema/drizzles/auth-drizzle';
 import { users as appUsers } from '@/share/schema/drizzles/user-drizzle';
 import { UserRepository as UsersRepository } from '@/share/schema/repositories/user-repository';
 import { generateUUID } from '@/share/share-utils/id-utils';

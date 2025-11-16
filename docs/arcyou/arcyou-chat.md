@@ -41,7 +41,7 @@
     - 해당 방의 `arcyou_chat_rooms.last_message_id`, `updated_at` 업데이트
     - **송신자의 `arcyou_chat_members.last_read_message_id` 를 방금 보낸 메시지의 UUID로 업데이트**
     - `outbox(pending)`에 `message.created` payload 기록
-    - 트랜잭션 이후 송신자를 기준으로 `op:'room', event:'sent'` ACK 응답 및 `op:'room', event:'read'` 읽음 이벤트를 같은 방의 모든 소켓에 브로드캐스트
+    - 트랜잭션 이후 송신자를 기준으로 `op:'room', event:'read'` 읽음 이벤트를 같은 방의 모든 소켓에 브로드캐스트
   - `op: 'room'` + `action: 'ack'`
     - 클라이언트가 보고한 `lastReadMessageId`(메시지 UUID)를 기준으로 `arcyou_chat_members.last_read_message_id` 갱신
     - 요청을 보낸 사용자를 기준으로 `op:'room', event:'read'` 이벤트를 같은 방의 모든 소켓에 브로드캐스트
@@ -242,7 +242,7 @@
     4) 조인 성공 처리 (`op:'join'` 응답):
        - `success=true` 시 `isJoinedRef.current = true`, `ready=true` 설정
        - 전송 UI 활성화 (`submitDisabled={!ready}`)
-  - 전송 흐름(낙관적 → ACK → live 승격)
+  - 전송 흐름(낙관적 → live 승격)
     - 전송 전 검증: `isAuthedRef.current && isJoinedRef.current` 확인
       - 미완료 시 전송 차단 (로그 없이 `setMessage('')`만 수행)
     - 낙관적 메시지 추가:
@@ -250,11 +250,6 @@
       - 상태: `status: 'sending'`, `id: tempId`
       - `pendingMapRef`에 `{ [tempId]: index }` 기록
       - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
-    - 게이트웨이 ACK 처리 (`op:'room', event:'sent'` 응답):
-      - `success=true`, `messageId=n` → 낙관적 항목의 `id`를 `n`으로 교체, `status:'sent'`
-      - `messageId`를 `persistedIdSetRef`에 추가(중복 방지용)
-      - `lastMessageIdRef` 갱신
-      - `pendingMapRef`에서 `tempId` 제거
     - Live 이벤트 처리 (`op:'room', event:'message.created'`):
       - `temp_id` 매칭 시: 낙관적 메시지를 `status='delivered'`로 승격, `id` 교체, `createdAt` 갱신
       - `temp_id` 없이 서버 `id`만 온 경우:
@@ -305,9 +300,9 @@
 7. 메시지 전송:
    - 낙관적 메시지 추가 (`status: 'sending'`)
    - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
-   - ACK 수신: `{ op:'room', event:'sent', success:true, messageId }` → `status: 'sent'`
    - 게이트웨이: DB 저장 + Outbox 적재(해당 방 멤버 userId를 `recipients`로 포함) → 워커 발행 → Redis Pub/Sub
-   - Live 이벤트 수신: `{ op:'room', event:'message.created' }` → `status: 'delivered'`
+   - Live 이벤트 수신: `{ op:'room', event:'message.created', message:{ temp_id } }` → `temp_id` 매칭 시 낙관적 메시지를 `status: 'delivered'` 로 승격
+   - 실패 시: `{ op:'error', action:'send', tempId, error }` 수신 → `status: 'failed'`
 8. 읽음 동기화: 새 메시지마다 300ms 디바운스로 `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송
 
 #### 채팅방 목록 실시간 갱신 흐름

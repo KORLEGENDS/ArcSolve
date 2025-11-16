@@ -139,20 +139,14 @@
 }
 ```
 
-- 서버 → 클라이언트 (ACK):
-
-```json
-{
-  "op": "room",
-  "event": "sent",
-  "success": true,
-  "roomId": "<room-uuid>",
-  "messageId": "<message-uuid>",
-  "tempId": "temp-1700000000000"
-}
-```
-
-클라이언트는 이 ACK를 이용해 낙관적 메시지의 상태를 `sending → sent` 로 전환합니다.
+- 서버 동작 (계속):
+  3. 트랜잭션 성공 시:
+     - 별도의 성공 ACK는 전송하지 않음
+     - Outbox 워커가 Redis Pub/Sub으로 `message.created` 이벤트를 발행하면, 게이트웨이가 이를 구독하여 방에 join된 모든 클라이언트(A, B 포함)에 브로드캐스트
+     - 클라이언트는 `message.created` 이벤트의 `temp_id`를 확인하여 낙관적 메시지를 `sending → delivered` 로 승격
+  4. 트랜잭션 실패 시:
+     - `op:'error', error:'...', action:'send', tempId` 형태의 에러 이벤트를 송신자에게만 전송
+     - 클라이언트는 이를 받아 낙관적 메시지를 `sending → failed` 로 변경
 
 - 추가로, 게이트웨이는 송신자도 해당 메시지까지 읽었다고 간주하고 **즉시 읽음 이벤트**를 브로드캐스트합니다.
 
@@ -375,7 +369,8 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
   - 전송:
     - 입력값으로 낙관적 메시지를 `status:'sending'` 으로 추가
     - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
-    - `{ op:'room', event:'sent', success:true, messageId, tempId }` ACK 수신 시 `status:'sent'` 로 전환
+    - 성공 시: `op:'room', event:'message.created'` 이벤트의 `temp_id` 매칭으로 낙관적 메시지를 `status:'delivered'` 로 승격
+    - 실패 시: `op:'error', action:'send', tempId` 이벤트 수신 시 `status:'failed'` 로 변경
   - 라이브 이벤트:
     - `op:'room', event:'message.created'` 수신 시
       - `temp_id` 매칭이면 기존 낙관적 메시지를 `status:'delivered'` 로 승격

@@ -8,7 +8,7 @@ import * as React from 'react';
 // Types
 export type MessageType = 'text' | 'image' | 'file' | 'system';
 
-export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageStatus = 'sending' | 'delivered' | 'read' | 'failed';
 
 export interface ArcyouChatMessage {
   id: string;

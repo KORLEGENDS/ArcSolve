@@ -318,39 +318,31 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
 
             return;
           }
-          if (data.op === 'room' && data.event === 'sent') {
-            const res = data as {
-              success: boolean;
-              messageId?: string;
+          if (data.op === 'error') {
+            // 전송 실패 처리: action:'send' + tempId가 있으면 낙관적 메시지를 failed로 변경
+            const errorData = data as {
+              error?: string;
+              action?: string;
               tempId?: string;
             };
-            if (!res.tempId) return;
-            const idx = pendingMapRef.current[res.tempId];
-            if (typeof idx !== 'number') return;
-            setMessages((prev) => {
-              const copy = prev.slice();
-              const target = copy[idx];
-              if (!target) return prev;
-              copy[idx] = {
-                ...target,
-                id:
-                  res.success && typeof res.messageId === 'string'
-                    ? res.messageId
-                    : target.id,
-                status: res.success ? 'sent' : 'failed',
-              };
-              const nextMap = { ...pendingMapRef.current };
-              delete nextMap[res.tempId!];
-              pendingMapRef.current = nextMap;
-              if (res.success && typeof res.messageId === 'string') {
-                lastMessageIdRef.current = res.messageId;
-                persistedIdSetRef.current.add(res.messageId);
+            if (errorData.action === 'send' && errorData.tempId) {
+              const idx = pendingMapRef.current[errorData.tempId];
+              if (typeof idx === 'number') {
+                setMessages((prev) => {
+                  const copy = prev.slice();
+                  const target = copy[idx];
+                  if (!target) return prev;
+                  copy[idx] = {
+                    ...target,
+                    status: 'failed',
+                  };
+                  const nextMap = { ...pendingMapRef.current };
+                  delete nextMap[errorData.tempId!];
+                  pendingMapRef.current = nextMap;
+                  return copy;
+                });
               }
-              return copy;
-            });
-            return;
-          }
-          if (data.op === 'error') {
+            }
             return;
           }
         } catch {
