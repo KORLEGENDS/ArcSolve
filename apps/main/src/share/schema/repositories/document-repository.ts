@@ -1,10 +1,10 @@
 import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
-import { documents } from '@/share/schema/drizzles';
 import type { Document, DocumentFileMeta, DocumentUploadStatus } from '@/share/schema/drizzles';
-import type { DB } from './base-repository';
+import { documents } from '@/share/schema/drizzles';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
-import { and, eq } from 'drizzle-orm';
+import type { DB } from './base-repository';
 
 function isDatabaseError(error: unknown): error is DatabaseError {
   return (
@@ -15,10 +15,14 @@ function isDatabaseError(error: unknown): error is DatabaseError {
   );
 }
 
+/**
+ * ltree 라벨 한 개를 안전한 형식으로 정규화합니다.
+ * - 허용 문자: a-z, 0-9, _
+ * - 첫 글자가 숫자/기타인 경우 n_ prefix 부여
+ */
 function toLtreeLabel(name: string): string {
   const trimmed = name.trim().toLowerCase();
   if (!trimmed) return 'unnamed';
-  // 허용 문자: a-z, 0-9, _
   let label = trimmed
     .normalize('NFKD')
     .replace(/[^\w]+/g, '_')
@@ -30,6 +34,24 @@ function toLtreeLabel(name: string): string {
     label = `n_${label}`;
   }
   return label;
+}
+
+/**
+ * 클라이언트에서 전달된 경로 문자열을 ltree 경로로 정규화합니다.
+ *
+ * - 입력은 이미 ltree 스타일(`segment.segment2`)을 가정하지만,
+ *   방어적으로 각 세그먼트를 `toLtreeLabel`로 한 번 더 정규화합니다.
+ * - 빈 문자열/공백은 루트(빈 경로)로 간주합니다.
+ */
+function normalizeLtreePath(rawPath: string): string {
+  const trimmed = rawPath.trim();
+  if (!trimmed) return '';
+
+  const segments = trimmed.split('.').filter(Boolean);
+  if (segments.length === 0) return '';
+
+  const labels = segments.map((segment) => toLtreeLabel(segment));
+  return labels.join('.');
 }
 
 export type CreatePendingFileInput = {
@@ -53,10 +75,9 @@ export class DocumentRepository {
    */
   async createPendingFileForUpload(input: CreatePendingFileInput): Promise<Document> {
     const label = toLtreeLabel(input.name);
-    const path =
-      input.parentPath && input.parentPath.trim().length > 0
-        ? `${input.parentPath}.${label}`
-        : label;
+    // 클라이언트는 ltree 기반 경로를 사용하며, 서버에서 한 번 더 정규화합니다.
+    const parentLtreePath = normalizeLtreePath(input.parentPath);
+    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     const fileMeta: DocumentFileMeta = {
       mimeType: input.mimeType,
@@ -103,6 +124,31 @@ export class DocumentRepository {
 
     if (!row) return null;
     return row;
+  }
+
+  /**
+   * 특정 사용자의 문서 목록을 kind 기준으로 조회합니다.
+   * - deleted_at IS NULL 인 문서만 반환합니다.
+   * - 현재는 ArcWork 파일 매니저용으로 kind = 'file' 조회에 주로 사용됩니다.
+   */
+  async listByOwner(
+    userId: string,
+    options?: {
+      kind?: Document['kind'];
+    }
+  ): Promise<Document[]> {
+    const rows = await this.database
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.userId, userId),
+          isNull(documents.deletedAt),
+          options?.kind ? eq(documents.kind, options.kind) : undefined
+        )
+      );
+
+    return rows;
   }
 
   async updateUploadStatusAndMeta(params: {

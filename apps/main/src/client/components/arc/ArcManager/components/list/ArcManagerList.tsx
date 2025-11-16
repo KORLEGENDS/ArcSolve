@@ -28,10 +28,11 @@ export interface ArcManagerListProps {
 
 /**
  * path에서 파일/폴더 이름을 추출합니다.
- * 예: "/documents/folder/file.txt" -> "file.txt"
+ * - ltree 스타일 경로를 기본으로 사용합니다.
+ *   예: "files.project.file_txt" -> "file_txt"
  */
 function getNameFromPath(path: string): string {
-  const parts = path.split('/').filter(Boolean);
+  const parts = path.split('.').filter(Boolean);
   return parts[parts.length - 1] || path;
 }
 

@@ -13,24 +13,24 @@
 ### 사용 시나리오
 1) 버튼/메뉴로 탭 열기(없으면 생성, 있으면 활성화)
 ```tsx
-import { useServiceEnsureOpenTab } from '@/client/states/stores/service-store';
+import { useArcWorkEnsureOpenTab } from '@/client/states/stores/arcwork-layout-store';
 
-const ensureOpen = useServiceEnsureOpenTab();
+const ensureOpen = useArcWorkEnsureOpenTab();
 ensureOpen({ id: '123', type: 'note-view', name: '노트 123' });
 ```
 
 2) 리스트에서 드래그로 탭 열기/이동(통합)
 ```tsx
-import { useServiceStartAddTabDrag } from '@/client/states/stores/service-store';
+import { useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-layout-store';
 
-const startAddTabDrag = useServiceStartAddTabDrag();
+const startAddTabDrag = useArcWorkStartAddTabDrag();
 
 // 드래그 시작 핸들러
 onDragStart={(e) => {
   startAddTabDrag(e, {
     id: room.id, // UUID 그대로 사용
     type: 'arcyou-chat-room',
-    name: room.name,
+    name: room.name, // 필수: 탭 제목
   });
 }}
 ```
@@ -39,26 +39,29 @@ onDragStart={(e) => {
 - 기본적으로 ArcWork는 onExternalDrag 기본 핸들러를 사용합니다.
 - 레이아웃 ref가 아직 준비되지 않은 환경에서는 dataTransfer에 JSON을 넣어 전달할 수 있습니다.
 ```tsx
-import { setArcServiceDragData } from '@/client/states/stores/service-store';
+import { setArcWorkTabDragData } from '@/client/states/stores/arcwork-layout-store';
 
 onDragStart={(e) => {
-  setArcServiceDragData(e, { id, type, name });
+  setArcWorkTabDragData(e, { id, type, name }); // name 필수
 }}
 ```
 
 ### 전역 스토어 API (요약)
-- useServiceOpenTab(): open({ id, type, name?, tabsetId? }): boolean
-- useServiceEnsureOpenTab(): ensureOpen(input): boolean
-- useServiceActivateTab(): activate(id): boolean
-- useServiceCloseTab(): close(id): boolean
-- useServiceStartAddTabDrag():
+- useArcWorkOpenTab(): open({ id, type, name, tabsetId? }): boolean
+  - `name`은 필수입니다. 탭 제목을 반드시 제공해야 합니다.
+- useArcWorkEnsureOpenTab(): ensureOpen(input): boolean
+- useArcWorkActivateTab(): activate(id): boolean
+- useArcWorkCloseTab(): close(id): boolean
+- useArcWorkStartAddTabDrag():
   - startAddTabDrag(event, input, options?): boolean
+  - `input`은 `{ id, type, name }` 형태이며, `name`은 필수입니다.
   - options.dragImage?: ReactNode, options.imageOffset?: { x: number; y: number }
   - 존재하면 moveTabWithDragAndDrop, 미존재 시 addTabWithDragAndDrop
-- useServiceMakeExternalDragHandler(): onExternalDrag 핸들러 팩토리(ArcWork가 기본 적용)
-- setArcServiceDragData(event, input): DataTransfer에 페이로드 설정(폴백/외부 드래그용)
+- useArcWorkMakeExternalDragHandler(): onExternalDrag 핸들러 팩토리(ArcWork가 기본 적용)
+- setArcWorkTabDragData(event, input): DataTransfer에 페이로드 설정(폴백/외부 드래그용)
+  - `input`은 `{ id, type, name }` 형태이며, `name`은 필수입니다.
 - 저장/복원
-  - useServiceSaveLayout(), useServiceRestoreLayout(), useServiceSetStorageKey()
+  - useArcWorkSaveLayout(), useArcWorkRestoreLayout(), useArcWorkSetStorageKey()
   - ArcWork는 onModelChange에서 자동 저장(기본 200ms 디바운스)
 
 ### ArcWork 연동 사항
@@ -95,7 +98,7 @@ const factory = (node: TabNode) => {
 - 드래그해도 도킹 가이드가 안 보임
   - 목록 아이템에 draggable 및 onDragStart가 설정되어 있는지 확인
   - ArcWork가 화면에 마운트됐는지, Layout ref가 등록됐는지 확인(ArcWork는 기본 처리)
-  - 외부 드래그 폴백이 필요한 경우 setArcServiceDragData 사용
+  - 외부 드래그 폴백이 필요한 경우 setArcWorkTabDragData 사용
 - 중복 id 에러
   - 통합 DnD 구현으로 기본적으로 발생하지 않습니다. addOnly 로직을 직접 작성한 경우 move/exists 분기를 추가하세요.
 - 탭이 렌더링되지 않음
@@ -105,13 +108,13 @@ const factory = (node: TabNode) => {
 ### 빠른 레시피
 - "목록에서 드래그로 탭 열기/이동"
 ```tsx
-const startAddTabDrag = useServiceStartAddTabDrag();
-onDragStart={(e) => startAddTabDrag(e, { id, type, name })}
+const startAddTabDrag = useArcWorkStartAddTabDrag();
+onDragStart={(e) => startAddTabDrag(e, { id, type, name })} // name 필수
 ```
 - "버튼 클릭으로 열기(없으면 생성/있으면 선택)"
 ```tsx
-const ensureOpen = useServiceEnsureOpenTab();
-ensureOpen({ id, type, name })
+const ensureOpen = useArcWorkEnsureOpenTab();
+ensureOpen({ id, type, name }) // name 필수
 ```
 
 ### 참고 문서

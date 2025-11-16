@@ -1,6 +1,5 @@
 .flexlayout__theme_light .flexlayout__layout {
   --color-text: black;
-  --color-background: white;
   --color-base: white;
   --color-1: rgb(247.35, 247.35, 247.35);
   --color-2: rgb(239.7, 239.7, 239.7);
@@ -57,7 +56,6 @@
 
 .flexlayout__theme_dark .flexlayout__layout {
   --color-text: #eeeeee;
-  --color-background: black;
   --color-base: black;
   --color-1: rgb(17.85, 17.85, 17.85);
   --color-2: rgb(25.5, 25.5, 25.5);

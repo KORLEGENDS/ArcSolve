@@ -88,6 +88,7 @@ export const queryKeys = {
     all: () => ['documents'] as const,
     byId: (documentId: string) =>
       [...queryKeys.documents.all(), 'detail', documentId] as const,
+    listFiles: () => [...queryKeys.documents.all(), 'list', 'file'] as const,
   },
 } as const;
 

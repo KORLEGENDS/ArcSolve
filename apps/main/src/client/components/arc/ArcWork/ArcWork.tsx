@@ -1,11 +1,11 @@
 'use client';
 
 import {
-  useServiceMakeExternalDragHandler,
-  useServiceSaveLayout,
-  useServiceSetLayoutRef,
-  useServiceSetModel,
-} from '@/client/states/stores/service-store';
+  useArcWorkMakeExternalDragHandler,
+  useArcWorkSaveLayout,
+  useArcWorkSetLayoutRef,
+  useArcWorkSetModel,
+} from '@/client/states/stores/arcwork-layout-store';
 import type {
   Action,
   BorderNode,
@@ -211,13 +211,13 @@ export function ArcWork({
   const layoutRef = React.useRef<Layout | null>(null);
   
   // 자동 저장 관련 훅
-  const setServiceModel = useServiceSetModel();
-  const setLayoutRef = useServiceSetLayoutRef();
-  const saveLayout = useServiceSaveLayout();
+  const setArcWorkModel = useArcWorkSetModel();
+  const setLayoutRef = useArcWorkSetLayoutRef();
+  const saveLayout = useArcWorkSaveLayout();
   
   // 디바운스 타이머 ref
   const saveTimerRef = React.useRef<number | null>(null);
-  const makeExternalDragHandler = useServiceMakeExternalDragHandler();
+  const makeExternalDragHandler = useArcWorkMakeExternalDragHandler();
   
   // 테마 관리: next-themes와 동기화
   const { resolvedTheme } = useTheme();
@@ -256,8 +256,8 @@ export function ArcWork({
 
   // 모델을 스토어에 등록 (마운트 시 및 model 변경 시)
   React.useEffect(() => {
-    setServiceModel(model);
-  }, [model, setServiceModel]);
+    setArcWorkModel(model);
+  }, [model, setArcWorkModel]);
 
   // 자동 저장 스케줄링 함수
   const scheduleSave = React.useCallback(() => {

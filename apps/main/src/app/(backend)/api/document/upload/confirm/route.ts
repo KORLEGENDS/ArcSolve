@@ -159,6 +159,8 @@ export async function POST(request: NextRequest) {
           kind: updated.kind,
           uploadStatus: updated.uploadStatus,
           fileMeta: updated.fileMeta,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
         },
       },
       {

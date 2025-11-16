@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { cn } from '@/client/components/ui/utils';
 import { useArcyouChat } from '@/client/states/queries/arcyou/useArcyouChat';
-import { useServiceEnsureOpenTab, useServiceStartAddTabDrag } from '@/client/states/stores/service-store';
+import { useArcWorkEnsureOpenTab, useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-layout-store';
 
 import {
   ArcYouChatRoomListItem,
@@ -62,8 +62,8 @@ export function ArcYouChatRoomList({
   type,
   className,
 }: ArcYouChatRoomListProps): React.ReactElement {
-  const ensureOpen = useServiceEnsureOpenTab();
-  const startAddTabDrag = useServiceStartAddTabDrag();
+  const ensureOpen = useArcWorkEnsureOpenTab();
+  const startAddTabDrag = useArcWorkStartAddTabDrag();
   const { data, isLoading, error } = useArcyouChat(type);
 
   const normalizedRooms = React.useMemo<ArcYouChatRoomListItemProps[]>(() => {

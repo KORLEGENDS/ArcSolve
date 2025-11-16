@@ -1,42 +1,11 @@
-'use client';
-
-import { ArcManagerTree, type ArcManagerTreeItem } from '@/client/components/arc/ArcManager/components/tree';
-import { Button } from '@/client/components/ui/button';
-import { Input } from '@/client/components/ui/input';
 import { createUploadToast } from '@/client/components/ui/upload-toast';
 import { useDocument } from '@/client/states/queries/document/useDocument';
 import { allowedDocumentFileMimeTypes } from '@/share/schema/zod/document-upload-zod';
-import { Upload } from 'lucide-react';
 import * as React from 'react';
 
-export type ArcDataType = 'notes' | 'files' | 'chat';
-
-export interface ArcDataProps {
-  type: ArcDataType;
-  className?: string;
-}
-
-/**
- * ArcData - 데이터 타입별 트리 뷰 컴포넌트
- * - 각 타입(notes/files/chat)에 맞는 훅을 사용하여 데이터를 가져와 렌더링
- * - 내부에서 자체적인 상태 관리
- */
-export function ArcData({ type, className }: ArcDataProps) {
-  const [searchQuery, setSearchQuery] = React.useState('');
+export function useFileUpload() {
+  const documentHook = useDocument();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // 타입별 훅 사용
-  // TODO: 각 타입에 맞는 리스트 조회 훅이 구현되면 연결
-  const documentHook = useDocument(); // files 타입용 (현재는 업로드만 지원)
-
-  // 타입별 데이터 변환 로직
-  // TODO: 실제 데이터를 ArcManagerTreeItem[] 형태로 변환
-  const treeItems: ArcManagerTreeItem[] = React.useMemo(() => {
-    // 현재는 빈 배열 반환 (추후 각 타입별 훅에서 데이터를 가져와 변환)
-    return [];
-  }, [type]);
-
-  const showUploadButton = type === 'files';
 
   const handleUploadClick = React.useCallback(() => {
     fileInputRef.current?.click();
@@ -153,46 +122,10 @@ export function ArcData({ type, className }: ArcDataProps) {
     [uploadFile]
   );
 
-  return (
-    <div className={`flex flex-col h-full ${className || ''}`}>
-      {/* Toolbar */}
-      <div className="px-2 py-2">
-        <div className="flex gap-2">
-          <Input
-            type="search"
-            placeholder="검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1"
-          />
-          {showUploadButton && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-                accept="*/*"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleUploadClick}
-                title="파일 업로드"
-              >
-                <Upload className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Tree */}
-      <div className="flex-1 overflow-y-auto py-2">
-        <ArcManagerTree items={treeItems} />
-      </div>
-    </div>
-  );
+  return {
+    fileInputRef,
+    handleUploadClick,
+    handleFileChange,
+  };
 }
 

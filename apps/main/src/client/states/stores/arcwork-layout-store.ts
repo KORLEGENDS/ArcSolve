@@ -12,21 +12,21 @@ import { subscribeWithSelector } from 'zustand/middleware';
 
 // ==================== 타입 정의 ====================
 
-export interface ServiceLayoutState {
+export interface ArcWorkLayoutState {
   model: Model | null;
   lastSavedLayout: IJsonModel | null;
   storageKey: string;
   layoutRef: FlexLayoutView | null;
 }
 
-export interface ServiceOpenTabInput {
+export interface ArcWorkTabInput {
   id: string;
   type: string; // component key
-  name?: string;
+  name: string; // 탭 제목 (필수)
   tabsetId?: string;
 }
 
-export interface ServiceLayoutActions {
+export interface ArcWorkLayoutActions {
   setModel: (model: Model | null) => void;
   setStorageKey: (key: string) => void;
   setLayoutRef: (layout: FlexLayoutView | null) => void;
@@ -36,27 +36,27 @@ export interface ServiceLayoutActions {
   clearSavedLayout: (options?: { key?: string }) => void;
 
   // Tabs API
-  open: (input: ServiceOpenTabInput) => boolean;
+  open: (input: ArcWorkTabInput) => boolean;
   activate: (id: string) => boolean;
   close: (id: string) => boolean;
-  ensureOpen: (input: ServiceOpenTabInput) => boolean;
+  ensureOpen: (input: ArcWorkTabInput) => boolean;
 
   // DnD helpers
   makeExternalDragHandler: () => ((event: React.DragEvent<HTMLElement>) => undefined | { json: any; onDrop?: (node?: unknown, event?: React.DragEvent<HTMLElement>) => void });
   startAddTabDrag: (
     event: React.DragEvent<HTMLElement>,
-    input: ServiceOpenTabInput,
+    input: ArcWorkTabInput,
     options?: { dragImage?: React.ReactNode; imageOffset?: { x: number; y: number } }
   ) => boolean;
 }
 
-type ServiceLayoutStore = ServiceLayoutState & ServiceLayoutActions;
+type ArcWorkLayoutStore = ArcWorkLayoutState & ArcWorkLayoutActions;
 
 // ==================== 내부 유틸 ====================
 
 const DEFAULT_STORAGE_KEY = 'arcwork:layout';
 
-const initialState: ServiceLayoutState = {
+const initialState: ArcWorkLayoutState = {
   model: null,
   lastSavedLayout: null,
   storageKey: DEFAULT_STORAGE_KEY,
@@ -68,7 +68,7 @@ const isBrowser = (): boolean =>
 
 // ==================== 스토어 ====================
 
-export const useServiceStore = create<ServiceLayoutStore>()(
+export const useArcWorkLayoutStore = create<ArcWorkLayoutStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
@@ -166,7 +166,7 @@ export const useServiceStore = create<ServiceLayoutStore>()(
       const json = {
         type: 'tab',
         id: input.id,
-        name: input.name ?? input.id,
+        name: input.name,
         component: input.type,
       };
       model.doAction(
@@ -209,14 +209,14 @@ export const useServiceStore = create<ServiceLayoutStore>()(
         const dt = event.dataTransfer;
         if (!dt) return undefined;
         try {
-          const raw = dt.getData('application/x-arcservice') || dt.getData('text/plain');
+          const raw = dt.getData('application/x-arcwork-tab') || dt.getData('text/plain');
           if (!raw) return undefined;
-          const payload = JSON.parse(raw) as Partial<ServiceOpenTabInput>;
-          if (!payload?.id || !payload?.type) return undefined;
+          const payload = JSON.parse(raw) as Partial<ArcWorkTabInput>;
+          if (!payload?.id || !payload?.type || !payload?.name) return undefined;
           const json = {
             type: 'tab',
             id: payload.id,
-            name: payload.name ?? payload.id,
+            name: payload.name,
             component: payload.type,
           };
           return {
@@ -239,9 +239,9 @@ export const useServiceStore = create<ServiceLayoutStore>()(
             const json = JSON.stringify({
               id: input.id,
               type: input.type,
-              name: input.name ?? input.id,
+              name: input.name,
             });
-            dt.setData('application/x-arcservice', json);
+            dt.setData('application/x-arcwork-tab', json);
             dt.setData('text/plain', json);
           }
         } catch {
@@ -263,7 +263,7 @@ export const useServiceStore = create<ServiceLayoutStore>()(
       const json = {
         type: 'tab',
         id: input.id,
-        name: input.name ?? input.id,
+        name: input.name,
         component: input.type,
       };
       layout.addTabWithDragAndDrop(nativeEvent as any, json);
@@ -274,68 +274,68 @@ export const useServiceStore = create<ServiceLayoutStore>()(
 
 // ==================== 셀렉터 ====================
 
-export const useServiceModel = (): Model | null =>
-  useServiceStore((s) => s.model);
+export const useArcWorkModel = (): Model | null =>
+  useArcWorkLayoutStore((s) => s.model);
 
-export const useServiceStorageKey = (): string =>
-  useServiceStore((s) => s.storageKey);
+export const useArcWorkStorageKey = (): string =>
+  useArcWorkLayoutStore((s) => s.storageKey);
 
-export const useServiceLastSavedLayout = (): IJsonModel | null =>
-  useServiceStore((s) => s.lastSavedLayout);
+export const useArcWorkLastSavedLayout = (): IJsonModel | null =>
+  useArcWorkLayoutStore((s) => s.lastSavedLayout);
 
-export const useServiceSetModel = (): ServiceLayoutActions['setModel'] =>
-  useServiceStore((s) => s.setModel);
+export const useArcWorkSetModel = (): ArcWorkLayoutActions['setModel'] =>
+  useArcWorkLayoutStore((s) => s.setModel);
 
-export const useServiceSetStorageKey =
-  (): ServiceLayoutActions['setStorageKey'] =>
-    useServiceStore((s) => s.setStorageKey);
+export const useArcWorkSetStorageKey =
+  (): ArcWorkLayoutActions['setStorageKey'] =>
+    useArcWorkLayoutStore((s) => s.setStorageKey);
 
-export const useServiceSaveLayout =
-  (): ServiceLayoutActions['saveLayout'] =>
-    useServiceStore((s) => s.saveLayout);
+export const useArcWorkSaveLayout =
+  (): ArcWorkLayoutActions['saveLayout'] =>
+    useArcWorkLayoutStore((s) => s.saveLayout);
 
-export const useServiceRestoreLayout =
-  (): ServiceLayoutActions['restoreLayout'] =>
-    useServiceStore((s) => s.restoreLayout);
+export const useArcWorkRestoreLayout =
+  (): ArcWorkLayoutActions['restoreLayout'] =>
+    useArcWorkLayoutStore((s) => s.restoreLayout);
 
-export const useServiceClearSavedLayout =
-  (): ServiceLayoutActions['clearSavedLayout'] =>
-    useServiceStore((s) => s.clearSavedLayout);
+export const useArcWorkClearSavedLayout =
+  (): ArcWorkLayoutActions['clearSavedLayout'] =>
+    useArcWorkLayoutStore((s) => s.clearSavedLayout);
 
-export const useServiceSetLayoutRef =
-  (): ServiceLayoutActions['setLayoutRef'] =>
-    useServiceStore((s) => s.setLayoutRef);
+export const useArcWorkSetLayoutRef =
+  (): ArcWorkLayoutActions['setLayoutRef'] =>
+    useArcWorkLayoutStore((s) => s.setLayoutRef);
 
-export const useServiceOpenTab =
-  (): ServiceLayoutActions['open'] => useServiceStore((s) => s.open);
+export const useArcWorkOpenTab =
+  (): ArcWorkLayoutActions['open'] => useArcWorkLayoutStore((s) => s.open);
 
-export const useServiceActivateTab =
-  (): ServiceLayoutActions['activate'] => useServiceStore((s) => s.activate);
+export const useArcWorkActivateTab =
+  (): ArcWorkLayoutActions['activate'] => useArcWorkLayoutStore((s) => s.activate);
 
-export const useServiceCloseTab =
-  (): ServiceLayoutActions['close'] => useServiceStore((s) => s.close);
+export const useArcWorkCloseTab =
+  (): ArcWorkLayoutActions['close'] => useArcWorkLayoutStore((s) => s.close);
 
-export const useServiceEnsureOpenTab =
-  (): ServiceLayoutActions['ensureOpen'] => useServiceStore((s) => s.ensureOpen);
+export const useArcWorkEnsureOpenTab =
+  (): ArcWorkLayoutActions['ensureOpen'] => useArcWorkLayoutStore((s) => s.ensureOpen);
 
-export const useServiceMakeExternalDragHandler =
-  (): ServiceLayoutActions['makeExternalDragHandler'] =>
-    useServiceStore((s) => s.makeExternalDragHandler);
+export const useArcWorkMakeExternalDragHandler =
+  (): ArcWorkLayoutActions['makeExternalDragHandler'] =>
+    useArcWorkLayoutStore((s) => s.makeExternalDragHandler);
 
-export const useServiceStartAddTabDrag =
-  (): ServiceLayoutActions['startAddTabDrag'] =>
-    useServiceStore((s) => s.startAddTabDrag);
+export const useArcWorkStartAddTabDrag =
+  (): ArcWorkLayoutActions['startAddTabDrag'] =>
+    useArcWorkLayoutStore((s) => s.startAddTabDrag);
 
 // DnD: utility to set drag payload on list items
-export function setArcServiceDragData(
+export function setArcWorkTabDragData(
   event: DragEvent | React.DragEvent<HTMLElement>,
-  data: ServiceOpenTabInput
+  data: ArcWorkTabInput
 ) {
   const dt = (event as DragEvent).dataTransfer || (event as React.DragEvent<HTMLElement>).dataTransfer;
   if (!dt) return;
   const json = JSON.stringify({ id: data.id, type: data.type, name: data.name });
   try {
-    dt.setData('application/x-arcservice', json);
+    dt.setData('application/x-arcwork-tab', json);
   } catch {
     // ignore
   }

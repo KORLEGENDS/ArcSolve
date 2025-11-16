@@ -6,7 +6,7 @@ import {
   useArcWorkTabNameUpdateAdapter,
   type ArcWorkTabRenamePayload,
 } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabNameUpdateAdapter';
-import { useServiceModel } from '@/client/states/stores/service-store';
+import { useArcWorkModel } from '@/client/states/stores/arcwork-layout-store';
 import type { Action as FlexLayoutAction, TabNode } from 'flexlayout-react';
 import { Actions } from 'flexlayout-react';
 import { useCallback } from 'react';
@@ -41,7 +41,7 @@ export interface UseArcWorkTabResult {
  * - 탭 이름 변경(rename → 도메인 rename) 어댑터를 통합합니다.
  */
 export function useArcWorkTab(): UseArcWorkTabResult {
-  const model = useServiceModel();
+  const model = useArcWorkModel();
   const { openTab, ensureOpenTab } = useArcWorkTabCreateAdapter();
   const { handleRename } = useArcWorkTabNameUpdateAdapter();
 

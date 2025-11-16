@@ -1,10 +1,10 @@
 'use client';
 
-import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
 import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
 import { useArcWorkTabNameUpdateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabNameUpdateAdapter';
-import { ArcYouRelationRoomCreate, ArcYouChatRoomList } from '@/client/components/arc/ArcYou/ArcYouChat';
+import { ArcYouChatRoomList, ArcYouRelationRoomCreate } from '@/client/components/arc/ArcYou/ArcYouChat';
 import { ArcYouRelation } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/client/components/ui/custom/tabs';
 import {
   type ArcYouRelationWithTargetUser,
   useArcYouRelation,
@@ -238,78 +238,94 @@ export function RightSidebarContent() {
   );
 
   return (
-    <ArcManager className="h-full" tabs={tabs} defaultTab="direct">
-      {/* 친구 탭 */}
-      <ArcManager.TabPanel value="friends">
-        <div className="h-full w-full overflow-y-auto py-2">
-          {isRelationsLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              친구 목록을 불러오는 중...
+    <div className="h-full w-full flex flex-col">
+      <Tabs defaultValue="direct" className="h-full flex flex-col">
+        <div className="flex-none">
+          <TabsList>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {Icon && <Icon className="w-4 h-4" />}
+                  <span>{tab.label}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
+
+        {/* 친구 탭 */}
+        <TabsContent value="friends" className="flex-1 min-h-0">
+          <div className="h-full w-full overflow-y-auto py-2">
+            {isRelationsLoading ? (
+              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                친구 목록을 불러오는 중...
+              </div>
+            ) : (
+              <ArcYouRelation
+                relationships={relationships}
+                addEmail={addEmail}
+                onAddEmailChange={setAddEmail}
+                onAdd={handleSendFriendRequest}
+                onAccept={handleAcceptFriendRequest}
+                onReject={handleRejectFriendRequest}
+                onCancel={handleCancelFriendRequest}
+                onChat={handleChatWithFriend}
+                onDelete={handleDeleteFriend}
+              />
+            )}
+          </div>
+        </TabsContent>
+
+        {/* 1:1 채팅 탭 */}
+        <TabsContent value="direct" className="flex-1 min-h-0">
+          <div className="h-full w-full flex flex-col">
+            {/* 채팅방 생성 컴포넌트 */}
+            <div className="px-2 py-2">
+              <ArcYouRelationRoomCreate
+                type="direct"
+                searchQuery={directSearchQuery}
+                onSearchQueryChange={setDirectSearchQuery}
+                debouncedSearchQuery={directDebouncedQuery}
+                searchResults={directSearchResults}
+                isSearching={isDirectSearching}
+                onFriendClick={handleDirectFriendClick}
+              />
             </div>
-          ) : (
-            <ArcYouRelation
-              relationships={relationships}
-              addEmail={addEmail}
-              onAddEmailChange={setAddEmail}
-              onAdd={handleSendFriendRequest}
-              onAccept={handleAcceptFriendRequest}
-              onReject={handleRejectFriendRequest}
-              onCancel={handleCancelFriendRequest}
-              onChat={handleChatWithFriend}
-              onDelete={handleDeleteFriend}
-            />
-          )}
-        </div>
-      </ArcManager.TabPanel>
+            {/* 채팅방 목록 */}
+            <div className="flex-1 overflow-y-auto py-2 w-full">
+              <ArcYouChatRoomList type="direct" />
+            </div>
+          </div>
+        </TabsContent>
 
-      {/* 1:1 채팅 탭 */}
-      <ArcManager.TabPanel value="direct">
-        <div className="h-full w-full flex flex-col">
-          {/* 채팅방 생성 컴포넌트 */}
-          <div className="px-2 py-2">
-            <ArcYouRelationRoomCreate
-              type="direct"
-              searchQuery={directSearchQuery}
-              onSearchQueryChange={setDirectSearchQuery}
-              debouncedSearchQuery={directDebouncedQuery}
-              searchResults={directSearchResults}
-              isSearching={isDirectSearching}
-              onFriendClick={handleDirectFriendClick}
-            />
+        {/* 그룹 채팅 탭 */}
+        <TabsContent value="group" className="flex-1 min-h-0">
+          <div className="h-full w-full flex flex-col">
+            {/* 채팅방 생성 컴포넌트 */}
+            <div className="px-2 py-2">
+              <ArcYouRelationRoomCreate
+                type="group"
+                searchQuery={groupSearchQuery}
+                onSearchQueryChange={setGroupSearchQuery}
+                debouncedSearchQuery={groupDebouncedQuery}
+                searchResults={groupSearchResults}
+                isSearching={isGroupSearching}
+                onFriendClick={handleGroupFriendClick}
+                selectedFriends={selectedGroupFriends}
+                onRemoveFriend={handleRemoveGroupFriend}
+                onCreateRoom={handleCreateGroupRoom}
+                isCreating={isCreatingGroupRoom}
+              />
+            </div>
+            {/* 채팅방 목록 */}
+            <div className="flex-1 overflow-y-auto py-2 w-full">
+              <ArcYouChatRoomList type="group" />
+            </div>
           </div>
-          {/* 채팅방 목록 */}
-          <div className="flex-1 overflow-y-auto py-2 w-full">
-            <ArcYouChatRoomList type="direct" />
-          </div>
-        </div>
-      </ArcManager.TabPanel>
-
-      {/* 그룹 채팅 탭 */}
-      <ArcManager.TabPanel value="group">
-        <div className="h-full w-full flex flex-col">
-          {/* 채팅방 생성 컴포넌트 */}
-          <div className="px-2 py-2">
-            <ArcYouRelationRoomCreate
-              type="group"
-              searchQuery={groupSearchQuery}
-              onSearchQueryChange={setGroupSearchQuery}
-              debouncedSearchQuery={groupDebouncedQuery}
-              searchResults={groupSearchResults}
-              isSearching={isGroupSearching}
-              onFriendClick={handleGroupFriendClick}
-              selectedFriends={selectedGroupFriends}
-              onRemoveFriend={handleRemoveGroupFriend}
-              onCreateRoom={handleCreateGroupRoom}
-              isCreating={isCreatingGroupRoom}
-            />
-          </div>
-          {/* 채팅방 목록 */}
-          <div className="flex-1 overflow-y-auto py-2 w-full">
-            <ArcYouChatRoomList type="group" />
-          </div>
-        </div>
-      </ArcManager.TabPanel>
-    </ArcManager>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 

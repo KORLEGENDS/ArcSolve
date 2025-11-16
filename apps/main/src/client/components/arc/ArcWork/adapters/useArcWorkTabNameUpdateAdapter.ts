@@ -1,5 +1,5 @@
 import { useRenameChatRoom } from '@/client/states/queries/arcyou/useArcyouChat';
-import { useServiceModel } from '@/client/states/stores/service-store';
+import { useArcWorkModel } from '@/client/states/stores/arcwork-layout-store';
 import type { TabNode } from 'flexlayout-react';
 import { Actions } from 'flexlayout-react';
 import { useCallback } from 'react';
@@ -34,7 +34,7 @@ export interface ArcWorkTabNameUpdateAdapter {
  */
 export function useArcWorkTabNameUpdateAdapter(): ArcWorkTabNameUpdateAdapter {
   const renameChatRoom = useRenameChatRoom();
-  const model = useServiceModel();
+  const model = useArcWorkModel();
 
   const handleRename = useCallback(
     (payload: ArcWorkTabRenamePayload) => {

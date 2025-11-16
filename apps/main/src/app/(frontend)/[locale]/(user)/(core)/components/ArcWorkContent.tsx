@@ -1,10 +1,10 @@
 'use client';
 
 import { ArcWorkDynamic, type ArcWorkProps } from '@/client/components/arc/ArcWork';
+import { useArcWorkTab } from '@/client/components/arc/ArcWork/adapters/useArcWorkTab';
 import { createFactory } from '@/client/components/arc/ArcWork/components';
 import { ArcYouChatRoom } from '@/client/components/arc/ArcYou/ArcYouChat';
-import { useArcWorkTab } from '@/client/components/arc/ArcWork/adapters/useArcWorkTab';
-import { useServiceRestoreLayout } from '@/client/states/stores/service-store';
+import { useArcWorkRestoreLayout } from '@/client/states/stores/arcwork-layout-store';
 import type { Action } from 'flexlayout-react';
 import { Model, type TabNode } from 'flexlayout-react';
 import { useCallback, useMemo } from 'react';
@@ -36,7 +36,7 @@ export function ArcWorkContent({
   );
 
   // 저장본 우선 로드, 없으면 빈 레이아웃으로 시작
-  const restoreLayout = useServiceRestoreLayout();
+  const restoreLayout = useArcWorkRestoreLayout();
   const defaultLayout = useMemo(() => {
     const restored = restoreLayout?.({ replace: false });
     if (restored instanceof Model) return restored;

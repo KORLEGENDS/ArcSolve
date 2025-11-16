@@ -15,7 +15,13 @@ export const allowedDocumentFileMimeTypes = [
 
 export const documentUploadRequestSchema = z.object({
   name: z.string().min(1).max(255),
-  parentPath: z.string().min(1).max(512),
+  // UI에서는 이미 ltree 스타일 경로를 사용합니다.
+  // 예: "files", "files.project", "files.project.arcyou"
+  parentPath: z
+    .string()
+    .min(1)
+    .max(512)
+    .regex(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$/, '유효하지 않은 경로 형식입니다.'),
   fileSize: z.number().int().positive(),
   mimeType: z.enum(allowedDocumentFileMimeTypes),
 });

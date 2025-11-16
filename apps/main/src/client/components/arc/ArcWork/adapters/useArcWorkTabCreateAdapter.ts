@@ -1,11 +1,11 @@
-import type { ServiceOpenTabInput } from '@/client/states/stores/service-store';
+import type { ArcWorkTabInput } from '@/client/states/stores/arcwork-layout-store';
 import {
-  useServiceEnsureOpenTab,
-  useServiceOpenTab,
-} from '@/client/states/stores/service-store';
+  useArcWorkEnsureOpenTab,
+  useArcWorkOpenTab,
+} from '@/client/states/stores/arcwork-layout-store';
 import { useCallback } from 'react';
 
-export interface ArcWorkOpenTabInput extends ServiceOpenTabInput {}
+export interface ArcWorkOpenTabInput extends ArcWorkTabInput {}
 
 export interface ArcWorkTabCreateAdapter {
   /**
@@ -28,8 +28,8 @@ export interface ArcWorkTabCreateAdapter {
  *   호출 측에서 관리하되, 모든 탭 생성을 이 훅을 통해 통일합니다.
  */
 export function useArcWorkTabCreateAdapter(): ArcWorkTabCreateAdapter {
-  const open = useServiceOpenTab();
-  const ensureOpen = useServiceEnsureOpenTab();
+  const open = useArcWorkOpenTab();
+  const ensureOpen = useArcWorkEnsureOpenTab();
 
   const openTab = useCallback(
     (input: ArcWorkOpenTabInput) => open(input),

@@ -49,6 +49,14 @@ export interface UseDocumentDownloadReturn {
   refetch: () => Promise<DocumentDownloadUrlResponse>;
 }
 
+export interface UseDocumentFilesReturn {
+  data: DocumentDTO[] | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  refetch: () => Promise<DocumentDTO[]>;
+}
+
 export function useDocumentUpload(): UseDocumentUploadReturn {
   const queryClient = useQueryClient();
 
@@ -79,6 +87,30 @@ export function useDocumentUpload(): UseDocumentUploadReturn {
     confirmError: confirmMutation.error,
 
     invalidateDocument,
+  };
+}
+
+/**
+ * 현재 사용자 기준 file 문서 목록 조회 훅
+ */
+export function useDocumentFiles(): UseDocumentFilesReturn {
+  const query = useQuery(documentQueryOptions.listFiles());
+
+  const refetch = useCallback(
+    async () => {
+      const res = await query.refetch();
+      if (res.data) return res.data;
+      throw res.error ?? new Error('문서 목록을 불러오지 못했습니다.');
+    },
+    [query]
+  );
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch,
   };
 }
 

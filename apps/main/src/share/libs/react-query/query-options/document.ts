@@ -41,10 +41,16 @@ export type DocumentDTO = {
   kind: DocumentKind;
   uploadStatus: DocumentUploadStatus;
   fileMeta: DocumentFileMetaDTO;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type DocumentUploadConfirmResponse = {
   document: DocumentDTO;
+};
+
+export type DocumentListResponse = {
+  documents: DocumentDTO[];
 };
 
 export const documentQueryOptions = {
@@ -117,6 +123,21 @@ export const documentQueryOptions = {
           method: 'GET',
           staleTime: TIMEOUT.CACHE.SHORT,
           gcTime: TIMEOUT.CACHE.SHORT,
+        }
+      ),
+    }),
+  /**
+   * 현재 사용자 기준 file 문서 목록 조회
+   */
+  listFiles: () =>
+    queryOptions({
+      queryKey: queryKeys.documents.listFiles(),
+      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
+        '/api/document?kind=file',
+        (data) => data.documents,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
         }
       ),
     }),
