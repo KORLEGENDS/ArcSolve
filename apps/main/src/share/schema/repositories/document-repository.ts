@@ -197,17 +197,17 @@ export class DocumentRepository {
       if (isDatabaseError(error) && error.code === '23505') {
         // user_id + path 유니크 제약 위반 → 이미 동일 경로의 폴더가 존재하는 경우,
         // ensureFolderForOwner를 통해 기존 폴더를 반환합니다.
-        const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
+    const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
         if (folder) {
           return folder;
         }
 
         throwApi('CONFLICT', '같은 경로에 이미 폴더가 존재합니다.', {
-          userId: input.userId,
-          parentPath: input.parentPath,
-          name: input.name,
-        });
-      }
+        userId: input.userId,
+        parentPath: input.parentPath,
+        name: input.name,
+      });
+    }
       throw error;
     }
   }

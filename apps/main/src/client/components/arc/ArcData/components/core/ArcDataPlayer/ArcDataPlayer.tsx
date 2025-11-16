@@ -49,7 +49,7 @@ export function ArcDataPlayer({
           }}
         >
           <AnyReactPlayer
-            url={src}
+            src={src}
             width="100%"
             height={isAudio ? '64px' : '100%'}
             controls

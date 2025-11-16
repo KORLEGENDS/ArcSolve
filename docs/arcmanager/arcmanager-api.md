@@ -454,10 +454,14 @@ export function useDocumentMove(): UseDocumentMoveReturn {
 onItemDragStart: ({ item, event }) => {
   // ArcWork 탭 드래그 데이터 설정 (파일만)
   if (item.itemType === 'item') {
-    const name = getNameFromPath(item.path);
+    const tabName =
+      (item as { name?: string }).name &&
+      (item as { name?: string }).name!.trim().length > 0
+        ? (item as { name?: string }).name!
+        : item.path;
     startAddTabDrag(event, {
       id: item.id,
-      name,
+      name: tabName,
       type: 'arcdata-document',
     });
   }

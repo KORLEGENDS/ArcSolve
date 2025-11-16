@@ -53,15 +53,15 @@ export async function GET(request: NextRequest) {
               : getFallbackNameFromPath(doc.path as unknown as string);
 
           return {
-            documentId: doc.documentId,
-            userId: doc.userId,
-            path: doc.path,
+          documentId: doc.documentId,
+          userId: doc.userId,
+          path: doc.path,
             name,
-            kind: doc.kind,
-            uploadStatus: doc.uploadStatus,
-            fileMeta: doc.fileMeta,
-            createdAt: doc.createdAt.toISOString(),
-            updatedAt: doc.updatedAt.toISOString(),
+          kind: doc.kind,
+          uploadStatus: doc.uploadStatus,
+          fileMeta: doc.fileMeta,
+          createdAt: doc.createdAt.toISOString(),
+          updatedAt: doc.updatedAt.toISOString(),
           };
         }),
       },
