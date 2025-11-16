@@ -2,7 +2,7 @@ import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
 import type { Document, DocumentFileMeta, DocumentUploadStatus } from '@/share/schema/drizzles';
 import { documents } from '@/share/schema/drizzles';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 import type { DB } from './base-repository';
 
@@ -68,6 +68,89 @@ export class DocumentRepository {
   constructor(private readonly database: DB = defaultDb) {}
 
   /**
+   * 주어진 경로에 해당하는 folder 문서를 보장합니다.
+   *
+   * - path가 빈 문자열인 경우(루트)는 아무 것도 하지 않습니다.
+   * - 이미 존재하는 경우 그대로 반환합니다.
+   * - 존재하지 않으면 kind = 'folder' 문서를 생성합니다.
+   */
+  private async ensureFolderForOwner(
+    database: DB,
+    userId: string,
+    rawPath: string
+  ): Promise<Document | null> {
+    const normalizedPath = normalizeLtreePath(rawPath);
+    if (!normalizedPath) return null;
+
+    const [existing] = await database
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.userId, userId),
+          eq(documents.path, normalizedPath),
+          isNull(documents.deletedAt)
+        )
+      );
+
+    if (existing) return existing;
+
+    try {
+      const [row] = await database
+        .insert(documents)
+        .values({
+          userId,
+          path: normalizedPath,
+          kind: 'folder',
+          uploadStatus: 'uploaded',
+          fileMeta: null,
+        })
+        .returning();
+
+      return row ?? null;
+    } catch (error) {
+      if (isDatabaseError(error) && error.code === '23505') {
+        // user_id + path 유니크 제약 위반 → 이미 다른 요청에서 생성된 경우이므로 무시합니다.
+        const [existingOnConflict] = await database
+          .select()
+          .from(documents)
+          .where(
+            and(
+              eq(documents.userId, userId),
+              eq(documents.path, normalizedPath),
+              isNull(documents.deletedAt)
+            )
+          );
+        return existingOnConflict ?? null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 상위 경로와 이름을 기반으로 folder 문서를 생성합니다.
+   * - 이미 존재하면 기존 문서를 반환합니다.
+   */
+  async createFolderForOwner(input: {
+    userId: string;
+    parentPath: string;
+    name: string;
+  }): Promise<Document> {
+    const label = toLtreeLabel(input.name);
+    const parentLtreePath = normalizeLtreePath(input.parentPath);
+    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
+    const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
+    if (!folder) {
+      throwApi('INTERNAL', '폴더 생성에 실패했습니다.', {
+        userId: input.userId,
+        parentPath: input.parentPath,
+        name: input.name,
+      });
+    }
+    return folder;
+  }
+
+  /**
    * 업로드용 파일 문서를 생성합니다.
    * - kind = 'file'
    * - uploadStatus = 'pending'
@@ -78,6 +161,11 @@ export class DocumentRepository {
     // 클라이언트는 ltree 기반 경로를 사용하며, 서버에서 한 번 더 정규화합니다.
     const parentLtreePath = normalizeLtreePath(input.parentPath);
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
+
+    // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+    if (parentLtreePath) {
+      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
+    }
 
     const fileMeta: DocumentFileMeta = {
       mimeType: input.mimeType,
@@ -179,6 +267,116 @@ export class DocumentRepository {
     }
 
     return row;
+  }
+
+  /**
+   * 문서(및 하위 문서)가 속한 경로를 변경합니다.
+   *
+   * - documentId가 가리키는 문서의 path를 기준으로 subtree를 계산합니다.
+   * - kind가 folder인 경우에는 하위 문서들의 path도 함께 이동합니다.
+   * - targetParentPath는 루트('') 또는 ltree 스타일 경로여야 합니다.
+   */
+  async moveDocumentForOwner(params: {
+    documentId: string;
+    userId: string;
+    targetParentPath: string;
+  }): Promise<Document> {
+    const { documentId, userId, targetParentPath } = params;
+
+    const current = await this.findByIdForOwner(documentId, userId);
+    if (!current) {
+      throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+        documentId,
+        userId,
+      });
+    }
+
+    const oldPath = (current.path as unknown as string) ?? '';
+    if (!oldPath) {
+      throw new Error('유효하지 않은 문서 경로입니다.');
+    }
+
+    const normalizedTargetParent = normalizeLtreePath(targetParentPath);
+
+    // 자기 자신 또는 자신의 하위 경로로 이동하는 경우는 의미 없는 이동이므로
+    // 서버에서는 에러를 던지지 않고 현재 문서를 그대로 반환합니다.
+    if (normalizedTargetParent) {
+      const isSame = oldPath === normalizedTargetParent;
+      const isDescendant = normalizedTargetParent.startsWith(`${oldPath}.`);
+      if (isSame || isDescendant) {
+        return current;
+      }
+    }
+
+    const segments = oldPath.split('.').filter(Boolean);
+    const selfLabel = segments[segments.length - 1] ?? toLtreeLabel('unnamed');
+    const newBasePath = normalizedTargetParent
+      ? `${normalizedTargetParent}.${selfLabel}`
+      : selfLabel;
+
+    try {
+      const updatedRoot = await this.database.transaction(async (tx) => {
+        // 대상 부모 경로가 있는 경우 해당 경로에 folder 문서를 보장합니다.
+        if (normalizedTargetParent) {
+          await this.ensureFolderForOwner(tx, userId, normalizedTargetParent);
+        }
+
+        // 현재 문서를 루트로 하는 subtree 조회 (자기 자신 포함)
+        const subtree = await tx
+          .select()
+          .from(documents)
+          .where(
+            and(
+              eq(documents.userId, userId),
+              isNull(documents.deletedAt),
+              sql`${documents.path} <@ ${oldPath}::ltree`
+            )
+          );
+
+        for (const row of subtree) {
+          const rowPath = row.path as unknown as string;
+          let suffix = '';
+          if (rowPath.length > oldPath.length) {
+            // "oldPath.xxx" 형태에서 뒤의 부분만 잘라냅니다.
+            suffix = rowPath.slice(oldPath.length + 1);
+          }
+          const newPath = suffix ? `${newBasePath}.${suffix}` : newBasePath;
+
+          await tx
+            .update(documents)
+            .set({ path: newPath })
+            .where(
+              and(eq(documents.documentId, row.documentId), eq(documents.userId, userId))
+            );
+        }
+
+        const [root] = await tx
+          .select()
+          .from(documents)
+          .where(and(eq(documents.documentId, documentId), eq(documents.userId, userId)));
+
+        if (!root) {
+          throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+            documentId,
+            userId,
+          });
+        }
+
+        return root;
+      });
+
+      return updatedRoot;
+    } catch (error) {
+      if (isDatabaseError(error) && error.code === '23505') {
+        // user_id + path 유니크 제약 위반
+        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
+          documentId,
+          userId,
+          targetParentPath,
+        });
+      }
+      throw error;
+    }
   }
 }
 

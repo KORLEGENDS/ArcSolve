@@ -3,7 +3,6 @@
  * PDF.js 워커 초기화, 문서 캐싱, 렌더링 작업 관리
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
 import type {
   PDFDocumentProxy,
   RenderTask,
@@ -34,6 +33,10 @@ interface RenderOptions {
 class PDFManager {
   private static instance: PDFManager;
 
+  // 동적 import된 pdf.js 모듈 캐시
+  private static pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null =
+    null;
+
   // 문서 캐시 (URL → PDF 문서)
   private documentCache = new Map<string, CachedDocument>();
 
@@ -50,16 +53,8 @@ class PDFManager {
 
   /**
    * Private constructor - 싱글톤 패턴
-   * 워커 초기화 (한 번만)
    */
-  private constructor() {
-    if (
-      typeof window !== 'undefined' &&
-      !pdfjsLib.GlobalWorkerOptions.workerSrc
-    ) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
-    }
-  }
+  private constructor() {}
 
   /**
    * 싱글톤 인스턴스 획득
@@ -69,6 +64,28 @@ class PDFManager {
       PDFManager.instance = new PDFManager();
     }
     return PDFManager.instance;
+  }
+
+  /**
+   * 브라우저 환경에서만 pdfjs-dist를 동적으로 import
+   * - 서버 렌더링 시 DOMMatrix 등이 없어도 모듈 평가가 일어나지 않도록 보호
+   */
+  private async getPdfJs() {
+    if (typeof window === 'undefined') {
+      throw new Error('PDF.js는 브라우저 환경에서만 사용할 수 있습니다.');
+    }
+
+    if (!PDFManager.pdfjsLibPromise) {
+      PDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
+        // 워커 경로를 한 번만 초기화
+        if (!mod.GlobalWorkerOptions.workerSrc) {
+          mod.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+        }
+        return mod;
+      });
+    }
+
+    return PDFManager.pdfjsLibPromise;
   }
 
   /**
@@ -128,22 +145,8 @@ class PDFManager {
    * 실제 PDF 로드 로직
    */
   private async loadDocumentInternal(url: string): Promise<PDFDocumentProxy> {
-    const loadingTask = pdfjsLib.getDocument({
-      url,
-      // Prefer internal/wasm decoders for robustness with JPX+ICC
-      useWasm: true,
-      isImageDecoderSupported: false,
-      isOffscreenCanvasSupported: false,
-      // Be resilient to minor decode/parsing hiccups
-      stopAtErrors: false,
-      // Allow worker to fetch resources (default true on web, set explicitly for clarity)
-      useWorkerFetch: true,
-      // Wire public-served assets to avoid 404s like /nullopenjpeg.wasm and /null*.bcmap
-      wasmUrl: '/pdfjs/wasm/',
-      cMapUrl: '/pdfjs/cmaps/',
-      cMapPacked: true,
-      // Keep defaults for maxImageSize (-1) etc.
-    });
+    const pdfjsLib = await this.getPdfJs();
+    const loadingTask = pdfjsLib.getDocument({ url });
     return (await loadingTask.promise) as PDFDocumentProxy;
   }
 

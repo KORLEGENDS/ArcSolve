@@ -5,6 +5,8 @@
 import { TIMEOUT } from '@/share/configs/constants/time-constants';
 import {
   documentDownloadUrlResponseSchema,
+  documentFolderCreateRequestSchema,
+  documentMoveRequestSchema,
   documentUploadConfirmRequestSchema,
   documentUploadPresignRequestSchema,
   documentUploadRequestSchema,
@@ -51,6 +53,24 @@ export type DocumentUploadConfirmResponse = {
 
 export type DocumentListResponse = {
   documents: DocumentDTO[];
+};
+
+export interface DocumentMoveMutationVariables {
+  documentId: string;
+  parentPath: string;
+}
+
+export type DocumentMoveResponse = {
+  document: DocumentDTO;
+};
+
+export type DocumentFolderCreateRequest = {
+  name: string;
+  parentPath: string;
+};
+
+export type DocumentFolderCreateResponse = {
+  document: DocumentDTO;
 };
 
 export const documentQueryOptions = {
@@ -141,6 +161,35 @@ export const documentQueryOptions = {
         }
       ),
     }),
+
+  /**
+   * 문서 이동 뮤테이션 옵션
+   */
+  move: createApiMutation<DocumentDTO, DocumentMoveResponse, DocumentMoveMutationVariables>(
+    (variables) => `/api/document/${variables.documentId}/move`,
+    (data) => data.document,
+    {
+      method: 'PATCH',
+      bodyExtractor: ({ documentId: _documentId, ...body }) =>
+        documentMoveRequestSchema.parse(body),
+    }
+  ),
+
+  /**
+   * 폴더 생성 뮤테이션 옵션
+   */
+  createFolder: createApiMutation<
+    DocumentDTO,
+    DocumentFolderCreateResponse,
+    DocumentFolderCreateRequest
+  >(
+    () => '/api/document/folder',
+    (data) => data.document,
+    {
+      method: 'POST',
+      bodyExtractor: (variables) => documentFolderCreateRequestSchema.parse(variables),
+    }
+  ),
 } as const;
 
 

@@ -1,0 +1,24 @@
+/**
+ * ArcDataTopbar 스타일
+ * - PDF 뷰어 상단 툴바
+ */
+
+.topbar {
+  height: 2.5rem; /* h-10 */
+}
+
+.zoomLabel {
+  padding-inline: var(--spacing-sm);
+  font-size: var(--text-caption-regular);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  background-color: transparent;
+  border: none;
+}
+
+.zoomLabel:hover {
+  color: var(--color-foreground);
+}
+
+

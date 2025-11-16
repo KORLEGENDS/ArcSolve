@@ -18,7 +18,7 @@ export const proxy = edgeAuth(async (req: NextRequest & { auth: any }) => {
 export const config = {
   matcher: [
     // 정적 자산 및 내부 경로 제외
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pdf|mjs|wasm|bcmap|json|mp4|webm)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pdf|mjs|wasm|bcmap|json|mp4|webm|map)$).*)',
     ],
 };
 

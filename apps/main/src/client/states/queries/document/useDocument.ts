@@ -57,6 +57,18 @@ export interface UseDocumentFilesReturn {
   refetch: () => Promise<DocumentDTO[]>;
 }
 
+export interface UseDocumentMoveReturn {
+  move: (input: { documentId: string; parentPath: string }) => Promise<DocumentDTO>;
+  isMoving: boolean;
+  moveError: unknown;
+}
+
+export interface UseDocumentFolderCreateReturn {
+  createFolder: (input: { name: string; parentPath: string }) => Promise<DocumentDTO>;
+  isCreating: boolean;
+  createError: unknown;
+}
+
 export function useDocumentUpload(): UseDocumentUploadReturn {
   const queryClient = useQueryClient();
 
@@ -87,6 +99,33 @@ export function useDocumentUpload(): UseDocumentUploadReturn {
     confirmError: confirmMutation.error,
 
     invalidateDocument,
+  };
+}
+
+/**
+ * 문서 이동 훅
+ * - documentId와 parentPath('' = 루트)를 입력으로 받아 path를 변경합니다.
+ */
+export function useDocumentMove(): UseDocumentMoveReturn {
+  const moveMutation = useMutation(documentQueryOptions.move);
+
+  return {
+    move: moveMutation.mutateAsync,
+    isMoving: moveMutation.isPending,
+    moveError: moveMutation.error,
+  };
+}
+
+/**
+ * 폴더 생성 훅
+ */
+export function useDocumentFolderCreate(): UseDocumentFolderCreateReturn {
+  const createMutation = useMutation(documentQueryOptions.createFolder);
+
+  return {
+    createFolder: createMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    createError: createMutation.error,
   };
 }
 

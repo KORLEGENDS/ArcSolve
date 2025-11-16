@@ -13,20 +13,24 @@ export const allowedDocumentFileMimeTypes = [
   'application/epub+zip',
 ] as const;
 
+export const documentNameSchema = z.string().min(1).max(255);
+
+export const documentParentPathSchema = z
+  .string()
+  .max(512)
+  .refine(
+    (value) =>
+      value === '' ||
+      /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$/.test(value),
+    '유효하지 않은 경로 형식입니다.'
+  );
+
 export const documentUploadRequestSchema = z.object({
-  name: z.string().min(1).max(255),
+  name: documentNameSchema,
   // UI에서는 이미 ltree 스타일 경로를 사용합니다.
   // 예: "project", "project.sub", "project.sub.arcyou"
   // 빈 문자열("")은 루트 경로를 의미합니다.
-  parentPath: z
-    .string()
-    .max(512)
-    .refine(
-      (value) =>
-        value === '' ||
-        /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$/.test(value),
-      '유효하지 않은 경로 형식입니다.'
-    ),
+  parentPath: documentParentPathSchema,
   fileSize: z.number().int().positive(),
   mimeType: z.enum(allowedDocumentFileMimeTypes),
 });
@@ -78,4 +82,28 @@ export type DocumentDownloadUrlResponse = z.infer<
   typeof documentDownloadUrlResponseSchema
 >;
 
+/**
+ * 문서 이동 요청 스키마
+ * - parentPath는 업로드 요청과 동일한 규칙을 따릅니다.
+ * - '' = 루트 경로
+ */
+export const documentMoveRequestSchema = z.object({
+  parentPath: documentParentPathSchema,
+});
+
+export type DocumentMoveRequest = z.infer<typeof documentMoveRequestSchema>;
+
+/**
+ * 폴더 생성 요청 스키마
+ * - name: 폴더 이름
+ * - parentPath: 상위 경로 ('' = 루트)
+ */
+export const documentFolderCreateRequestSchema = z.object({
+  name: documentNameSchema,
+  parentPath: documentParentPathSchema,
+});
+
+export type DocumentFolderCreateRequest = z.infer<
+  typeof documentFolderCreateRequestSchema
+>;
 

@@ -4,6 +4,7 @@ import { ArcWorkDynamic, type ArcWorkProps } from '@/client/components/arc/ArcWo
 import { useArcWorkTab } from '@/client/components/arc/ArcWork/adapters/useArcWorkTab';
 import { createFactory } from '@/client/components/arc/ArcWork/components';
 import { ArcYouChatRoom } from '@/client/components/arc/ArcYou/ArcYouChat';
+import { ArcData } from '@/client/components/arc/ArcData';
 import { useArcWorkRestoreLayout } from '@/client/states/stores/arcwork-layout-store';
 import type { Action } from 'flexlayout-react';
 import { Model, type TabNode } from 'flexlayout-react';
@@ -28,6 +29,14 @@ export function ArcWorkContent({
         if (!roomId) return <div className="p-4">채팅방 ID 정보가 없습니다.</div>;
         const isActive = node.isSelected();
         return <ArcYouChatRoom id={roomId} isActive={isActive} />;
+      }
+
+      if (component === 'arcdata-document') {
+        const documentId = node.getId();
+        if (!documentId) {
+          return <div className="p-4">문서 ID 정보가 없습니다.</div>;
+        }
+        return <ArcData documentId={documentId} />;
       }
 
       return null; // createFactory가 defaultArcWorkFactory를 호출

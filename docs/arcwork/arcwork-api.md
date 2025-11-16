@@ -528,6 +528,25 @@ ArcData 문서 탭 역시 동일 패턴을 따릅니다.
     - 반환: `DocumentDTO[]`와 로딩/에러 상태
   - UI 예시: `ArcManager`의 files 탭에서 `useDocumentFiles()` → `path` 기반으로 `ArcManagerTreeItem[]` 트리 변환 후 렌더링
 
+- 문서 이동:
+  - API: `PATCH /api/document/{documentId}/move`
+    - 요청: `{ parentPath: string }` (`''` = 루트, 그 외는 ltree 형식 경로)
+    - 응답: `{ document: DocumentDTO }` (이동된 루트 문서 정보)
+  - Repository: `DocumentRepository.moveDocumentForOwner({ documentId, userId, targetParentPath })`
+    - `path` 기반 subtree를 계산하여, 폴더 이동 시 하위 문서까지 함께 이동
+  - React Query 옵션: `documentQueryOptions.move`
+  - 훅: `useDocumentMove()` (`apps/main/src/client/states/queries/document/useDocument.ts`)
+    - 사용: `move({ documentId, parentPath })`
+
+- 폴더 생성:
+  - API: `POST /api/document/folder`
+    - 요청: `{ name: string; parentPath: string }` (`''` = 루트)
+    - 응답: `{ document: DocumentDTO }` (생성된 folder 문서)
+  - Repository: `DocumentRepository.createFolderForOwner({ userId, parentPath, name })`
+  - React Query 옵션: `documentQueryOptions.createFolder`
+  - 훅: `useDocumentFolderCreate()` (`apps/main/src/client/states/queries/document/useDocument.ts`)
+    - 사용: `createFolder({ name, parentPath })`
+
 실제 연동 시에는:
 
 1. ArcWork factory에 `component === 'arcdata-document'` 분기 추가

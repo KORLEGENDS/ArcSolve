@@ -1,10 +1,13 @@
 import { createUploadToast } from '@/client/components/ui/upload-toast';
 import { useDocument } from '@/client/states/queries/document/useDocument';
+import { queryKeys } from '@/share/libs/react-query/query-keys';
 import { allowedDocumentFileMimeTypes } from '@/share/schema/zod/document-upload-zod';
+import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
 export function useFileUpload(parentPath: string) {
   const documentHook = useDocument();
+  const queryClient = useQueryClient();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleUploadClick = React.useCallback(() => {
@@ -84,7 +87,7 @@ export function useFileUpload(parentPath: string) {
 
         // 4. 업로드 확인
         toast.setProgress(95, 'confirming');
-        await documentHook.confirmUpload({
+        const confirmedDocument = await documentHook.confirmUpload({
           processId: requestResponse.processId,
         });
 
@@ -92,8 +95,13 @@ export function useFileUpload(parentPath: string) {
         toast.setProgress(100, 'completed');
         toast.complete();
 
-        // 문서 목록 새로고침 (추후 구현)
-        // await documentHook.invalidateDocument(requestResponse.documentId);
+        // 6. 문서 관련 캐시 무효화
+        // - 단일 문서 상세 캐시
+        await documentHook.invalidateDocument(confirmedDocument.documentId);
+        // - 파일 목록 캐시 (ArcManager 트리 등)
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.listFiles(),
+        });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : '파일 업로드 중 오류가 발생했습니다.';

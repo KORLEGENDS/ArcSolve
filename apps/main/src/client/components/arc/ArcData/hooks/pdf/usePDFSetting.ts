@@ -39,6 +39,8 @@ interface UseViewerSettingReturn {
   toggleSidebar: () => void;
   toggleFitWidth: () => void;
   recomputeFitWidth: () => void;
+  /** 한 번만 현재 컨테이너 너비 기준으로 맞춤 (isFitWidth 상태는 변경하지 않음) */
+  fitWidthOnce: () => void;
 }
 
 export function useViewerSetting({
@@ -113,6 +115,48 @@ export function useViewerSetting({
     });
   }, [recomputeFitWidth]);
 
+  // 현재 컨테이너 크기를 기준으로 "한 번만" 너비 맞춤 수행 (isFitWidth 상태는 변경하지 않음)
+  const fitWidthOnce = useCallback(() => {
+    const container = viewerContentRef.current;
+    if (!container) return;
+
+    const availableWidth = container.clientWidth ?? 0;
+    const availableHeight = container.clientHeight ?? 0;
+    if (availableWidth <= 0) return;
+
+    const perform = async (): Promise<void> => {
+      let contentBaseWidth = 0;
+      let contentBaseHeight = 0;
+
+      if (isPDF) {
+        if (!pdfDocument) return;
+        try {
+          const firstPage = await pdfDocument.getPage(1);
+          const viewport = firstPage.getViewport({ scale: 1 });
+          contentBaseWidth = viewport.width;
+        } catch {
+          return;
+        }
+      } else {
+        contentBaseWidth = imageNaturalWidth ?? 1024;
+        contentBaseHeight = imageNaturalHeight ?? 768;
+      }
+
+      if (contentBaseWidth <= 0) return;
+      const scaleW = availableWidth / contentBaseWidth;
+      const scaleH =
+        availableHeight > 0 && contentBaseHeight > 0
+          ? availableHeight / contentBaseHeight
+          : scaleW;
+      const baseScale = fitMode === 'longer-edge' ? Math.max(scaleW, scaleH) : scaleW;
+      const rawScale = baseScale * 100;
+      const clamped = Math.max(ZOOM_LEVELS.MIN, Math.min(rawScale, ZOOM_LEVELS.MAX));
+      setZoomLevel(Math.round(clamped));
+    };
+
+    void perform();
+  }, [isPDF, pdfDocument, imageNaturalWidth, imageNaturalHeight, fitMode]);
+
   // 뷰 영역 크기 변화 대응 (ResizeObserver)
   useEffect(() => {
     if (!isFitWidth) return;
@@ -186,6 +230,7 @@ export function useViewerSetting({
     toggleSidebar,
     toggleFitWidth,
     recomputeFitWidth,
+    fitWidthOnce,
   };
 }
 

@@ -1,10 +1,10 @@
 .flexlayout__theme_light .flexlayout__layout {
-  --color-text: black;
-  --color-base: white;
+  --color-text: var(--color-foreground);
+  --color-base: var(--color-background);
   --color-1: rgb(247.35, 247.35, 247.35);
   --color-2: rgb(239.7, 239.7, 239.7);
   --color-3: rgb(232.05, 232.05, 232.05);
-  --color-4: rgb(224.4, 224.4, 224.4);
+  --color-4: var(--color-subtle);
   --color-5: rgb(216.75, 216.75, 216.75);
   --color-6: rgb(209.1, 209.1, 209.1);
   --color-drag1: rgb(95, 134, 196);
@@ -18,7 +18,7 @@
   --color-tabset-background: var(--color-background);
   --color-tabset-background-selected: var(--color-1);
   --color-tabset-background-maximized: var(--color-2);
-  --color-tabset-divider-line: var(--color-4);
+  --color-tabset-divider-line: var(--color-border);
   --color-tabset-header-background: var(--color-background);
   --color-tabset-header: var(--color-text);
   --color-border-tab-content: var(--color-background);
@@ -55,12 +55,12 @@
 }
 
 .flexlayout__theme_dark .flexlayout__layout {
-  --color-text: #eeeeee;
-  --color-base: black;
+  --color-text: var(--color-foreground);
+  --color-base: var(--color-background);
   --color-1: rgb(17.85, 17.85, 17.85);
   --color-2: rgb(25.5, 25.5, 25.5);
   --color-3: rgb(38.25, 38.25, 38.25);
-  --color-4: #333333;
+  --color-4: var(--color-subtle);
   --color-5: rgb(63.75, 63.75, 63.75);
   --color-6: rgb(76.5, 76.5, 76.5);
   --color-drag1: rgb(207, 232, 255);
@@ -74,7 +74,7 @@
   --color-tabset-background: var(--color-1);
   --color-tabset-background-selected: var(--color-1);
   --color-tabset-background-maximized: var(--color-6);
-  --color-tabset-divider-line: var(--color-4);
+  --color-tabset-divider-line: var(--color-border);
   --color-tabset-header-background: var(--color-1);
   --color-tabset-header: var(--color-text);
   --color-border-tab-content: var(--color-background);
@@ -397,6 +397,8 @@
   cursor: pointer;
   min-width: 160px;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border: 1px solid var(--color-border);
+  border-bottom: none;
 }
 .flexlayout__tab_button_stretch {
   background-color: transparent;

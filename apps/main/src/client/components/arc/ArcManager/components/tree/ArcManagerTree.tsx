@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
-import { ArcManagerList, type ArcManagerListItem } from '../list';
+import { ArcManagerList, type ArcManagerListItem, type ItemType } from '../list';
 import s from './ArcManagerTree.module.css';
 
 export interface ArcManagerTreeItem extends ArcManagerListItem {
@@ -16,6 +16,44 @@ export interface ArcManagerTreeProps {
    * - path는 해당 폴더의 ltree 경로입니다.
    */
   onFolderEnter?: (path: string) => void;
+  /**
+   * 행에서 드래그가 시작될 때 호출됩니다.
+   * - item: 드래그 중인 트리 아이템
+   * - event: 원본 드래그 이벤트
+   */
+  onItemDragStart?: (payload: {
+    item: ArcManagerTreeItem;
+    event: React.DragEvent<HTMLDivElement>;
+  }) => void;
+  /**
+   * 특정 행 위에 드롭되었을 때 호출됩니다.
+   * - target: 드롭 대상 아이템
+   * - event: 원본 드롭 이벤트
+   */
+  onItemDropOnRow?: (payload: {
+    target: { path: string; itemType: ItemType };
+    event: React.DragEvent<HTMLDivElement>;
+  }) => void;
+  /**
+   * 트리의 빈 영역 위에 드롭되었을 때 호출됩니다.
+   * - event: 원본 드롭 이벤트
+   */
+  onItemDropOnEmpty?: (payload: {
+    event: React.DragEvent<HTMLDivElement>;
+  }) => void;
+  /**
+   * 트리 하단의 플레이스홀더 영역 위에 드롭되었을 때 호출됩니다.
+   * - 일반적으로 "현재 디렉토리의 바깥(부모 디렉토리)"로 이동하는 용도로 사용합니다.
+   */
+  onPlaceholderDrop?: (payload: {
+    event: React.DragEvent<HTMLDivElement>;
+  }) => void;
+}
+
+function getParentPath(path: string): string {
+  const parts = path.split('.').filter(Boolean);
+  parts.pop();
+  return parts.join('.');
 }
 
 /**
@@ -24,8 +62,18 @@ export interface ArcManagerTreeProps {
  * - 각 행(row)에 CSS custom property(--tree-line-left)를 심어서
  *   ::before / ::after 및 .ancestor가 들여쓰기 수준에 맞춰 L자 라인을 렌더링합니다.
  */
-export function ArcManagerTree({ items, className, onFolderEnter }: ArcManagerTreeProps) {
+export function ArcManagerTree({
+  items,
+  className,
+  onFolderEnter,
+  onItemDragStart,
+  onItemDropOnRow,
+  onItemDropOnEmpty,
+  onPlaceholderDrop,
+}: ArcManagerTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [isPlaceholderDragOver, setIsPlaceholderDragOver] = useState(false);
+  const [dropFolderPath, setDropFolderPath] = useState<string | null>(null);
 
   const toggleFolder = (itemId: string) => {
     setExpandedFolders((prev) => {
@@ -48,6 +96,15 @@ export function ArcManagerTree({ items, className, onFolderEnter }: ArcManagerTr
     const isExpanded = expandedFolders.has(item.id);
     const hasChildren = item.children && item.children.length > 0;
     const isFolder = item.itemType === 'folder';
+
+    const isDropFolder =
+      dropFolderPath != null && isFolder && item.path === dropFolderPath;
+
+    const isDropGroup =
+      dropFolderPath != null &&
+      dropFolderPath !== '' &&
+      (item.path === dropFolderPath ||
+        item.path.startsWith(`${dropFolderPath}.`));
 
     const itemWithIconClick: ArcManagerTreeItem = {
       ...item,
@@ -83,10 +140,38 @@ export function ArcManagerTree({ items, className, onFolderEnter }: ArcManagerTr
     return (
       <div key={item.id} className="w-full">
         <div
-          className={`${s.row} flex items-center gap-2`}
+          className={`${s.row} flex items-center gap-2 ${
+            isDropGroup ? 'bg-muted/40' : ''
+          } ${isDropFolder ? 'ring-1 ring-primary border-primary/60' : ''}`}
           data-last={isLast ? 'true' : 'false'}
           data-level={level}
           style={rowStyle}
+          draggable
+          onDragStart={(event) => {
+            onItemDragStart?.({ item, event });
+          }}
+          onDragOver={(event) => {
+            // 행 위로 드래그된 경우 드롭을 허용합니다.
+            event.preventDefault();
+            if (item.itemType === 'folder') {
+              // 폴더 행 위에 있는 경우, 해당 폴더를 드롭 대상로 표시합니다.
+              setDropFolderPath(item.path);
+            } else {
+              // 아이템 행인 경우, 아이템이 속한 폴더 전체를 드롭 대상으로 표시합니다.
+              const parentPath = getParentPath(item.path);
+              setDropFolderPath(parentPath || null);
+            }
+          }}
+          onDrop={(event) => {
+            // 행 자체에서 드롭을 처리하고 상위로 전파되지 않도록 막습니다.
+            event.preventDefault();
+            event.stopPropagation();
+            setDropFolderPath(null);
+            onItemDropOnRow?.({
+              target: { path: item.path, itemType: item.itemType },
+              event,
+            });
+          }}
         >
           {/* 상위 레벨에서 아직 다음 형제가 남아 있는 경우, 해당 레벨의 세로 라인을 계속 그려줍니다. */}
           {ancestorsHasNextSibling.map(
@@ -123,8 +208,61 @@ export function ArcManagerTree({ items, className, onFolderEnter }: ArcManagerTr
   };
 
   return (
-    <div className={className}>
+    <div
+      className={className}
+      onDragOver={(event) => {
+        // 트리 전체 영역 위에서도 드롭을 허용합니다.
+        event.preventDefault();
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        const current = event.currentTarget as HTMLDivElement;
+        const related = event.relatedTarget as Node | null;
+        // 아직 트리 영역 안에 있다면 상태를 초기화하지 않습니다.
+        if (related && current.contains(related)) return;
+        setDropFolderPath(null);
+      }}
+      onDrop={(event) => {
+        // 어떤 행에도 걸리지 않은 빈 영역 드롭을 처리합니다.
+        event.preventDefault();
+        setDropFolderPath(null);
+        onItemDropOnEmpty?.({ event });
+      }}
+    >
       {items.map((item, index) => renderItem(item, 0, index === items.length - 1, []))}
+      {/* 디렉토리 바깥으로 이동하기 플레이스홀더 영역 */}
+      <div
+        className="mt-2 rounded border border-dashed border-transparent text-xs text-muted-foreground flex items-center justify-center"
+        style={{
+          minHeight: '300px',
+          backgroundColor: isPlaceholderDragOver ? 'rgba(148,163,184,0.08)' : 'transparent',
+          borderColor: isPlaceholderDragOver ? 'rgba(148,163,184,0.6)' : 'transparent',
+          transition: 'background-color 0.15s ease, border-color 0.15s ease',
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setIsPlaceholderDragOver(true);
+          setDropFolderPath(null);
+        }}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          setIsPlaceholderDragOver(true);
+          setDropFolderPath(null);
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          setIsPlaceholderDragOver(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsPlaceholderDragOver(false);
+           setDropFolderPath(null);
+          onPlaceholderDrop?.({ event });
+        }}
+      >
+        {isPlaceholderDragOver && <span>현재 디렉토리 최상단으로 이동하기</span>}
+      </div>
     </div>
   );
 }

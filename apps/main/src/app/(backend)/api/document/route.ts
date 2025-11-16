@@ -20,9 +20,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const kindParam = searchParams.get('kind');
 
-    // 현재는 file 타입만 공식 지원 (확장 여지를 위해 쿼리 파라미터는 유연하게 처리)
-    const kind = kindParam === 'file' || kindParam === null ? 'file' : null;
-    if (!kind) {
+    // 현재는 ArcManager 파일 트리(view=files)만 지원합니다.
+    // kind 파라미터는 유지하되, 'file' 또는 null인 경우에만 허용합니다.
+    if (!(kindParam === null || kindParam === 'file')) {
       return error('BAD_REQUEST', '지원하지 않는 문서 종류입니다.', {
         user: { id: userId, email: session.user.email || undefined },
         details: { kind: kindParam },
@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
     }
 
     const repository = new DocumentRepository();
-    const documents = await repository.listByOwner(userId, { kind });
+    const allDocuments = await repository.listByOwner(userId);
+
+    // ArcManager 트리용 뷰: file + folder 문서만 반환합니다.
+    const documents = allDocuments.filter(
+      (doc) => doc.kind === 'file' || doc.kind === 'folder'
+    );
 
     return ok(
       {

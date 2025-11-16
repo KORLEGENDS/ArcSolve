@@ -6,19 +6,15 @@
 
 'use client';
 
+import { pdfManager } from '@/client/components/arc/ArcData/managers/PDFManager';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { pdfManager } from '../../../core/PDFManager';
-import { createAndRenderAnnotationLayer, destroyAnnotationLayer, type AnnotationRefs } from '../../../utils/annotation-layer';
-import { createAndRenderTextLayer, destroyTextLayer, type TextLayerRefs } from '../../../utils/text-layer';
 import styles from './PDFViewer.module.css';
 
 export interface PageCanvas {
   pageNumber: number;
   canvas: HTMLCanvasElement;
   container: HTMLDivElement;
-  textLayer?: TextLayerRefs;
-  annotation?: AnnotationRefs;
 }
 
 interface PDFCoreProps {
@@ -137,10 +133,7 @@ const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKe
 
     setIsRendering(true);
 
-    for (const p of pagesRef.current) {
-      if (p.textLayer) destroyTextLayer(p.textLayer);
-      if (p.annotation) destroyAnnotationLayer(p.annotation);
-    }
+    // 기존 텍스트/어노테이션 레이어 정리는 컨테이너 초기화로 대체
     containerRef.current.innerHTML = '';
     pagesRef.current = [];
 
@@ -196,25 +189,7 @@ const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKe
           entry.canvas = offscreen;
           emitCoreEnvChange();
 
-          if (textLayerEnabled && entry.textLayer == null) {
-            try {
-              const page = await document.getPage(task.page);
-              const viewport = await page.getViewport({ scale: zoom / 100 });
-              const tl = await createAndRenderTextLayer({ container: entry.container, pdfPage: page, viewport });
-              tl.div.classList.add(styles.textLayer);
-              entry.textLayer = tl;
-            } catch {}
-          }
-
-          // AnnotationLayer 생성 (편집본 PDF의 이미지 표시를 위해)
-          if (entry.annotation == null) {
-            try {
-              const page = await document.getPage(task.page);
-              const viewport = await page.getViewport({ scale: zoom / 100 });
-              const al = await createAndRenderAnnotationLayer({ container: entry.container, pdfPage: page, viewport });
-              entry.annotation = al;
-            } catch {}
-          }
+          // 텍스트/어노테이션 레이어는 MVP에서는 생성하지 않음
 
           pageStatesRef.current.set(task.page, { quality: task.quality, rendering: false });
         } catch {
@@ -225,7 +200,7 @@ const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKe
     } finally {
       schedulerActiveRef.current = false;
     }
-  }, [document, zoom, docKey, textLayerEnabled]);
+  }, [document, zoom, docKey]);
 
   const ensureVisibleWindow = useCallback((currentVersion: number): void => {
     if (pagesRef.current.length === 0) return;
@@ -237,12 +212,10 @@ const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKe
     // 0) prefix for precise cancellation
     const prefix = pdfManager.getEventPrefix(docKey, document);
 
-    // 1) Detach layers and downgrade canvases outside window, cancel in-flight renders outside
+    // 1) 현재 가시 범위 밖의 캔버스를 저해상도 플레이스홀더로 교체하고, 진행 중 렌더를 취소
     for (const entry of pagesRef.current) {
       const n = entry.pageNumber;
       if (n < start || n > end) {
-        if (entry.textLayer) { destroyTextLayer(entry.textLayer); entry.textLayer = undefined; }
-        if (entry.annotation) { destroyAnnotationLayer(entry.annotation); entry.annotation = undefined; }
         if (!(entry.canvas.width === 1 && entry.canvas.height === 1)) {
           const placeholder = window.document.createElement('canvas');
           placeholder.className = styles.pageCanvas; placeholder.dataset.role = 'pdf-canvas';
@@ -325,39 +298,7 @@ const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKe
     };
   }, [handleScroll]);
 
-  // textLayerEnabled 토글 시 텍스트 레이어를 즉시 제거/재생성
-  useEffect(() => {
-    // OFF: 모든 페이지의 텍스트 레이어 제거
-    if (!textLayerEnabled) {
-      for (const entry of pagesRef.current) {
-        if (entry.textLayer) { destroyTextLayer(entry.textLayer); entry.textLayer = undefined; }
-      }
-      emitCoreEnvChange();
-      return;
-    }
-
-    // ON: 가시 윈도우 범위 내 페이지들에 한해 누락된 텍스트 레이어를 재생성
-    const center = computeCenterPage();
-    const buffer = bufferPagesRef.current;
-    const start = Math.max(1, center - buffer);
-    const end = Math.min(document.numPages, center + buffer);
-    (async () => {
-      for (const entry of pagesRef.current) {
-        const n = entry.pageNumber;
-        if (n >= start && n <= end && entry.textLayer == null) {
-          try {
-            const page = await document.getPage(n);
-            const viewport = await page.getViewport({ scale: zoom / 100 });
-            const tl = await createAndRenderTextLayer({ container: entry.container, pdfPage: page, viewport });
-            tl.div.classList.add(styles.textLayer);
-            entry.textLayer = tl;
-          } catch {}
-        }
-      }
-      emitCoreEnvChange();
-    })();
-  }, [textLayerEnabled, document, zoom, computeCenterPage, emitCoreEnvChange]);
-
+  // textLayerEnabled 관련 로직은 MVP에서는 사용하지 않으므로 제거
   useEffect(() => {
     return (): void => {
       const prefix = pdfManager.getEventPrefix(docKey, document);
