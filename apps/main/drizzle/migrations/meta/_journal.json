@@ -8,6 +8,20 @@
       "when": 1763198026983,
       "tag": "0000_marvelous_ozymandias",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1763212499674,
+      "tag": "0001_curly_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1763259203681,
+      "tag": "0002_elite_ravenous",
+      "breakpoints": true
     }
   ]
 }

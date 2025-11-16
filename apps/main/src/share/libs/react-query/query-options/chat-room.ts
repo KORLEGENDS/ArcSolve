@@ -16,9 +16,9 @@ import { queryKeys } from '../query-keys';
 export type ArcyouChatRoom = {
   id: string;
   name: string;
-  description: string | null;
   type: 'direct' | 'group';
-  lastMessageId: string | null;
+  imageUrl: string | null;
+  lastMessage: { content: string | null } | null;
   role: 'owner' | 'manager' | 'participant';
   lastReadMessageId: string | null;
   createdAt: string | null;
@@ -48,7 +48,6 @@ export type ChatRoomMembersResponse = {
 export interface CreateChatRoomMutationVariables {
   type: 'direct' | 'group';
   name: string;
-  description?: string | null;
   targetUserId?: string; // direct 타입일 때 필수
   memberIds?: string[]; // group 타입일 때 필수 (최소 1명)
 }

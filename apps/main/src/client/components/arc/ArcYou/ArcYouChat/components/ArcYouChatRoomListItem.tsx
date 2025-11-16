@@ -3,11 +3,11 @@
 import { MoreVertical } from 'lucide-react';
 import * as React from 'react';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/client/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { cn } from '@/client/components/ui/utils';
@@ -21,10 +21,6 @@ export interface ArcYouChatRoomMenuOption {
    * 메뉴 옵션 클릭 핸들러
    */
   onClick: () => void;
-  /**
-   * 구분선 표시 여부 (이 옵션 위에 구분선 표시)
-   */
-  separator?: boolean;
   /**
    * 비활성화 여부
    */
@@ -41,13 +37,13 @@ export interface ArcYouChatRoomListItemProps {
    */
   name: string;
   /**
-   * 채팅방 설명 (연한 글씨로 표시)
+   * 마지막 메시지 내용
    */
-  description?: string;
+  lastMessage?: string | null;
   /**
-   * 마지막 메시지 ID
+   * 프로필 이미지 URL (채팅방 아바타용)
    */
-  lastMessageId?: string | null;
+  imageUrl?: string | null;
   /**
    * 생성일시
    */
@@ -78,11 +74,25 @@ export interface ArcYouChatRoomListItemProps {
   menuOptions?: ArcYouChatRoomMenuOption[];
 }
 
+/**
+ * 이름에서 첫 글자를 추출하는 헬퍼 함수
+ */
+function getInitials(name?: string): string {
+  if (!name) return '?';
+  const trimmed = name.trim();
+  if (trimmed.length === 0) return '?';
+  
+  // 한글, 영문, 숫자 등 첫 글자 추출
+  const firstChar = trimmed[0];
+  // 한글인 경우 첫 글자만, 영문인 경우 첫 글자만 반환
+  return firstChar.toUpperCase();
+}
+
 export function ArcYouChatRoomListItem({
   id,
   name,
-  description,
-  lastMessageId,
+  lastMessage,
+  imageUrl,
   createdAt,
   updatedAt,
   deletedAt,
@@ -91,52 +101,71 @@ export function ArcYouChatRoomListItem({
   onClick,
   menuOptions,
 }: ArcYouChatRoomListItemProps) {
+  const hasIcon = !!icon || (menuOptions && menuOptions.length > 0);
+
   return (
     <div
       className={cn(
-        'w-full grid grid-cols-[1fr_auto] items-center gap-3 p-1 group',
+        'w-full grid items-center gap-3 p-1 group',
         'text-left rounded-md',
         onClick && 'cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors',
+        // 아바타와 아이콘 유무에 따라 grid 구조 조정
+        hasIcon
+          ? 'grid-cols-[auto_1fr_auto]'
+          : 'grid-cols-[auto_1fr]',
         className
       )}
       onClick={onClick}
     >
-      {/* 좌측 열: 위아래 2행 구조 */}
+      {/* 좌측: 아바타 */}
+      <div className="shrink-0">
+        <Avatar className="size-8">
+          {imageUrl && (
+            <AvatarImage src={imageUrl} alt={name} />
+          )}
+          <AvatarFallback className="text-xs font-medium">
+            {getInitials(name)}
+          </AvatarFallback>
+        </Avatar>
+      </div>
+
+      {/* 중앙: 위아래 2행 구조 */}
       <div className="flex flex-col gap-0.5 min-w-0">
-        {/* 위쪽 행: 이름 */}
+        {/* 위쪽 행: 채팅방 이름 */}
         <div className="text-sm font-medium truncate">{name}</div>
-        {/* 아래쪽 행: 간략한 설명 (연한 글씨) */}
-        {description && (
+        {/* 아래쪽 행: 마지막 메시지 내용 (연한 글씨) */}
+        {lastMessage && (
           <div className="text-xs text-muted-foreground truncate">
-            {description}
+            {lastMessage}
           </div>
         )}
       </div>
+
       {/* 우측 끝: 아이콘 또는 메뉴 */}
-      <div className="shrink-0 flex items-center gap-1">
-        {icon && <div>{icon}</div>}
-        {menuOptions && menuOptions.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  'p-1 rounded-md transition-colors',
-                  'opacity-0 group-hover:opacity-100',
-                  'hover:bg-accent hover:text-accent-foreground',
-                  'focus:opacity-100 focus:outline-none'
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                <MoreVertical className="size-4 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-32">
-              {menuOptions.map((option, index) => (
-                <React.Fragment key={index}>
-                  {option.separator && index > 0 && <DropdownMenuSeparator />}
+      {hasIcon && (
+        <div className="shrink-0 flex items-center gap-1">
+          {icon && <div>{icon}</div>}
+          {menuOptions && menuOptions.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    'p-1 rounded-md transition-colors',
+                    'opacity-0 group-hover:opacity-100',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    'focus:opacity-100 focus:outline-none'
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <MoreVertical className="size-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-32">
+                {menuOptions.map((option, index) => (
                   <DropdownMenuItem
+                    key={index}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!option.disabled) {
@@ -147,12 +176,12 @@ export function ArcYouChatRoomListItem({
                   >
                     {option.label}
                   </DropdownMenuItem>
-                </React.Fragment>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -52,9 +52,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         room: {
           id: room.id,
           name: room.name,
-          description: room.description,
           type: room.type,
-          lastMessageId: room.lastMessageId,
+          imageUrl: room.imageUrl,
+          lastMessage: room.lastMessage
+            ? {
+                content:
+                  typeof room.lastMessage.content === 'object' &&
+                  room.lastMessage.content !== null &&
+                  'text' in room.lastMessage.content
+                    ? (room.lastMessage.content as { text: string }).text
+                    : null,
+              }
+            : null,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,
           createdAt: room.createdAt?.toISOString() ?? null,

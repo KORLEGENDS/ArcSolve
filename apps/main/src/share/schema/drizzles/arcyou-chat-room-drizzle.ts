@@ -18,8 +18,8 @@ export const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
     .notNull()
     .defaultRandom(),
   name: text('name').notNull(),
-  description: text('description'),
   type: arcyouChatRoomTypeEnum('type').default('direct').notNull(),
+  imageUrl: text('image_url'),
   lastMessageId: uuid('last_message_id')
     .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true })

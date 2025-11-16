@@ -5,15 +5,15 @@ import { and, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 
 import {
-  bigserial,
-  integer,
-  jsonb,
-  pgEnum,
-  pgTable,
-  primaryKey,
-  text,
-  timestamp,
-  uuid
+    bigserial,
+    integer,
+    jsonb,
+    pgEnum,
+    pgTable,
+    primaryKey,
+    text,
+    timestamp,
+    uuid
 } from 'drizzle-orm/pg-core';
 
 import { Redis, type RedisOptions } from 'ioredis';
@@ -28,12 +28,12 @@ import { WebSocket, WebSocketServer } from 'ws';
 import os from 'node:os';
 
 import {
-  backfillSince,
-  broadcastToRoom,
-  type ClientInfo,
-  safeSend,
-  takeToken,
-  verifyToken,
+    backfillSince,
+    broadcastToRoom,
+    type ClientInfo,
+    safeSend,
+    takeToken,
+    verifyToken,
 } from './server-utils.js';
 
 // ====== ENV ======
@@ -103,7 +103,7 @@ const arcyouChatRooms = pgTable('arcyou_chat_rooms', {
     .notNull()
     .defaultRandom(),
   name: text('name').notNull(),
-  description: text('description'),
+  imageUrl: text('image_url'),
   lastMessageId: uuid('last_message_id')
     .references((): any => arcyouChatMessages.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true })
@@ -804,8 +804,6 @@ subscriber.on('message', (_channel, message) => {
 
     // 방 목록 실시간 갱신을 위한 rooms.* 이벤트 (user 단위 브로드캐스트)
     const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
-    const messageId: string | undefined = data.message?.id;
-    const createdAt: string | undefined = data.message?.created_at;
 
     if (recipients) {
       // 메시지 생성 이벤트인 경우: rooms.room.activity 브로드캐스트
@@ -813,21 +811,33 @@ subscriber.on('message', (_channel, message) => {
         (data.op === 'room' && data.event === 'message.created') ||
         data.type === 'message.created'
       ) {
-        if (typeof messageId === 'string') {
-          const activityPayload = {
-            op: 'rooms' as const,
-            event: 'room.activity' as const,
-            roomId,
-            lastMessageId: messageId,
-            createdAt: createdAt ?? new Date().toISOString(),
-          };
+        const rawContent = data.message?.content;
+        const lastMessageContent =
+          rawContent &&
+          typeof rawContent === 'object' &&
+          rawContent !== null &&
+          'text' in rawContent
+            ? (rawContent as { text?: string }).text ?? null
+            : null;
 
-          for (const userId of recipients) {
-            const set = userWatchers.get(userId);
-            if (!set || set.size === 0) continue;
-            for (const ws of set) {
-              safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
-            }
+        const createdAt: string | undefined = data.message?.created_at;
+
+        const activityPayload = {
+          op: 'rooms' as const,
+          event: 'room.activity' as const,
+          roomId,
+          lastMessage:
+            lastMessageContent !== undefined
+              ? { content: lastMessageContent }
+              : null,
+          updatedAt: createdAt ?? new Date().toISOString(),
+        };
+
+        for (const userId of recipients) {
+          const set = userWatchers.get(userId);
+          if (!set || set.size === 0) continue;
+          for (const ws of set) {
+            safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
           }
         }
       }
@@ -903,8 +913,6 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
 
     // 방 목록 실시간 갱신을 위한 rooms.* 이벤트 (user 단위 브로드캐스트)
     const recipients = Array.isArray(data.recipients) ? (data.recipients as string[]) : null;
-    const messageId: string | undefined = data.message?.id;
-    const createdAt: string | undefined = data.message?.created_at;
 
     if (recipients) {
       // 메시지 생성 이벤트인 경우: rooms.room.activity 브로드캐스트
@@ -912,21 +920,33 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
         (data.op === 'room' && data.event === 'message.created') ||
         data.type === 'message.created'
       ) {
-        if (typeof messageId === 'string') {
-          const activityPayload = {
-            op: 'rooms' as const,
-            event: 'room.activity' as const,
-            roomId,
-            lastMessageId: messageId,
-            createdAt: createdAt ?? new Date().toISOString(),
-          };
+        const rawContent = data.message?.content;
+        const lastMessageContent =
+          rawContent &&
+          typeof rawContent === 'object' &&
+          rawContent !== null &&
+          'text' in rawContent
+            ? (rawContent as { text?: string }).text ?? null
+            : null;
 
-          for (const userId of recipients) {
-            const set = userWatchers.get(userId);
-            if (!set || set.size === 0) continue;
-            for (const ws of set) {
-              safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
-            }
+        const createdAt: string | undefined = data.message?.created_at;
+
+        const activityPayload = {
+          op: 'rooms' as const,
+          event: 'room.activity' as const,
+          roomId,
+          lastMessage:
+            lastMessageContent !== undefined
+              ? { content: lastMessageContent }
+              : null,
+          updatedAt: createdAt ?? new Date().toISOString(),
+        };
+
+        for (const userId of recipients) {
+          const set = userWatchers.get(userId);
+          if (!set || set.size === 0) continue;
+          for (const ws of set) {
+            safeSend(ws, activityPayload, WS_SEND_HIGH_WATER);
           }
         }
       }

@@ -32,8 +32,8 @@ export function ArcYouChatRoomList({
     return data.map<ArcYouChatRoomListItemProps>((room) => ({
       id: room.id,
       name: room.name,
-      description: room.description ?? undefined,
-      lastMessageId: room.lastMessageId,
+      lastMessage: room.lastMessage?.content ?? null,
+      imageUrl: room.imageUrl,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
       deletedAt: null,
@@ -58,7 +58,6 @@ export function ArcYouChatRoomList({
           onClick: () => {
             console.log(`대화방 나가기: ${room.name} (${room.id})`);
           },
-          separator: true,
         },
       ],
     }));

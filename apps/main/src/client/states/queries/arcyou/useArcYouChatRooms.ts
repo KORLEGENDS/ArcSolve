@@ -59,12 +59,21 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
             data.event === 'room.activity' &&
             typeof data.roomId === 'string'
           ) {
-            const lastMessageId =
-              typeof data.lastMessageId === 'string' ? data.lastMessageId : undefined;
+            const lastMessage =
+              data.lastMessage &&
+              typeof data.lastMessage === 'object' &&
+              'content' in data.lastMessage
+                ? {
+                    content:
+                      typeof data.lastMessage.content === 'string'
+                        ? data.lastMessage.content
+                        : null,
+                  }
+                : null;
             const updatedAt =
-              typeof data.createdAt === 'string' ? data.createdAt : undefined;
+              typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
 
-            bump(data.roomId, { lastMessageId, updatedAt });
+            bump(data.roomId, { lastMessage, updatedAt });
             return;
           }
 
@@ -79,9 +88,9 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
             const room: ArcyouChatRoom = {
               id: roomData.id!,
               name: roomData.name ?? '',
-              description: roomData.description ?? null,
               type: roomData.type ?? 'direct',
-              lastMessageId: roomData.lastMessageId ?? null,
+              imageUrl: roomData.imageUrl ?? null,
+              lastMessage: roomData.lastMessage ?? null,
               // WS 이벤트에는 role/lastReadMessageId 정보가 없으므로 기본값 사용
               role: roomData.role ?? 'participant',
               lastReadMessageId: roomData.lastReadMessageId ?? null,
@@ -134,7 +143,6 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
               const updated: ArcyouChatRoom = {
                 ...original,
                 name: roomData.name ?? original.name,
-                description: roomData.description ?? original.description,
                 updatedAt:
                   roomData.updatedAt ??
                   original.updatedAt ??
@@ -146,7 +154,7 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
               return next;
             };
 
-            // 전체/타입별 목록의 해당 room name/description/updatedAt 패치
+            // 전체/타입별 목록의 해당 room name/updatedAt 패치
             queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
               queryKeys.chatRooms.list(),
               patch,

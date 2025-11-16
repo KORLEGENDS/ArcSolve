@@ -44,9 +44,18 @@ export async function GET(request: NextRequest) {
         rooms: rooms.map((room) => ({
           id: room.id,
           name: room.name,
-          description: room.description,
           type: room.type,
-          lastMessageId: room.lastMessageId,
+          imageUrl: room.imageUrl,
+          lastMessage: room.lastMessage
+            ? {
+                content:
+                  typeof room.lastMessage.content === 'object' &&
+                  room.lastMessage.content !== null &&
+                  'text' in room.lastMessage.content
+                    ? (room.lastMessage.content as { text: string }).text
+                    : null,
+              }
+            : null,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,
           createdAt: room.createdAt?.toISOString(),
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // 요청 본문 파싱
     const body = await request.json().catch(() => ({}));
-    const { type, name, description, targetUserId, memberIds } = body;
+    const { type, name, targetUserId, memberIds } = body;
 
     // 유효성 검사
     if (!type || (type !== 'direct' && type !== 'group')) {
@@ -122,12 +131,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (description && typeof description !== 'string') {
-      return error('BAD_REQUEST', '설명은 문자열이어야 합니다.', {
-        user: { id: userId, email: session.user.email || undefined },
-      });
-    }
-
     const repository = new ArcyouChatRoomRepository();
 
     // direct 타입은 기존 방이 있는지 먼저 확인
@@ -154,7 +157,6 @@ export async function POST(request: NextRequest) {
       {
         type,
         name: name.trim(),
-        description: description?.trim() || null,
         targetUserId: type === 'direct' ? targetUserId : undefined,
         memberIds: type === 'group' ? memberIds : undefined,
       },
@@ -186,9 +188,18 @@ function serializeRoom(room: ArcyouChatRoomWithMemberInfo) {
   return {
     id: room.id,
     name: room.name,
-    description: room.description,
     type: room.type,
-    lastMessageId: room.lastMessageId,
+    imageUrl: room.imageUrl,
+    lastMessage: room.lastMessage
+      ? {
+          content:
+            typeof room.lastMessage.content === 'object' &&
+            room.lastMessage.content !== null &&
+            'text' in room.lastMessage.content
+              ? (room.lastMessage.content as { text: string }).text
+              : null,
+        }
+      : null,
     role: room.role,
     lastReadMessageId: room.lastReadMessageId,
     createdAt: room.createdAt?.toISOString(),

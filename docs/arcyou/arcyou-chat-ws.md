@@ -267,13 +267,15 @@
   "op": "rooms",
   "event": "room.activity",
   "roomId": "<room-uuid>",
-  "lastMessageId": "<message-uuid>",
-  "createdAt": "2025-11-15T00:00:00.000Z"
+  "lastMessage": {
+    "content": "hello"
+  },
+  "updatedAt": "2025-11-15T00:00:00.000Z"
 }
 ```
 
 - 클라이언트는 이 이벤트를 수신하면
-  - React Query 캐시에서 해당 room을 찾아 `lastMessageId`/`updatedAt` 을 갱신하고
+  - React Query 캐시에서 해당 room을 찾아 `lastMessage.content`/`updatedAt` 을 갱신하고
   - 방 목록 배열에서 해당 room을 맨 앞으로 이동시켜 UI 상단에 표시합니다.
 
 ---
@@ -319,7 +321,7 @@ subscriber.on('pmessage', (pattern, channel, message) => { ... });
   4. `payload.op === 'room'` 인 경우 → 해당 `roomId` 로 join 된 소켓에 브로드캐스트  
      (예: `op:'room', event:'message.created'`)
   5. `recipients` 가 있다면 `userWatchers` 를 통해 각 사용자 watcher 소켓에
-     - `{ op:'rooms', event:'room.activity', roomId, lastMessageId, createdAt }`
+     - `{ op:'rooms', event:'room.activity', roomId, lastMessage:{ content }, updatedAt }`
      - `{ op:'rooms', event:'room.created', room: {...} }`
      - `{ op:'rooms', event:'room.updated', room: {...} }`
      를 전송
@@ -385,10 +387,10 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
 - 파일: `apps/main/src/client/states/queries/useArcyouChat.ts`
 
 1. `useBumpChatRoomActivity`
-   - 인자: `(roomId, { lastMessageId?, updatedAt? })`
+   - 인자: `(roomId, { lastMessage?, updatedAt? })`
    - 동작:
      - React Query 캐시에서 `chatRooms.list()`, `list('direct')`, `list('group')` 데이터를 읽어
-     - 해당 `roomId` 를 가진 room을 찾아 `lastMessageId`/`updatedAt` 을 갱신
+     - 해당 `roomId` 를 가진 room을 찾아 `lastMessage.content`/`updatedAt` 을 갱신
      - 배열에서 해당 room을 제거 후 맨 앞에 삽입하여 “최신 방이 상단”이 되도록 보장
 
 2. `useRoomActivitySocket`
@@ -406,8 +408,8 @@ GET /api/arcyou/chat/ws/token
 { op: 'rooms', action: 'watch' } 전송
 
 // 4) room.activity 수신
-{ op: 'rooms', event: 'room.activity', roomId, lastMessageId, createdAt }
-→ useBumpChatRoomActivity(roomId, { lastMessageId, updatedAt: createdAt })
+{ op: 'rooms', event: 'room.activity', roomId, lastMessage: { content }, updatedAt }
+→ useBumpChatRoomActivity(roomId, { lastMessage: { content }, updatedAt })
 
 // 5) room.created 수신
 { op: 'rooms', event: 'room.created', room: { ... } }
@@ -415,7 +417,7 @@ GET /api/arcyou/chat/ws/token
 
 // 6) room.updated 수신
 { op: 'rooms', event: 'room.updated', room: { id, name, ... } }
-→ 해당 room의 name/description/updatedAt 패치
+→ 해당 room의 name/updatedAt 패치
 → onRoomUpdated 콜백을 통해 ArcWork 탭 이름도 동기화
 ```
 

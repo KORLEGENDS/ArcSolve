@@ -59,8 +59,8 @@
   - `PUBSUB_MODE`에 따라 채널 `chat:message` 또는 `conv:{roomId}`
   - payload는 게이트웨이가 그대로 팬아웃 가능한 형태:
     - 메시지 생성: `op:'room', event:'message.created', type:'message.created', roomId, message:{ id, user_id, content, created_at, temp_id }, recipients:string[]`
-    - 방 생성: `op:'rooms', event:'room.created', type:'room.created', roomId, room:{ id, name, description, type, lastMessageId, createdAt, updatedAt }, recipients:string[]`
-    - 방 정보 변경(이름 등): `op:'rooms', event:'room.updated', type:'room.updated', roomId, room:{ id, name, description, type, lastMessageId, createdAt, updatedAt }, recipients:string[]`
+    - 방 생성: `op:'rooms', event:'room.created', type:'room.created', roomId, room:{ id, name, type, imageUrl, lastMessage, createdAt, updatedAt }, recipients:string[]`
+    - 방 정보 변경(이름 등): `op:'rooms', event:'room.updated', type:'room.updated', roomId, room:{ id, name, type, imageUrl, lastMessage, createdAt, updatedAt }, recipients:string[]`
 
 - 토큰 발급 API (`apps/main/src/app/(backend)/api/arcyou/chat/ws/token/route.ts`)
   - `GET /api/arcyou/chat/ws/token`
@@ -126,13 +126,13 @@
         rooms: Array<{
           id: string;
           name: string;
-          description: string | null;
           type: 'direct' | 'group';
-          lastMessageId: string | null;    // 메시지 UUID
-          role: string;
-          lastReadMessageId: string | null; // 메시지 UUID
-          createdAt: string; // ISO string
-          updatedAt: string; // ISO string
+          imageUrl: string | null;
+          lastMessage: { content: string | null } | null;
+          role: 'owner' | 'manager' | 'participant';
+          lastReadMessageId: string | null;
+          createdAt: string | null;
+          updatedAt: string | null;
         }>;
       }
     }
@@ -150,7 +150,6 @@
     {
       type: 'direct' | 'group';
       name: string; // 필수, 1-255자
-      description?: string | null; // 선택
       targetUserId?: string; // direct 타입일 때 필수
       memberIds?: string[]; // group 타입일 때 필수 (최소 1명)
     }
@@ -158,7 +157,6 @@
   - 유효성 검사:
     - `type`: `'direct'` 또는 `'group'` 필수
     - `name`: 문자열, 1-255자 필수
-    - `description`: 문자열 또는 null (선택)
     - `direct` 타입: `targetUserId` 필수
     - `group` 타입: `memberIds` 배열 필수 (최소 1명)
   - 로직:
@@ -172,13 +170,13 @@
         room: {
           id: string;
           name: string;
-          description: string | null;
           type: 'direct' | 'group';
-          lastMessageId: string | null;    // 메시지 UUID
-          role: string;
-          lastReadMessageId: string | null; // 메시지 UUID
-          createdAt: string; // ISO string
-          updatedAt: string; // ISO string
+          imageUrl: string | null;
+          lastMessage: { content: string | null } | null;
+          role: 'owner' | 'manager' | 'participant';
+          lastReadMessageId: string | null;
+          createdAt: string | null;
+          updatedAt: string | null;
         };
       }
     }
@@ -200,10 +198,10 @@
     - `useRoomActivitySocket()` 훅을 통해 별도의 WebSocket을 열어 `op:'rooms', action:'watch'` 등록
     - 게이트웨이로부터
       - `op:'rooms', event:'room.activity'` 수신 시 `useBumpChatRoomActivity()`를 통해
-        - React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)의 해당 방 `lastMessageId`/`updatedAt`을 갱신
+        - React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)의 해당 방 `lastMessage.content`/`updatedAt`을 갱신
         - 해당 방을 배열의 맨 앞으로 이동시켜 “최신 메시지 방이 상단에 위치”하도록 정렬
       - `op:'rooms', event:'room.created'` 수신 시 방 목록 캐시에 새 방을 prepend
-      - `op:'rooms', event:'room.updated'` 수신 시 방 목록 캐시의 해당 room `name`/`description`/`updatedAt` 을 패치하고, ArcWork 탭 이름도 동기화
+      - `op:'rooms', event:'room.updated'` 수신 시 방 목록 캐시의 해당 room `name`/`updatedAt` 을 패치하고, ArcWork 탭 이름도 동기화
   - 채팅방 생성:
     - 1:1 채팅: 친구 검색 → 클릭 시 즉시 채팅방 생성 및 탭 열기
     - 그룹 채팅: 친구 검색 → 선택(badge) → 생성 버튼 클릭 → 채팅방 생성 및 탭 열기
@@ -321,10 +319,10 @@
 3. uws-gateway Redis subscriber는 payload를 수신하여
    - `op:'room', event:'message.created'`를 해당 `roomId`에 조인한 모든 소켓에 브로드캐스트하고
    - `recipients` 목록을 기준으로 각 user watcher 소켓에
-     - `{ op:'rooms', event:'room.activity', roomId, lastMessageId, createdAt }` 이벤트를 전송
+     - `{ op:'rooms', event:'room.activity', roomId, lastMessage:{ content }, updatedAt }` 이벤트를 전송
 4. 클라이언트 RightSidebar에서 동작하는 `useRoomActivitySocket()` 훅은
    - `rooms.room.activity` 이벤트를 수신할 때마다 `useBumpChatRoomActivity()`를 통해
-     - React Query 캐시에 있는 해당 방의 `lastMessageId`/`updatedAt`을 갱신하고
+     - React Query 캐시에 있는 해당 방의 `lastMessage.content`/`updatedAt`을 갱신하고
      - 방 목록 배열에서 해당 방을 맨 앞으로 이동
    - 결과적으로 “열려 있지 않은 방에 새 메시지가 와도” 방 목록에서 해당 방이 즉시 상단으로 올라감
 

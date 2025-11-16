@@ -90,13 +90,13 @@ export function useChatRoomMembers(roomId: string) {
 }
 
 /**
- * 방 목록 캐시에서 특정 room의 lastMessageId/updatedAt을 갱신하고
+ * 방 목록 캐시에서 특정 room의 lastMessage/updatedAt을 갱신하고
  * 최신 방이 상단에 오도록 재정렬하는 헬퍼 훅
  */
 export function useBumpChatRoomActivity() {
   const queryClient = useQueryClient();
 
-  const bump = (roomId: string, opts: { lastMessageId?: string; updatedAt?: string }) => {
+  const bump = (roomId: string, opts: { lastMessage?: { content: string | null } | null; updatedAt?: string }) => {
     const updateList = (rooms?: ArcyouChatRoom[]) => {
       if (!rooms) return rooms;
       const idx = rooms.findIndex((r) => r.id === roomId);
@@ -105,7 +105,7 @@ export function useBumpChatRoomActivity() {
       const original = rooms[idx];
       const updated: ArcyouChatRoom = {
         ...original,
-        lastMessageId: opts.lastMessageId ?? original.lastMessageId,
+        lastMessage: opts.lastMessage ?? original.lastMessage,
         updatedAt: opts.updatedAt ?? original.updatedAt ?? new Date().toISOString(),
       };
 

@@ -90,7 +90,7 @@
   --color-tab-textbox: var(--color-text);
   --color-tab-textbox-background: var(--color-3);
   --color-border-tab-selected: var(--color-text);
-  --color-border-tab-selected-background: var(--color-4);
+  --color-border-tab-selected-background: var(--color-tab);
   --color-border-tab-unselected: gray;
   --color-border-tab-unselected-background: var(--color-2);
   --color-splitter: var(--color-2);

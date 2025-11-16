@@ -133,7 +133,6 @@ export function RightSidebarContent() {
         const room = await createDirectRoom({
           type: 'direct',
           name: relationship.targetUser.name,
-          description: null,
           targetUserId: relationship.targetUser.id,
         });
         // 채팅방 열기
@@ -200,7 +199,6 @@ export function RightSidebarContent() {
         const room = await createGroupRoom({
           type: 'group',
           name: roomName,
-          description: null,
           memberIds,
         });
 

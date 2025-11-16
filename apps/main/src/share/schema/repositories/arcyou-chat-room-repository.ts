@@ -1,6 +1,6 @@
 import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
-import { arcyouChatMembers, arcyouChatRooms, outbox, users } from '@/share/schema/drizzles';
+import { arcyouChatMembers, arcyouChatMessages, arcyouChatRooms, outbox, users } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { ArcyouChatRelationRepository } from './arcyou-chat-relation-repository';
@@ -9,9 +9,9 @@ import type { DB } from './base-repository';
 export type ArcyouChatRoomWithMemberInfo = {
   id: string;
   name: string;
-  description: string | null;
   type: 'direct' | 'group';
-  lastMessageId: string | null;
+  imageUrl: string | null;
+  lastMessage: { content: unknown } | null;
   createdAt: Date | null;
   updatedAt: Date | null;
   role: 'owner' | 'manager' | 'participant';
@@ -30,7 +30,6 @@ export type ArcyouChatRoomMemberWithUser = {
 export type CreateChatRoomInput = {
   type: 'direct' | 'group';
   name: string;
-  description?: string | null;
   targetUserId?: string; // direct 타입일 때 필수
   memberIds?: string[]; // group 타입일 때 필수 (최소 1명)
 };
@@ -52,13 +51,15 @@ export class ArcyouChatRoomRepository {
     userId: string,
     type?: 'direct' | 'group'
   ): Promise<ArcyouChatRoomWithMemberInfo[]> {
+    const lastMessage = alias(arcyouChatMessages, 'last_message');
+
     const rooms = await this.database
       .select({
         id: arcyouChatRooms.id,
         name: arcyouChatRooms.name,
-        description: arcyouChatRooms.description,
         type: arcyouChatRooms.type,
-        lastMessageId: arcyouChatRooms.lastMessageId,
+        imageUrl: arcyouChatRooms.imageUrl,
+        lastMessageContent: lastMessage.content,
         createdAt: arcyouChatRooms.createdAt,
         updatedAt: arcyouChatRooms.updatedAt,
         role: arcyouChatMembers.role,
@@ -66,6 +67,13 @@ export class ArcyouChatRoomRepository {
       })
       .from(arcyouChatMembers)
       .innerJoin(arcyouChatRooms, eq(arcyouChatMembers.roomId, arcyouChatRooms.id))
+      .leftJoin(
+        lastMessage,
+        and(
+          eq(lastMessage.id, arcyouChatRooms.lastMessageId),
+          isNull(lastMessage.deletedAt)
+        )
+      )
       .where(
         and(
           eq(arcyouChatMembers.userId, userId),
@@ -75,7 +83,17 @@ export class ArcyouChatRoomRepository {
       )
       .orderBy(desc(sql`COALESCE(${arcyouChatRooms.updatedAt}, ${arcyouChatRooms.createdAt})`));
 
-    return rooms;
+    return rooms.map((room) => ({
+      id: room.id,
+      name: room.name,
+      type: room.type,
+      imageUrl: room.imageUrl,
+      lastMessage: room.lastMessageContent ? { content: room.lastMessageContent } : null,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+      role: room.role,
+      lastReadMessageId: room.lastReadMessageId,
+    }));
   }
 
   /**
@@ -87,14 +105,15 @@ export class ArcyouChatRoomRepository {
     targetUserId: string
   ): Promise<ArcyouChatRoomWithMemberInfo | null> {
     const targetMember = alias(arcyouChatMembers, 'target_member');
+    const lastMessage = alias(arcyouChatMessages, 'last_message');
 
     const [room] = await this.database
       .select({
         id: arcyouChatRooms.id,
         name: arcyouChatRooms.name,
-        description: arcyouChatRooms.description,
         type: arcyouChatRooms.type,
-        lastMessageId: arcyouChatRooms.lastMessageId,
+        imageUrl: arcyouChatRooms.imageUrl,
+        lastMessageContent: lastMessage.content,
         createdAt: arcyouChatRooms.createdAt,
         updatedAt: arcyouChatRooms.updatedAt,
         role: arcyouChatMembers.role,
@@ -110,6 +129,13 @@ export class ArcyouChatRoomRepository {
           isNull(targetMember.deletedAt)
         )
       )
+      .leftJoin(
+        lastMessage,
+        and(
+          eq(lastMessage.id, arcyouChatRooms.lastMessageId),
+          isNull(lastMessage.deletedAt)
+        )
+      )
       .where(
         and(
           eq(arcyouChatMembers.userId, userId),
@@ -119,7 +145,19 @@ export class ArcyouChatRoomRepository {
       )
       .limit(1);
 
-    return room ?? null;
+    if (!room) return null;
+
+    return {
+      id: room.id,
+      name: room.name,
+      type: room.type,
+      imageUrl: room.imageUrl,
+      lastMessage: room.lastMessageContent ? { content: room.lastMessageContent } : null,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+      role: room.role,
+      lastReadMessageId: room.lastReadMessageId,
+    };
   }
 
   /**
@@ -177,7 +215,6 @@ export class ArcyouChatRoomRepository {
         .values({
           type: input.type,
           name: input.name,
-          description: input.description ?? null,
         })
         .returning();
 
@@ -204,13 +241,13 @@ export class ArcyouChatRoomRepository {
       );
 
       // 생성된 채팅방 정보 반환 (멤버 정보 포함)
+      // 새로 생성된 방이므로 lastMessage는 null
       const [member] = await tx
         .select({
           id: arcyouChatRooms.id,
           name: arcyouChatRooms.name,
-          description: arcyouChatRooms.description,
           type: arcyouChatRooms.type,
-          lastMessageId: arcyouChatRooms.lastMessageId,
+          imageUrl: arcyouChatRooms.imageUrl,
           createdAt: arcyouChatRooms.createdAt,
           updatedAt: arcyouChatRooms.updatedAt,
           role: arcyouChatMembers.role,
@@ -230,6 +267,18 @@ export class ArcyouChatRoomRepository {
         throw new Error('채팅방 멤버 정보 조회에 실패했습니다.');
       }
 
+      return {
+        id: member.id,
+        name: member.name,
+        type: member.type,
+        imageUrl: member.imageUrl,
+        lastMessage: null,
+        createdAt: member.createdAt,
+        updatedAt: member.updatedAt,
+        role: member.role,
+        lastReadMessageId: member.lastReadMessageId,
+      };
+
       // Outbox에 room.created 이벤트 적재 (WS를 통해 방 목록에 새 방 추가)
       try {
         await tx.insert(outbox).values({
@@ -243,9 +292,9 @@ export class ArcyouChatRoomRepository {
             room: {
               id: room.id,
               name: room.name,
-              description: room.description,
               type: room.type,
-              lastMessageId: room.lastMessageId ?? null,
+              imageUrl: member.imageUrl,
+              lastMessage: null,
               createdAt: room.createdAt?.toISOString() ?? new Date().toISOString(),
               updatedAt: room.updatedAt?.toISOString() ?? null,
             },
@@ -260,8 +309,6 @@ export class ArcyouChatRoomRepository {
         // Outbox 적재 실패는 채팅방 생성 자체를 막지 않는다.
         // 필요시 로깅/모니터링 연동 가능.
       }
-
-      return member;
     });
   }
 
@@ -376,13 +423,14 @@ export class ArcyouChatRoomRepository {
       }
 
       // 호출자 기준 멤버 정보와 함께 반환 (listByUserId와 동일한 셀렉터)
+      const lastMessage = alias(arcyouChatMessages, 'last_message');
       const [result] = await tx
         .select({
           id: arcyouChatRooms.id,
           name: arcyouChatRooms.name,
-          description: arcyouChatRooms.description,
           type: arcyouChatRooms.type,
-          lastMessageId: arcyouChatRooms.lastMessageId,
+          imageUrl: arcyouChatRooms.imageUrl,
+          lastMessageContent: lastMessage.content,
           createdAt: arcyouChatRooms.createdAt,
           updatedAt: arcyouChatRooms.updatedAt,
           role: arcyouChatMembers.role,
@@ -390,6 +438,13 @@ export class ArcyouChatRoomRepository {
         })
         .from(arcyouChatMembers)
         .innerJoin(arcyouChatRooms, eq(arcyouChatMembers.roomId, arcyouChatRooms.id))
+        .leftJoin(
+          lastMessage,
+          and(
+            eq(lastMessage.id, arcyouChatRooms.lastMessageId),
+            isNull(lastMessage.deletedAt)
+          )
+        )
         .where(
           and(
             eq(arcyouChatMembers.roomId, roomId),
@@ -430,9 +485,9 @@ export class ArcyouChatRoomRepository {
               room: {
                 id: result.id,
                 name: result.name,
-                description: result.description,
                 type: result.type,
-                lastMessageId: result.lastMessageId ?? null,
+                imageUrl: result.imageUrl,
+                lastMessage: result.lastMessageContent ? { content: result.lastMessageContent } : null,
                 createdAt: result.createdAt?.toISOString() ?? new Date().toISOString(),
                 updatedAt: result.updatedAt?.toISOString() ?? null,
               },
@@ -448,7 +503,17 @@ export class ArcyouChatRoomRepository {
         // 필요시 로깅/모니터링 연동 가능.
       }
 
-      return result;
+      return {
+        id: result.id,
+        name: result.name,
+        type: result.type,
+        imageUrl: result.imageUrl,
+        lastMessage: result.lastMessageContent ? { content: result.lastMessageContent } : null,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+        role: result.role,
+        lastReadMessageId: result.lastReadMessageId,
+      };
     });
   }
 }
