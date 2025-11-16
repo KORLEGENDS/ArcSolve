@@ -11,6 +11,10 @@ import {
   documentUploadPresignRequestSchema,
   documentUploadRequestSchema,
 } from '@/share/schema/zod/document-upload-zod';
+import {
+  type YoutubeDocumentCreateRequest,
+  youtubeDocumentCreateRequestSchema,
+} from '@/share/schema/zod/document-youtube-zod';
 import type {
   DocumentDownloadUrlResponse,
   DocumentUploadConfirmRequest,
@@ -70,6 +74,10 @@ export type DocumentFolderCreateRequest = {
 };
 
 export type DocumentFolderCreateResponse = {
+  document: DocumentDTO;
+};
+
+export type DocumentYoutubeCreateResponse = {
   document: DocumentDTO;
 };
 
@@ -188,6 +196,23 @@ export const documentQueryOptions = {
     {
       method: 'POST',
       bodyExtractor: (variables) => documentFolderCreateRequestSchema.parse(variables),
+    }
+  ),
+
+  /**
+   * YouTube 링크 기반 문서 생성 뮤테이션 옵션
+   */
+  createYoutube: createApiMutation<
+    DocumentDTO,
+    DocumentYoutubeCreateResponse,
+    YoutubeDocumentCreateRequest
+  >(
+    () => '/api/document/youtube',
+    (data) => data.document,
+    {
+      method: 'POST',
+      bodyExtractor: (variables) =>
+        youtubeDocumentCreateRequestSchema.parse(variables),
     }
   ),
 } as const;

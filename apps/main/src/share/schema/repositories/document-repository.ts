@@ -64,6 +64,14 @@ export type CreatePendingFileInput = {
   storageKey: string;
 };
 
+export type CreateExternalFileInput = {
+  userId: string;
+  parentPath: string;
+  name: string;
+  mimeType: string;
+  storageKey: string;
+};
+
 export class DocumentRepository {
   constructor(private readonly database: DB = defaultDb) {}
 
@@ -188,6 +196,58 @@ export class DocumentRepository {
 
       if (!row) {
         throw new Error('문서 생성에 실패했습니다.');
+      }
+
+      return row;
+    } catch (error) {
+      if (isDatabaseError(error) && error.code === '23505') {
+        // user_id + path 유니크 제약 위반
+        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
+          userId: input.userId,
+          parentPath: input.parentPath,
+          name: input.name,
+        });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 외부 리소스(YouTube 등)를 나타내는 파일 문서를 생성합니다.
+   * - kind = 'file'
+   * - uploadStatus = 'uploaded'
+   * - fileMeta.mimeType / storageKey만 설정합니다.
+   */
+  async createExternalFile(input: CreateExternalFileInput): Promise<Document> {
+    const label = toLtreeLabel(input.name);
+    const parentLtreePath = normalizeLtreePath(input.parentPath);
+    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
+
+    // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+    if (parentLtreePath) {
+      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
+    }
+
+    const fileMeta: DocumentFileMeta = {
+      mimeType: input.mimeType,
+      fileSize: 0,
+      storageKey: input.storageKey,
+    };
+
+    try {
+      const [row] = await this.database
+        .insert(documents)
+        .values({
+          userId: input.userId,
+          path,
+          kind: 'file',
+          fileMeta,
+          uploadStatus: 'uploaded',
+        })
+        .returning();
+
+      if (!row) {
+        throw new Error('외부 파일 문서 생성에 실패했습니다.');
       }
 
       return row;

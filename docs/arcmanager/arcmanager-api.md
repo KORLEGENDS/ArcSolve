@@ -1,0 +1,614 @@
+## 1. ArcManager 개요
+
+ArcManager는 ArcSolve 내에서 **문서(파일/폴더) 트리를 탐색하고 관리하는 파일 매니저**입니다.  
+현재 구현은 `document` 도메인(ArcData, ArcWork와 연동되는 파일/폴더) 중심이며, 구조적으로는 노트/채팅 탭까지 확장 가능하도록 설계되어 있습니다.
+
+- **주요 역할**
+  - `document` 테이블 기반 **트리 구조(ltree)**를 좌측 패널에서 탐색
+  - 파일/폴더 생성 및 이동 (Drag & Drop)
+  - 파일은 ArcWork 탭 + ArcData 뷰어와 연동해 열기
+- **관련 핵심 파일**
+  - 클라이언트 UI  
+    - `apps/main/src/client/components/arc/ArcManager/ArcManager.tsx`
+    - `apps/main/src/client/components/arc/ArcManager/components/tree/ArcManagerTree.tsx`
+    - `apps/main/src/client/components/arc/ArcManager/components/list/ArcManagerListItem.tsx`
+  - React Query 훅  
+    - `apps/main/src/client/states/queries/document/useDocument.ts`
+  - 서버/레포지토리  
+    - `apps/main/src/app/(backend)/api/document/route.ts`
+    - `apps/main/src/app/(backend)/api/document/[documentId]/move/route.ts`
+    - `apps/main/src/app/(backend)/api/document/folder/route.ts`
+    - `apps/main/src/share/schema/repositories/document-repository.ts`
+    - `apps/main/src/share/schema/drizzles/document-drizzle.ts`
+
+---
+
+## 2. 데이터 모델 및 경로 정책
+
+### 2.1 Document 스키마 (요약)
+
+문서(파일/폴더)는 `document` 테이블에 저장되며, **경로(path)**는 PostgreSQL `ltree` 타입으로 관리합니다.
+
+- `kind`: `'file' | 'folder' | 'note'`
+- `path`: ltree 경로 (예: `project.sub_folder.file_pdf`)
+- `userId`: 사용자별 네임스페이스
+
+```43:88:apps/main/src/share/schema/drizzles/document-drizzle.ts
+export const documents = pgTable(
+  'document',
+  {
+    documentId: uuid('document_id').primaryKey().notNull().defaultRandom(),
+    userId: uuid('user_id').notNull(),
+    path: ltree('path').notNull(),
+    kind: documentKindEnum('kind').notNull(),
+    fileMeta: jsonb('file_meta'),
+    uploadStatus: documentUploadStatusEnum('upload_status')
+      .default('uploaded')
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    userPathUnique: uniqueIndex('document_user_id_path_deleted_null_idx')
+      .on(table.userId, table.path)
+      .where(sql`deleted_at IS NULL`),
+    pathGistIdx: index('document_path_gist_idx').using('gist', table.path),
+  })
+);
+```
+
+### 2.2 경로 규칙 (ltree)
+
+- 각 segment는 `toLtreeLabel`로 정규화
+  - 허용 문자: `a-z`, `0-9`, `_`
+  - 첫 글자가 영문자가 아니면 `n_` prefix
+- 부모/자식 관계는 `'.'`로 연결된 prefix 관계로 나타냅니다.
+  - 예:  
+    - 폴더: `project`  
+    - 하위 폴더: `project.design`  
+    - 파일: `project.design.v1_pdf`
+
+서버에서는 `normalizeLtreePath`를 통해 클라이언트에서 넘어온 경로 문자열을 한 번 더 정규화합니다.
+
+---
+
+## 3. 서버 API 레이어
+
+### 3.1 문서 목록 조회 (ArcManager 트리용)
+
+- **엔드포인트**: `GET /api/document?kind=file`
+- **핵심 정책**
+  - 현재 구현에서는 ArcManager 파일 트리(view=files)만 지원합니다.
+  - 내부에서는 `DocumentRepository.listByOwner(userId)`로 전체 문서를 가져온 뒤,
+    **파일 + 폴더만 필터링**해서 반환합니다.
+
+```23:38:apps/main/src/app/(backend)/api/document/route.ts
+    const repository = new DocumentRepository();
+    const allDocuments = await repository.listByOwner(userId);
+
+    // ArcManager 트리용 뷰: file + folder 문서만 반환합니다.
+    const documents = allDocuments.filter(
+      (doc) => doc.kind === 'file' || doc.kind === 'folder'
+    );
+```
+
+- **응답 DTO**: `DocumentDTO[]`
+  - 정의 위치: `apps/main/src/share/libs/react-query/query-options/document.ts`
+  - 필드: `documentId`, `userId`, `path`, `kind`, `uploadStatus`, `fileMeta`, `createdAt`, `updatedAt`
+
+### 3.2 문서 이동 API (폴더/파일 공통)
+
+- **엔드포인트**: `PATCH /api/document/[documentId]/move`
+- **요청 바디**:
+
+```ts
+type DocumentMoveRequest = {
+  /** 새 부모 경로 ('' = 루트) */
+  parentPath: string;
+};
+```
+
+- **서버 처리 흐름**
+  1. `DocumentRepository.moveDocumentForOwner({ documentId, userId, targetParentPath })` 호출
+  2. `documentId`가 가리키는 문서의 `path`를 기준으로 **subtree**를 계산
+     - `sql\`${documents.path} <@ ${oldPath}::ltree\``
+  3. 서브트리에 포함되는 모든 문서에 대해 `oldPath` prefix를 `newBasePath`로 치환
+     - 파일이면 “자기 자신만 이동”
+     - 폴더이면 “폴더 + 하위 전체 이동”
+  4. `userId + path` 유니크 제약 위반 시 `CONFLICT` 에러 반환
+
+```279:379:apps/main/src/share/schema/repositories/document-repository.ts
+  async moveDocumentForOwner(params: {
+    documentId: string;
+    userId: string;
+    targetParentPath: string;
+  }): Promise<Document> {
+    const { documentId, userId, targetParentPath } = params;
+
+    const current = await this.findByIdForOwner(documentId, userId);
+    if (!current) { /* NOT_FOUND */ }
+
+    const oldPath = (current.path as unknown as string) ?? '';
+    const normalizedTargetParent = normalizeLtreePath(targetParentPath);
+
+    // 자기 자신 또는 자신의 하위 경로로 이동하는 경우는 의미 없는 이동이므로 no-op
+    if (normalizedTargetParent) {
+      const isSame = oldPath === normalizedTargetParent;
+      const isDescendant = normalizedTargetParent.startsWith(`${oldPath}.`);
+      if (isSame || isDescendant) {
+        return current;
+      }
+    }
+
+    const segments = oldPath.split('.').filter(Boolean);
+    const selfLabel = segments[segments.length - 1] ?? toLtreeLabel('unnamed');
+    const newBasePath = normalizedTargetParent
+      ? `${normalizedTargetParent}.${selfLabel}`
+      : selfLabel;
+
+    const updatedRoot = await this.database.transaction(async (tx) => {
+      if (normalizedTargetParent) {
+        await this.ensureFolderForOwner(tx, userId, normalizedTargetParent);
+      }
+
+      const subtree = await tx
+        .select()
+        .from(documents)
+        .where(
+          and(
+            eq(documents.userId, userId),
+            isNull(documents.deletedAt),
+            sql`${documents.path} <@ ${oldPath}::ltree`
+          )
+        );
+
+      for (const row of subtree) {
+        const rowPath = row.path as unknown as string;
+        let suffix = '';
+        if (rowPath.length > oldPath.length) {
+          suffix = rowPath.slice(oldPath.length + 1);
+        }
+        const newPath = suffix ? `${newBasePath}.${suffix}` : newBasePath;
+
+        await tx
+          .update(documents)
+          .set({ path: newPath })
+          .where(
+            and(eq(documents.documentId, row.documentId), eq(documents.userId, userId))
+          );
+      }
+
+      // ...
+    });
+
+    return updatedRoot;
+  }
+```
+
+> **중요**: 서버는 **폴더/파일 타입을 구분하지 않고** `documentId` 기준으로 subtree를 이동합니다.  
+> “폴더 이동 + 하위 전체 이동”은 이 레벨에서 보장되며, 클라이언트에서는 단순히 `documentId`와 `parentPath`만 넘깁니다.
+
+### 3.3 폴더 생성 API
+
+- **엔드포인트**: `POST /api/document/folder`
+- **요청 바디**:
+
+```ts
+type DocumentFolderCreateRequest = {
+  name: string;
+  parentPath: string; // '' = 루트
+};
+```
+
+- `DocumentRepository.createFolderForOwner` 호출
+  - `parentPath + toLtreeLabel(name)`으로 `path` 구성
+  - 해당 경로의 폴더 문서가 이미 있으면 그대로 반환 (idempotent)
+
+---
+
+## 4. React Query 레이어
+
+### 4.1 Document Query Options
+
+- 정의 위치: `apps/main/src/share/libs/react-query/query-options/document.ts`
+- 주요 타입
+  - `DocumentDTO`: 서버 Document 엔티티의 클라이언트 DTO
+  - `DocumentMoveMutationVariables`: `{ documentId: string; parentPath: string }`
+- 주요 옵션
+  - `listFiles`: `GET /api/document?kind=file` → `DocumentDTO[]`
+  - `move`: `PATCH /api/document/[documentId]/move` → `DocumentDTO`
+  - `createFolder`: `POST /api/document/folder` → `DocumentDTO`
+
+```76:176:apps/main/src/share/libs/react-query/query-options/document.ts
+export const documentQueryOptions = {
+  // ...
+  listFiles: () =>
+    queryOptions({
+      queryKey: queryKeys.documents.listFiles(),
+      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
+        '/api/document?kind=file',
+        (data) => data.documents,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
+        }
+      ),
+    }),
+
+  move: createApiMutation<DocumentDTO, DocumentMoveResponse, DocumentMoveMutationVariables>(
+    (variables) => `/api/document/${variables.documentId}/move`,
+    (data) => data.document,
+    {
+      method: 'PATCH',
+      bodyExtractor: ({ documentId: _documentId, ...body }) =>
+        documentMoveRequestSchema.parse(body),
+    }
+  ),
+
+  createFolder: createApiMutation<
+    DocumentDTO,
+    DocumentFolderCreateResponse,
+    DocumentFolderCreateRequest
+  >(
+    () => '/api/document/folder',
+    (data) => data.document,
+    {
+      method: 'POST',
+      bodyExtractor: (variables) => documentFolderCreateRequestSchema.parse(variables),
+    }
+  ),
+} as const;
+```
+
+### 4.2 ArcManager에서 사용하는 훅들
+
+정의 위치: `apps/main/src/client/states/queries/document/useDocument.ts`
+
+- `useDocumentFiles`
+  - `documentQueryOptions.listFiles()` 기반
+  - ArcManager 파일 탭이 사용하는 파일/폴더 목록
+- `useDocumentMove`
+  - `documentQueryOptions.move` 기반
+  - **옵티미스틱 업데이트 + 부분 캐시 갱신을 포함**
+- `useDocumentFolderCreate`
+  - 새 폴더 생성용 mutation
+
+---
+
+## 5. 옵티미스틱 이동 (폴더/파일 공통)
+
+### 5.1 핵심 아이디어
+
+문서 이동(`move`) 시:
+
+1. 서버 응답을 기다리기 전에 **React Query 캐시에서 문서 리스트의 `path`를 먼저 변경**합니다.
+2. 서버와 동일한 ltree prefix 이동 규칙을 클라이언트에 복제하여,  
+   **폴더 이동 시에도 서브트리 전체가 한 번에 이동**된 것처럼 보이게 합니다.
+3. 실패 시 롤백, 성공/실패와 관계없이 백그라운드 리페치로 최종 동기화합니다.
+
+### 5.2 `applyDocumentMoveOptimistic`
+
+```118:159:apps/main/src/client/states/queries/document/useDocument.ts
+function applyDocumentMoveOptimistic(
+  list: DocumentDTO[],
+  input: DocumentMoveMutationVariables,
+): DocumentDTO[] {
+  const { documentId, parentPath } = input;
+
+  const moving = list.find((d) => d.documentId === documentId);
+  if (!moving) return list;
+
+  const oldPath = moving.path;
+  if (!oldPath) return list;
+
+  const normalizedTargetParent = parentPath.trim();
+
+  // 자기 자신 또는 자신의 하위 경로로 이동하는 경우는 의미 없는 이동이므로 no-op 처리
+  if (normalizedTargetParent) {
+    const isSame = oldPath === normalizedTargetParent;
+    const isDescendant = normalizedTargetParent.startsWith(`${oldPath}.`);
+    if (isSame || isDescendant) {
+      return list;
+    }
+  }
+
+  const segments = oldPath.split('.').filter(Boolean);
+  const selfLabel = segments[segments.length - 1] ?? '';
+  const newBasePath = normalizedTargetParent
+    ? `${normalizedTargetParent}.${selfLabel}`
+    : selfLabel;
+
+  return list.map((doc) => {
+    const path = doc.path;
+
+    // subtree 판별: oldPath 또는 oldPath.xxx
+    if (path === oldPath || path.startsWith(`${oldPath}.`)) {
+      let suffix = '';
+      if (path.length > oldPath.length) {
+        suffix = path.slice(oldPath.length + 1);
+      }
+      const newPath = suffix ? `${newBasePath}.${suffix}` : newBasePath;
+
+      return {
+        ...doc,
+        path: newPath,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return doc;
+  });
+}
+```
+
+### 5.3 `useDocumentMove`의 옵티미스틱 처리
+
+```161:199:apps/main/src/client/states/queries/document/useDocument.ts
+export function useDocumentMove(): UseDocumentMoveReturn {
+  const queryClient = useQueryClient();
+
+  const moveMutation = useMutation({
+    mutationFn: documentQueryOptions.move.mutationFn,
+    async onMutate(variables: DocumentMoveMutationVariables) {
+      const key = queryKeys.documents.listFiles();
+
+      // 관련 쿼리의 진행 중 refetch를 취소합니다.
+      await queryClient.cancelQueries({ queryKey: key });
+
+      const previous = queryClient.getQueryData<DocumentDTO[]>(key);
+      if (!previous) {
+        return { previous: undefined as DocumentDTO[] | undefined };
+      }
+
+      const updated = applyDocumentMoveOptimistic(previous, variables);
+      queryClient.setQueryData<DocumentDTO[]>(key, updated);
+
+      return { previous };
+    },
+    onError(_error, _variables, context) {
+      const key = queryKeys.documents.listFiles();
+      if (context?.previous) {
+        queryClient.setQueryData<DocumentDTO[]>(key, context.previous);
+      }
+    },
+    onSettled() {
+      const key = queryKeys.documents.listFiles();
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+  });
+
+  return {
+    move: moveMutation.mutateAsync,
+    isMoving: moveMutation.isPending,
+    moveError: moveMutation.error,
+  };
+}
+```
+
+- **옵티미스틱 시점**: `onMutate`
+- **롤백 시점**: `onError`
+- **서버와 최종 동기화**: `onSettled`에서 `invalidateQueries` → 백그라운드 리페치
+
+> 이 덕분에 ArcManager 트리는 **폴더/파일 이동 직후 끊김 없이 UI가 갱신**되고,  
+> 네트워크/서버 상태는 이후 자동으로 맞춰집니다.
+
+---
+
+## 6. ArcManager 컴포넌트 구조
+
+### 6.1 탭 구조 및 상태
+
+정의 파일: `apps/main/src/client/components/arc/ArcManager/ArcManager.tsx`
+
+- 탭 종류
+  - `notes` / `files` / `chat`
+  - 현재 서버 연동은 `files` 탭만 사용 (노트/채팅은 향후 확장 포인트)
+- 탭별 상태 (`ArcManagerTabViewState`)
+  - `searchQuery`: 검색어 (현재 필터 미적용, UI만)
+  - `currentPath`: 현재 탐색 중인 경로 (`''` = 루트)
+  - `isCollapsed`: 브레드크럼 접힘 여부
+  - `creatingFolder`: 인라인 새 폴더 입력 중 여부
+  - `newFolderName`: 인라인 입력 값
+
+문서 목록(`DocumentDTO[]`)은 `fileTreeItems: ArcManagerTreeItem[]`으로 변환되어 트리 구조로 렌더링됩니다.
+
+### 6.2 Tree & List 컴포넌트
+
+- `ArcManagerTreeItem` = `ArcManagerListItem` + `children` (재귀)
+- `ArcManagerTree`
+  - 각 행(row)을 렌더링하고, 폴더 확장/축소 및 DnD 이벤트를 처리
+  - `onFolderEnter`, `onItemDragStart`, `onItemDropOnRow`, `onItemDropOnEmpty`, `onPlaceholderDrop`를 props로 받음
+- `ArcManagerListItem`
+  - 실제 버튼 UI (아이콘 + 이름 + 메뉴 아이콘)
+  - `itemType === 'folder'`일 때 폴더 아이콘/열림/닫힘 상태 표시
+
+---
+
+## 7. 드래그앤드롭 정책
+
+### 7.1 드래그 소스 (행 기준)
+
+`ArcManagerTree`의 각 행은 `draggable` 속성을 가지고, `onDragStart`에서 부모로 이벤트를 위임합니다.
+
+```140:152:apps/main/src/client/components/arc/ArcManager/components/tree/ArcManagerTree.tsx
+        <div
+          className={`${s.row} flex items-center gap-2 ${isDropGroup ? 'bg-muted/40' : ''} ${isDropFolder ? 'ring-1 ring-primary border-primary/60' : ''}`}
+          // ...
+          draggable
+          onDragStart={(event) => {
+            onItemDragStart?.({ item, event });
+          }}
+        >
+```
+
+`ArcManager.tsx`에서는 다음 두 가지 데이터가 동시에 설정됩니다.
+
+1. **ArcWork 탭 DnD (파일만)**
+   - `item.itemType === 'item'`일 때만 ArcData 탭을 열기 위한 메타데이터 세팅
+2. **ArcManager 전용 이동 payload (폴더 + 파일 둘 다)**
+   - `DataTransfer`에 `application/x-arcmanager-item` 타입으로  
+     `{ source: 'arcmanager', id, path, itemType }`를 저장 (출처 식별용)
+
+```380:399:apps/main/src/client/components/arc/ArcManager/ArcManager.tsx
+onItemDragStart: ({ item, event }) => {
+  // ArcWork 탭 드래그 데이터 설정 (파일만)
+  if (item.itemType === 'item') {
+    const name = getNameFromPath(item.path);
+    startAddTabDrag(event, {
+      id: item.id,
+      name,
+      type: 'arcdata-document',
+    });
+  }
+
+  // ArcManager 전용 드래그 데이터 설정
+  const dt = event.dataTransfer;
+  if (!dt) return;
+  const payload = {
+    source: 'arcmanager' as const,
+    id: item.id,
+    path: item.path,
+    itemType: item.itemType,
+  };
+  dt.setData('application/x-arcmanager-item', JSON.stringify(payload));
+  dt.effectAllowed = 'move';
+},
+```
+
+> **정책 정리**
+> - **탭 열기(DnD → ArcWork)**: `item`(파일)만 대상
+> - **문서 이동(DnD → ArcManager 내부)**: `folder`/`item` 모두 대상
+
+### 7.2 드롭 타겟: 행 위 (onItemDropOnRow)
+
+- `target` 정보: `{ path: string; itemType: 'folder' | 'item' }`
+- 소스 복원:
+  - `dt.getData('application/x-arcmanager-item')` → `{ id, path, itemType }`
+- 부모 경로 결정 규칙
+  - 타겟이 **파일**이면: `parentPath = getParentPath(target.path)`  
+    → “그 파일이 속한 폴더”
+  - 타겟이 **폴더**이면: `parentPath = target.path`  
+    → “해당 폴더 내부”
+- 이동 전/후 부모가 같으면 `move` 호출 생략
+
+```406:435:apps/main/src/client/components/arc/ArcManager/ArcManager.tsx
+onItemDropOnRow: async ({ target, event }) => {
+  const dt = event.dataTransfer;
+  const raw = dt.getData('application/x-arcmanager-item');
+  const source = JSON.parse(raw) as { id: string; path: string; itemType: 'folder' | 'item' };
+
+  // 타겟이 파일이면 그 파일이 속한 폴더가 목적지,
+  // 타겟이 폴더면 해당 폴더가 목적지입니다.
+  let parentPath = '';
+  if (target.itemType === 'item') {
+    parentPath = getParentPath(target.path);
+  } else {
+    parentPath = target.path;
+  }
+
+  const sourceParentPath = getParentPath(source.path);
+  if (parentPath === sourceParentPath) return;
+
+  await move({ documentId: source.id, parentPath });
+},
+```
+
+### 7.3 드롭 타겟: 트리 빈 영역 (onItemDropOnEmpty)
+
+- 드롭 위치: **어떤 행에도 걸리지 않는 트리 영역**
+- 목적지: `parentPath = currentPath`  
+  → “현재 보고 있는 디렉토리 바로 아래”
+
+```440:462:apps/main/src/client/components/arc/ArcManager/ArcManager.tsx
+onItemDropOnEmpty: async ({ event }) => {
+  const dt = event.dataTransfer;
+  const raw = dt.getData('application/x-arcmanager-item');
+  const source = JSON.parse(raw) as { id: string; path: string; itemType: 'folder' | 'item' };
+
+  // 빈 영역 드롭은 현재 디렉토리로 이동합니다.
+  const parentPath = currentPath;
+
+  const sourceParentPath = getParentPath(source.path);
+  if (parentPath === sourceParentPath) return;
+
+  await move({ documentId: source.id, parentPath });
+},
+```
+
+### 7.4 드롭 타겟: 플레이스홀더 영역 (onPlaceholderDrop)
+
+- UI 상 의미: “현재 디렉토리 최상단으로 이동하기”
+- 구현 상 목적지: `parentPath = currentPath` (onItemDropOnEmpty와 동일 경로)
+- 향후 정렬/순서 정보가 도입되면, 이 영역을 사용해 “상단으로 올리기”를 보다 정확히 표현할 수 있습니다.
+
+```468:492:apps/main/src/client/components/arc/ArcManager/ArcManager.tsx
+onPlaceholderDrop: async ({ event }) => {
+  const dt = event.dataTransfer;
+  const raw = dt.getData('application/x-arcmanager-item');
+  const source = JSON.parse(raw) as { id: string; path: string; itemType: 'folder' | 'item' };
+
+  // 플레이스홀더 드롭은 "현재 디렉토리의 최상위 위치"로 이동합니다.
+  // 즉, 현재 디렉토리 바로 아래 레벨로 올립니다.
+  const parentPath = currentPath;
+
+  const sourceParentPath = getParentPath(source.path);
+  if (parentPath === sourceParentPath) return;
+
+  await move({ documentId: source.id, parentPath });
+},
+```
+
+### 7.5 드래그 중 하이라이트 정책
+
+`ArcManagerTree`는 `dropFolderPath` 상태를 사용해 **행/그룹 하이라이트**를 관리합니다.
+
+- 폴더 행 위로 드래그: 해당 폴더를 `dropFolderPath`로 설정
+- 아이템 행 위로 드래그: 그 아이템의 부모 폴더를 `dropFolderPath`로 설정
+- `dropFolderPath`를 기준으로
+  - **해당 폴더 자체**: 테두리 강조
+  - **그 하위 전체**: 배경 강조 (`isDropGroup`)
+
+이를 통해 사용자는 항상 **“어느 폴더로 이동되는지”**를 직관적으로 인식할 수 있습니다.
+
+---
+
+## 8. 변경·확장 시 가이드
+
+### 8.1 노트/채팅 탭까지 확장하고 싶을 때
+
+1. **서버 레이어**
+   - `document`에서 `kind = 'note'`를 사용할지, 별도 테이블/레포지토리를 둘지 결정
+   - 필요한 경우 `/api/note/...` 또는 `/api/arcyou/...`와 유사한 패턴으로 API 추가
+2. **React Query**
+   - `query-options`에 해당 도메인 전용 옵션 추가
+   - `useNoteList`, `useNoteMove` 등 훅 정의
+3. **ArcManager**
+   - `ArcManagerTabConfig`에 새 탭 추가 (예: `'notes'`)
+   - `tabStates`와 트리 데이터 생성 로직을 탭별로 분기
+   - DnD 정책도 도메인에 맞게 별도 핸들러를 두는 것을 권장
+
+### 8.2 DnD 정책을 조정할 때 체크리스트
+
+1. **ArcManagerTree**
+   - `onItemDragStart` / `onDragOver` / `onDrop` / `onItemDropOnEmpty` / `onPlaceholderDrop` 이벤트 흐름 이해
+   - `dropFolderPath`와 하이라이트 정책이 원하는 UX와 맞는지 확인
+2. **ArcManager (상위 컴포넌트)**
+   - `onItemDropOnRow`, `onItemDropOnEmpty`, `onPlaceholderDrop`에서
+     - `parentPath` 계산 로직
+     - `move` 호출 조건 (`sourceParentPath` 비교) 재검토
+3. **useDocumentMove**
+   - 옵티미스틱 업데이트 알고리즘(`applyDocumentMoveOptimistic`)이 서버 로직과 계속 동기화되어 있는지 확인
+   - 서버 쪽 `moveDocumentForOwner`를 변경했다면, 클라이언트 헬퍼도 반드시 함께 수정
+
+---
+
+## 9. 요약
+
+- ArcManager는 **`document` + ltree 기반 트리 UI**로, 파일/폴더 이동을 DnD로 처리합니다.
+- 서버는 `documentId` 기준으로 **폴더/파일 구분 없이 subtree 이동**을 담당하고,  
+  클라이언트는 `useDocumentMove`의 **옵티미스틱 업데이트**로 빠른 UI 응답성을 제공합니다.
+- DnD 정책은 **탭 열기(파일만)**와 **경로 이동(폴더/파일 공통)**을 엄격히 분리해 UX를 단순하게 유지합니다.
+- 이 문서를 기준으로, 추후 노트/채팅 도메인 확장이나 정렬/권한/공유 등의 기능을 추가할 수 있습니다.
+
+

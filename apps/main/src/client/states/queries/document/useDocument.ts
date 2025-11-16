@@ -5,18 +5,24 @@
  * - 업로드 3단계(request/presigned/confirm)와 다운로드 URL 발급을 캡슐화
  */
 
-import { documentQueryOptions, type DocumentDTO } from '@/share/libs/react-query/query-options';
+import { queryKeys } from '@/share/libs/react-query/query-keys';
+import {
+  documentQueryOptions,
+  type DocumentDTO,
+  type DocumentMoveMutationVariables,
+} from '@/share/libs/react-query/query-options';
+import type { YoutubeDocumentCreateRequest } from '@/share/schema/zod/document-youtube-zod';
 import type {
-    DocumentDownloadUrlResponse,
-    DocumentUploadConfirmRequest,
-    DocumentUploadPresignRequest,
-    DocumentUploadRequest,
-    DocumentUploadRequestResponse,
+  DocumentDownloadUrlResponse,
+  DocumentUploadConfirmRequest,
+  DocumentUploadPresignRequest,
+  DocumentUploadRequest,
+  DocumentUploadRequestResponse,
 } from '@/share/schema/zod/document-upload-zod';
 import {
-    useMutation,
-    useQuery,
-    useQueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
@@ -69,6 +75,12 @@ export interface UseDocumentFolderCreateReturn {
   createError: unknown;
 }
 
+export interface UseDocumentYoutubeCreateReturn {
+  createYoutube: (input: YoutubeDocumentCreateRequest) => Promise<DocumentDTO>;
+  isCreating: boolean;
+  createError: unknown;
+}
+
 export function useDocumentUpload(): UseDocumentUploadReturn {
   const queryClient = useQueryClient();
 
@@ -103,11 +115,97 @@ export function useDocumentUpload(): UseDocumentUploadReturn {
 }
 
 /**
+ * 서버 DocumentRepository.moveDocumentForOwner와 동일한 규칙으로
+ * ltree 기반 경로 이동을 클라이언트 캐시에 적용합니다.
+ */
+function applyDocumentMoveOptimistic(
+  list: DocumentDTO[],
+  input: DocumentMoveMutationVariables,
+): DocumentDTO[] {
+  const { documentId, parentPath } = input;
+
+  const moving = list.find((d) => d.documentId === documentId);
+  if (!moving) return list;
+
+  const oldPath = moving.path;
+  if (!oldPath) return list;
+
+  const normalizedTargetParent = parentPath.trim();
+
+  // 자기 자신 또는 자신의 하위 경로로 이동하는 경우는 의미 없는 이동이므로 no-op 처리
+  if (normalizedTargetParent) {
+    const isSame = oldPath === normalizedTargetParent;
+    const isDescendant = normalizedTargetParent.startsWith(`${oldPath}.`);
+    if (isSame || isDescendant) {
+      return list;
+    }
+  }
+
+  const segments = oldPath.split('.').filter(Boolean);
+  const selfLabel = segments[segments.length - 1] ?? '';
+  const newBasePath = normalizedTargetParent
+    ? `${normalizedTargetParent}.${selfLabel}`
+    : selfLabel;
+
+  return list.map((doc) => {
+    const path = doc.path;
+
+    // subtree 판별: oldPath 또는 oldPath.xxx
+    if (path === oldPath || path.startsWith(`${oldPath}.`)) {
+      let suffix = '';
+      if (path.length > oldPath.length) {
+        // "oldPath.xxx" 형태에서 뒤의 부분만 잘라냅니다.
+        suffix = path.slice(oldPath.length + 1);
+      }
+      const newPath = suffix ? `${newBasePath}.${suffix}` : newBasePath;
+
+      return {
+        ...doc,
+        path: newPath,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return doc;
+  });
+}
+
+/**
  * 문서 이동 훅
  * - documentId와 parentPath('' = 루트)를 입력으로 받아 path를 변경합니다.
  */
 export function useDocumentMove(): UseDocumentMoveReturn {
-  const moveMutation = useMutation(documentQueryOptions.move);
+  const queryClient = useQueryClient();
+
+  const moveMutation = useMutation({
+    mutationFn: documentQueryOptions.move.mutationFn,
+    async onMutate(variables: DocumentMoveMutationVariables) {
+      const key = queryKeys.documents.listFiles();
+
+      // 관련 쿼리의 진행 중 refetch를 취소합니다.
+      await queryClient.cancelQueries({ queryKey: key });
+
+      const previous = queryClient.getQueryData<DocumentDTO[]>(key);
+      if (!previous) {
+        return { previous: undefined as DocumentDTO[] | undefined };
+      }
+
+      const updated = applyDocumentMoveOptimistic(previous, variables);
+      queryClient.setQueryData<DocumentDTO[]>(key, updated);
+
+      return { previous };
+    },
+    onError(_error, _variables, context) {
+      const key = queryKeys.documents.listFiles();
+      if (context?.previous) {
+        queryClient.setQueryData<DocumentDTO[]>(key, context.previous);
+      }
+    },
+    onSettled() {
+      const key = queryKeys.documents.listFiles();
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+  });
 
   return {
     move: moveMutation.mutateAsync,
@@ -124,6 +222,20 @@ export function useDocumentFolderCreate(): UseDocumentFolderCreateReturn {
 
   return {
     createFolder: createMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    createError: createMutation.error,
+  };
+}
+
+/**
+ * YouTube 링크 기반 문서 생성 훅
+ * - ArcManager 파일 탭에서 YouTube URL을 문서로 추가할 때 사용합니다.
+ */
+export function useDocumentYoutubeCreate(): UseDocumentYoutubeCreateReturn {
+  const createMutation = useMutation(documentQueryOptions.createYoutube);
+
+  return {
+    createYoutube: createMutation.mutateAsync,
     isCreating: createMutation.isPending,
     createError: createMutation.error,
   };

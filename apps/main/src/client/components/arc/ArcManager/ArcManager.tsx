@@ -3,15 +3,31 @@
 import {
   ArcManagerListItem as ArcManagerListItemComponent,
 } from '@/client/components/arc/ArcManager/components/list/ArcManagerListItem';
-import { ArcManagerTree, type ArcManagerTreeItem } from '@/client/components/arc/ArcManager/components/tree';
+import {
+  ArcManagerTree,
+  type ArcManagerTreeItem,
+} from '@/client/components/arc/ArcManager/components/tree';
 import { useFileUpload } from '@/client/components/arc/ArcManager/hooks/useFileUpload';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/client/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/client/components/ui/custom/tabs';
 import { Input } from '@/client/components/ui/input';
-import { useDocumentFiles, useDocumentFolderCreate, useDocumentMove } from '@/client/states/queries/document/useDocument';
+import {
+  useDocumentFiles,
+  useDocumentFolderCreate,
+  useDocumentMove,
+  useDocumentYoutubeCreate,
+} from '@/client/states/queries/document/useDocument';
 import { useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-layout-store';
-import { FolderOpenDot, FolderPlus, MessageSquare, Notebook, Upload, type LucideIcon } from 'lucide-react';
+import {
+  FolderOpenDot,
+  FolderPlus,
+  MessageSquare,
+  Notebook,
+  Upload,
+  Youtube,
+  type LucideIcon,
+} from 'lucide-react';
 import * as React from 'react';
 import s from './ArcManager.module.css';
 
@@ -34,6 +50,10 @@ interface ArcManagerTabViewState {
   creatingFolder: boolean;
   /** 새 폴더 이름 입력값 */
   newFolderName: string;
+  /** YouTube 문서 인라인 생성 여부 */
+  creatingYoutube: boolean;
+  /** 새 YouTube URL 입력값 */
+  newYoutubeUrl: string;
 }
 
 const DEFAULT_TABS: ArcManagerTabConfig[] = [
@@ -87,9 +107,33 @@ export function ArcManager(): React.ReactElement {
 
   // 2. 탭별 뷰 상태 (검색어 / 현재 경로 / 접힘 여부)
   const [tabStates, setTabStates] = React.useState<Record<ArcDataType, ArcManagerTabViewState>>({
-    notes: { searchQuery: '', currentPath: '', isCollapsed: true, creatingFolder: false, newFolderName: '' },
-    files: { searchQuery: '', currentPath: '', isCollapsed: true, creatingFolder: false, newFolderName: '' },
-    chat: { searchQuery: '', currentPath: '', isCollapsed: true, creatingFolder: false, newFolderName: '' },
+    notes: {
+      searchQuery: '',
+      currentPath: '',
+      isCollapsed: true,
+      creatingFolder: false,
+      newFolderName: '',
+      creatingYoutube: false,
+      newYoutubeUrl: '',
+    },
+    files: {
+      searchQuery: '',
+      currentPath: '',
+      isCollapsed: true,
+      creatingFolder: false,
+      newFolderName: '',
+      creatingYoutube: false,
+      newYoutubeUrl: '',
+    },
+    chat: {
+      searchQuery: '',
+      currentPath: '',
+      isCollapsed: true,
+      creatingFolder: false,
+      newFolderName: '',
+      creatingYoutube: false,
+      newYoutubeUrl: '',
+    },
   });
 
   // 3. 파일 탭용 업로드 훅 (다른 탭은 사용하지 않음)
@@ -102,6 +146,7 @@ export function ArcManager(): React.ReactElement {
   // 문서 이동 및 ArcWork 탭 드래그 훅
   const { move } = useDocumentMove();
   const { createFolder } = useDocumentFolderCreate();
+  const { createYoutube } = useDocumentYoutubeCreate();
   const startAddTabDrag = useArcWorkStartAddTabDrag();
 
   type FolderCreateHandler = (params: { parentPath: string; name: string }) => Promise<void>;
@@ -218,6 +263,49 @@ export function ArcManager(): React.ReactElement {
     [folderCreateHandlers, getTabState, patchTabState],
   );
 
+  const handleYoutubeCreateConfirm = React.useCallback(
+    async (tabValue: ArcDataType) => {
+      const state = getTabState(tabValue);
+      const url = (state.newYoutubeUrl ?? '').trim();
+      const parentPath = state.currentPath;
+
+      // 입력 없이 포커스 해제된 경우: 생성 취소
+      if (!url) {
+        patchTabState(tabValue, { creatingYoutube: false, newYoutubeUrl: '' });
+        return;
+      }
+
+      // 간단한 유효성 검사: YouTube 도메인 여부
+      try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+        const isYoutubeHost =
+          host.includes('youtube.com') || host.includes('youtu.be');
+        if (!isYoutubeHost) {
+          // TODO: 향후 토스트 등 사용자 피드백 추가
+          patchTabState(tabValue, { creatingYoutube: false, newYoutubeUrl: '' });
+          return;
+        }
+      } catch {
+        patchTabState(tabValue, { creatingYoutube: false, newYoutubeUrl: '' });
+        return;
+      }
+
+      try {
+        await createYoutube({ url, parentPath });
+        if (tabValue === 'files') {
+          await refetchFiles();
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('YouTube 문서 생성 실패:', error);
+      } finally {
+        patchTabState(tabValue, { creatingYoutube: false, newYoutubeUrl: '' });
+      }
+    },
+    [createYoutube, getTabState, patchTabState, refetchFiles],
+  );
+
   return (
     <div className={`${s.container} h-full`}>
       <Tabs
@@ -245,7 +333,15 @@ export function ArcManager(): React.ReactElement {
         {DEFAULT_TABS.map((tab) => {
           const isFileTab = tab.value === 'files';
           const tabState = getTabState(tab.value);
-          const { searchQuery, currentPath, isCollapsed, creatingFolder, newFolderName } = tabState;
+          const {
+            searchQuery,
+            currentPath,
+            isCollapsed,
+            creatingFolder,
+            newFolderName,
+            creatingYoutube,
+            newYoutubeUrl,
+          } = tabState;
 
           const treeItems: ArcManagerTreeItem[] = (() => {
             if (!isFileTab) return [];
@@ -301,6 +397,19 @@ export function ArcManager(): React.ReactElement {
                   >
                     <Upload className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      patchTabState('files', {
+                        creatingYoutube: true,
+                        newYoutubeUrl: '',
+                      })
+                    }
+                    title="YouTube 링크 추가"
+                  >
+                    <Youtube className="h-4 w-4 text-red-500" />
+                  </Button>
                 </>
               )}
             </div>
@@ -344,6 +453,50 @@ export function ArcManager(): React.ReactElement {
                         />
                       }
                     />
+                )}
+
+                {/* 새 YouTube 문서 인라인 생성 행 (files 탭 전용) */}
+                {isFileTab && creatingYoutube && (
+                  <ArcManagerListItemComponent
+                    id={`__new-youtube-${tab.value}__`}
+                    path={
+                      currentPath
+                        ? `${currentPath}.new_youtube`
+                        : 'new_youtube'
+                    }
+                    itemType="item"
+                    tags={[]}
+                    createdAt={new Date()}
+                    updatedAt={new Date()}
+                    icon={<Youtube className="h-4 w-4 text-red-500" />}
+                    hideMenu
+                    nameNode={
+                      <input
+                        autoFocus
+                        className="bg-transparent flex-1 outline-none text-xs"
+                        value={newYoutubeUrl}
+                        onChange={(e) =>
+                          patchTabState(tab.value, {
+                            newYoutubeUrl: e.target.value,
+                          })
+                        }
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            await handleYoutubeCreateConfirm(tab.value);
+                          } else if (e.key === 'Escape') {
+                            patchTabState(tab.value, {
+                              creatingYoutube: false,
+                              newYoutubeUrl: '',
+                            });
+                          }
+                        }}
+                        onBlur={() => {
+                          void handleYoutubeCreateConfirm(tab.value);
+                        }}
+                        placeholder="YouTube URL을 입력하세요"
+                      />
+                    }
+                  />
                 )}
 
                 {isFileTab && (
@@ -392,6 +545,7 @@ export function ArcManager(): React.ReactElement {
                       const dt = event.dataTransfer;
                       if (!dt) return;
                       const payload = {
+                        source: 'arcmanager' as const,
                         id: item.id,
                         path: item.path,
                         itemType: item.itemType,
@@ -410,13 +564,12 @@ export function ArcManager(): React.ReactElement {
                         const raw = dt.getData('application/x-arcmanager-item');
                         if (!raw) return;
                         const source = JSON.parse(raw) as {
+                          source?: string;
                           id: string;
                           path: string;
                           itemType: 'folder' | 'item';
                         };
-
-                        // 현재는 파일(item)만 이동을 지원합니다.
-                        if (source.itemType !== 'item') return;
+                        if (source.source !== 'arcmanager') return;
 
                         // 타겟이 파일이면 그 파일이 속한 폴더가 목적지,
                         // 타겟이 폴더면 해당 폴더가 목적지입니다.
@@ -432,7 +585,6 @@ export function ArcManager(): React.ReactElement {
                         if (parentPath === sourceParentPath) return;
 
                         await move({ documentId: source.id, parentPath });
-                        await refetchFiles();
                       } catch (err) {
                         console.error('문서 이동 실패 (행 드롭):', err);
                       }
@@ -444,13 +596,12 @@ export function ArcManager(): React.ReactElement {
                         const raw = dt.getData('application/x-arcmanager-item');
                         if (!raw) return;
                         const source = JSON.parse(raw) as {
+                          source?: string;
                           id: string;
                           path: string;
                           itemType: 'folder' | 'item';
                         };
-
-                        // 현재는 파일(item)만 이동을 지원합니다.
-                        if (source.itemType !== 'item') return;
+                        if (source.source !== 'arcmanager') return;
 
                         // 빈 영역 드롭은 현재 디렉토리로 이동합니다.
                         const parentPath = currentPath;
@@ -460,7 +611,6 @@ export function ArcManager(): React.ReactElement {
                         if (parentPath === sourceParentPath) return;
 
                         await move({ documentId: source.id, parentPath });
-                        await refetchFiles();
                       } catch (err) {
                         console.error('문서 이동 실패 (빈 영역 드롭):', err);
                       }
@@ -472,13 +622,12 @@ export function ArcManager(): React.ReactElement {
                         const raw = dt.getData('application/x-arcmanager-item');
                         if (!raw) return;
                         const source = JSON.parse(raw) as {
+                          source?: string;
                           id: string;
                           path: string;
                           itemType: 'folder' | 'item';
                         };
-
-                        // 현재는 파일(item)만 이동을 지원합니다.
-                        if (source.itemType !== 'item') return;
+                        if (source.source !== 'arcmanager') return;
 
                         // 플레이스홀더 드롭은 "현재 디렉토리의 최상위 위치"로 이동합니다.
                         // 즉, 현재 디렉토리 바로 아래 레벨로 올립니다.
@@ -489,7 +638,6 @@ export function ArcManager(): React.ReactElement {
                         if (parentPath === sourceParentPath) return;
 
                         await move({ documentId: source.id, parentPath });
-                        await refetchFiles();
                       } catch (err) {
                         console.error('문서 이동 실패 (플레이스홀더 드롭):', err);
                       }
