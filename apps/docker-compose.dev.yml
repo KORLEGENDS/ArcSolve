@@ -1,7 +1,7 @@
 services:
-  # --- PostgreSQL (순정 최신) ---
+  # --- PostgreSQL (pgvector 확장 포함 이미지) ---
   postgres:
-    image: postgres:18-bookworm
+    image: pgvector/pgvector:0.8.1-pg18-trixie
     container_name: arcsolve-postgres-dev
     restart: unless-stopped
     ports:

@@ -1,0 +1,4 @@
+-- 0005_early_wildside.sql
+-- 이전에 vector 타입을 jsonb로 변경하기 위한 마이그레이션이었으나,
+-- 0003_stormy_swordsman.sql을 수정하여 최초 생성 시점부터 jsonb를 사용하도록 변경했습니다.
+-- 따라서 이 마이그레이션은 더 이상 수행할 작업이 없습니다.

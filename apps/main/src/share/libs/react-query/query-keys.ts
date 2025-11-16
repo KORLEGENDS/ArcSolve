@@ -82,6 +82,13 @@ export const queryKeys = {
         ? ([...queryKeys.relations.all(), 'search', normalizeParams({ q: query })] as const)
         : ([...queryKeys.relations.all(), 'search'] as const),
   },
+
+  // 문서 관련
+  documents: {
+    all: () => ['documents'] as const,
+    byId: (documentId: string) =>
+      [...queryKeys.documents.all(), 'detail', documentId] as const,
+  },
 } as const;
 
 /**

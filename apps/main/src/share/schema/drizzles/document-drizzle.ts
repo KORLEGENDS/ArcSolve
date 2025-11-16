@@ -26,19 +26,6 @@ export const documentKindEnum = pgEnum('document_kind', [
   'folder',
 ]);
 
-// Marker 기반으로 지원하는 파일 MIME 타입 ENUM
-// (필요 시 마이그레이션을 통해 값 추가/수정)
-export const documentFileMimeTypeEnum = pgEnum('document_file_mime_type', [
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/html',
-  'application/epub+zip',
-]);
-
 export const documentRelationTypeEnum = pgEnum('document_relation_type', [
   'reference',
   'summary',
@@ -195,7 +182,7 @@ export const documentChunks = pgTable(
     chunkContent: text('chunk_content').notNull(),
 
     // pgvector column for semantic search (configure dimensions as needed)
-    chunkEmbedding: vector('chunk_embedding', { dimensions: 1536 }).notNull(),
+    chunkEmbedding: vector('chunk_embedding', { dimensions: 256 }).notNull(),
 
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()

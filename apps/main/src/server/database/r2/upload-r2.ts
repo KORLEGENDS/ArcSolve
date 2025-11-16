@@ -4,7 +4,7 @@
  * - 고수준 업로드 플로우(request/presign/confirm)는 각 도메인(document 등)에서
  *   별도 서비스로 구현하고, 여기서는 서명 URL/스토리지 키 생성만 담당합니다.
  */
-
+ 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BUCKET, r2Client } from './client-r2';

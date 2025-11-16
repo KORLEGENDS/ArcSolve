@@ -17,7 +17,7 @@ export interface ArcYouGatewaySocketOptions {
    * 생성된 WebSocket 인스턴스를 보관할 ref
    * - 호출 측에서 send/close 등에 사용
    */
-  wsRef: React.MutableRefObject<WebSocket | null>;
+  wsRef: React.RefObject<WebSocket | null>;
   /**
    * WebSocket이 생성된 직후 호출되는 콜백
    * - 여기에서 open/message/error/close 핸들러를 등록하고

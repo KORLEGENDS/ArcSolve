@@ -23,4 +23,5 @@ export interface InfiniteListParams {
 export * from './user';
 export * from './chat-room';
 export * from './relation';
+export * from './document';
 
