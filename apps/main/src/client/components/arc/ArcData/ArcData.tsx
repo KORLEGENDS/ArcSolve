@@ -25,11 +25,6 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
   } = useDocumentFiles();
 
   if (listError) {
-    // eslint-disable-next-line no-console
-    console.error('[ArcData] document list error', {
-      documentId,
-      listError,
-    });
     return null;
   }
 

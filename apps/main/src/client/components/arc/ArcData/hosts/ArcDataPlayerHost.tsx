@@ -5,6 +5,7 @@ import * as React from 'react';
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
 
 import { ArcDataPlayer } from '../components/core/ArcDataPlayer/ArcDataPlayer';
+import { playerManager } from '../managers/PlayerManager';
 
 export interface ArcDataPlayerHostProps {
   documentId: string;
@@ -37,27 +38,58 @@ export function ArcDataPlayerHost({
     enabled: !isExternalUrl,
   });
 
-  const src = isExternalUrl ? storageKey ?? null : download?.url ?? null;
+  const rawSrc = isExternalUrl ? storageKey ?? null : download?.url ?? null;
+
+  const [mediaSrc, setMediaSrc] = React.useState<string | null>(null);
+  const [mediaMimeType, setMediaMimeType] = React.useState<string | null>(
+    mimeType ?? null,
+  );
+  const [loadError, setLoadError] = React.useState<unknown>(null);
+
+  React.useEffect(() => {
+    // 새로운 문서/URL 기준으로 상태 초기화
+    setMediaSrc(null);
+    setLoadError(null);
+
+    if (!rawSrc) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const loaded = await playerManager.load(documentId, rawSrc, {
+          mode: 'stream',
+          mimeType: typeof mimeType === 'string' ? mimeType : undefined,
+        });
+        if (cancelled) return;
+
+        setMediaSrc(loaded.src);
+        setMediaMimeType(loaded.mimeType ?? (mimeType ?? null));
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      playerManager.release(documentId);
+    };
+  }, [documentId, rawSrc, mimeType]);
 
   if (downloadError) {
-    // eslint-disable-next-line no-console
-    console.error('[ArcDataPlayerHost] download url error', {
-      documentId,
-      mimeType,
-      storageKey,
-      downloadError:
-        downloadError instanceof Error
-          ? {
-              name: downloadError.name,
-              message: downloadError.message,
-              stack: downloadError.stack,
-            }
-          : downloadError,
-    });
     return null;
   }
 
-  const isReady = !!src && (!isDownloadLoading || isExternalUrl);
+  if (loadError) {
+    return null;
+  }
+
+  const isReady =
+    !!rawSrc &&
+    !!mediaSrc &&
+    (!isDownloadLoading || isExternalUrl);
+
   if (!isReady) {
     return null;
   }
@@ -65,8 +97,8 @@ export function ArcDataPlayerHost({
   return (
     <div className="flex h-full w-full">
       <ArcDataPlayer
-        src={src}
-        mimeType={mimeType}
+        src={mediaSrc}
+        mimeType={mediaMimeType ?? mimeType}
         className="h-full w-full"
       />
     </div>

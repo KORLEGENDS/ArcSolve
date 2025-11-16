@@ -29,7 +29,7 @@ Player 관련 주요 구성요소는 다음과 같습니다.
     - `documentId`, `mimeType`, `storageKey`를 입력으로 받음
     - `storageKey`가 **외부 URL(https://)** 인지, R2에 저장된 내부 키인지 판별
     - R2 저장 파일이면 `/api/document/{id}/download-url`로 서명 URL 발급
-    - 최종 재생 URL(`src`)을 결정해 `ArcDataPlayer`에 전달
+    - `PlayerManager`를 통해 최종 재생 URL(`src`)을 로드하고 `ArcDataPlayer`에 전달
 
 - `components/core/ArcDataPlayer/ArcDataPlayer.tsx`
   - 실제 재생을 담당하는 **Player 뷰어 컴포넌트**
@@ -134,16 +134,23 @@ export interface ArcDataPlayerHostProps {
    - `storageKey`가 상대 경로나 S3 키 형식(`users/{userId}/...`)이면 내부 파일로 간주합니다.
    - `useDocumentDownloadUrl(documentId, { inline: true, enabled: !isExternalUrl })`를 호출해
      `/api/document/{id}/download-url`에서 서명 URL을 발급받습니다.
-   - 응답의 `download.url`을 `src`로 사용합니다.
+   - 응답의 `download.url`을 **원본 재생 URL(`rawSrc`)로 사용**합니다.
 
-3. **에러 처리**
+3. **PlayerManager를 통한 미디어 로드**
+   - `rawSrc`가 준비되면, `PlayerManager.load(documentId, rawSrc, { mode: 'stream', mimeType })`를 호출합니다.
+   - 현재 구현에서는 **모든 미디어를 `mode: 'stream'`으로 처리**하여,
+     - 외부 URL/서명 URL을 그대로 `ArcDataPlayer`에 넘겨 스트리밍합니다.
+   - 반환된 `LoadedMedia`의 `src`와 `mimeType`을 상태에 저장해 `ArcDataPlayer`에 전달합니다.
+
+4. **에러 처리**
    - `useDocumentDownloadUrl`에서 에러가 발생하면 콘솔 로그만 남기고 `null`을 반환합니다(MVP 기준).
-   - `src`가 최종적으로 결정되지 않거나, 아직 로딩 중이면 렌더링하지 않습니다.
+   - `PlayerManager.load`에서 에러가 나면 콘솔에 상세 로그를 남기고 렌더링을 생략합니다.
+   - `rawSrc` 또는 `mediaSrc`가 준비되지 않았으면 렌더링하지 않습니다.
 
 요약하면:
 
-- YouTube / 외부 미디어 → `storageKey` 그대로 재생  
-- ArcSolve R2에 저장된 파일 → `/download-url` 서명 URL 발급 후 재생
+- YouTube / 외부 미디어 → `storageKey`를 `rawSrc`로 받아 `PlayerManager`를 거쳐 스트리밍  
+- ArcSolve R2에 저장된 파일 → `/download-url` 서명 URL 발급 후, 해당 URL을 `rawSrc`로 사용해 스트리밍
 
 ---
 
@@ -287,5 +294,68 @@ ArcData 탭에서는 **Player 호스트를 통해 YouTube 영상으로 재생**�
 
 이 흐름을 통해, ArcData는 **PDF와 동일한 ArcWork/ArcManager 통합 패턴**을 유지하면서도,  
 YouTube/영상/오디오 문서를 자연스럽게 Player 탭으로 재생할 수 있습니다.
+
+---
+
+## 7. PlayerManager와 로딩 모드 확장 포인트
+
+Player 계층은 `PlayerManager`를 통해 미디어 로드를 추상화합니다.
+
+### 7.1. PlayerManager 개요
+
+파일 위치:  
+`apps/main/src/client/components/arc/ArcData/managers/PlayerManager.ts`
+
+핵심 타입은 다음과 같습니다.
+
+```ts
+export type MediaKey = string;
+export type LoadMode = 'blob' | 'stream';
+
+export interface LoadOptions {
+  mode: LoadMode;
+  mimeType?: string;
+  headers?: Record<string, string>;
+  onProgress?: (loaded: number, total: number | null) => void;
+  signal?: AbortSignal;
+}
+
+export interface LoadedMedia {
+  key: MediaKey;
+  src: string; // blob: 또는 http/https URL
+  mimeType?: string;
+  mode: LoadMode;
+}
+```
+
+- **stream 모드**
+  - 입력이 URL(string)이어야 합니다.
+  - 캐시를 사용하지 않고, 입력 URL을 그대로 `src`로 반환합니다.
+  - 현재 ArcData Player는 모든 미디어를 `mode: 'stream'`으로 로드합니다.
+- **blob 모드**
+  - URL/Blob/ArrayBuffer를 받아 실제 바이너리 데이터를 다운로드하고, `Blob` + `object URL`을 생성합니다.
+  - `mediaCache`에 LRU 정책으로 보관하며, `refCount`와 타임아웃 기반으로 정리합니다.
+
+### 7.2. 향후 확장 아이디어
+
+현재는 단순 스트리밍만 필요하므로 `mode: 'stream'`만 사용하지만,  
+향후 다음과 같은 기능을 추가할 때 `mode: 'blob'`으로 전환하는 것이 유리합니다.
+
+- 동영상/오디오 **로컬 분석** (샷 분할, 스펙트럼 분석, 오프라인 인덱싱 등)
+- 특정 구간의 **썸네일/파형 이미지 생성**
+- 동일 미디어에 대한 **여러 뷰어/도구 간 바이너리 공유**
+
+권장 전략:
+
+1. ArcDataPlayerHost에서 `mimeType`과 파일 크기(추가 메타가 있다면)를 기준으로,
+   - 작은 파일 → `stream`
+   - 큰/자주 쓰이는 파일 → `blob`
+   으로 분기할 수 있습니다.
+2. `PlayerManager.load(..., { mode: 'blob' })`로 한 번 로드하면,
+   - Player는 `loaded.src`(object URL)를 사용해 재생하고,
+   - 분석/썸네일 로직은 동일 `MediaKey`로 이미 다운로드된 blob을 재활용할 수 있습니다.
+
+이처럼 PlayerManager를 중심으로 미디어 로드를 통합해두면,  
+현재의 단순 스트리밍 구조에서 추후 고급 기능으로 자연스럽게 확장할 수 있습니다.
 
 

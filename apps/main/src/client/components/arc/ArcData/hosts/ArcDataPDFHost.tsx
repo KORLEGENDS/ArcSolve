@@ -78,32 +78,8 @@ export function ArcDataPDFHost({
     fitMode: 'width',
   });
 
-  // 에러는 로그만 남기고 렌더는 생략 (MVP에서는 조용히 실패)
+  // 에러는 조용히 실패 (MVP에서는 렌더 생략)
   if (downloadError || pdfError) {
-    // eslint-disable-next-line no-console
-    console.error('[ArcDataPDFHost] PDF load error', {
-      documentId,
-      pdfUrl,
-      isDownloadLoading,
-      isPdfLoading,
-      downloadRaw: download,
-      downloadError:
-        downloadError instanceof Error
-          ? {
-              name: downloadError.name,
-              message: downloadError.message,
-              stack: downloadError.stack,
-            }
-          : downloadError,
-      pdfError:
-        pdfError instanceof Error
-          ? {
-              name: pdfError.name,
-              message: pdfError.message,
-              stack: pdfError.stack,
-            }
-          : pdfError,
-    });
     return null;
   }
 
