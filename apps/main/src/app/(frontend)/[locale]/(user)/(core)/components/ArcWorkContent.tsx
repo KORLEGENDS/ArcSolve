@@ -26,7 +26,8 @@ export function ArcWorkContent({
       if (component === 'arcyou-chat-room') {
         const roomId = node.getId();
         if (!roomId) return <div className="p-4">채팅방 ID 정보가 없습니다.</div>;
-        return <ArcYouChatRoom id={roomId} />;
+        const isActive = node.isSelected();
+        return <ArcYouChatRoom id={roomId} isActive={isActive} />;
       }
 
       return null; // createFactory가 defaultArcWorkFactory를 호출

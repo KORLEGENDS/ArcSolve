@@ -77,6 +77,7 @@ export function ArcYouChatRoomList({
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
       deletedAt: null,
+      unreadCount: room.unreadCount,
       onClick: () => {
         console.log(`채팅방 선택: ${room.name} (${room.id})`);
       },

@@ -8,6 +8,8 @@
 import type { ArcyouChatMessage } from '@/client/components/arc/ArcYou/ArcYouChat/components/ArcYouChatMessage';
 import { useArcYouGatewaySocket } from '@/client/states/queries/arcyou/useArcYouSockets';
 import { clientEnv } from '@/share/configs/environments/client-constants';
+import { queryKeys } from '@/share/libs/react-query/query-keys';
+import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -38,7 +40,20 @@ export interface UseArcYouChatRoomReturn {
   setReadByUser: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
-export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
+export interface UseArcYouChatRoomOptions {
+  /**
+   * 이 채팅방 탭이 현재 ArcWork에서 활성 탭인지 여부
+   *
+   * - true: 화면에 실제로 노출되고 있으므로, 새 메시지를 "읽음"으로 간주하고 ACK 전송
+   * - false: 백그라운드 탭이므로, ACK 전송을 지연(보류)했다가 활성화 시점에 모아서 전송
+   */
+  isActive?: boolean;
+}
+
+export function useArcYouChatRoom(
+  roomId: string,
+  options?: UseArcYouChatRoomOptions,
+): UseArcYouChatRoomReturn {
   const [messages, setMessages] = useState<ArcyouChatMessage[]>([]);
   const messagesRef = useRef<ArcyouChatMessage[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('unknown-user');
@@ -53,6 +68,10 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
   const isJoinedRef = useRef<boolean>(false);
   const historyAckPendingRef = useRef<boolean>(false);
   const [readByUser, setReadByUser] = useState<Record<string, string>>({});
+  const isActive = options?.isActive ?? true;
+  const isActiveRef = useRef<boolean>(isActive);
+  const pendingReadAckRef = useRef<boolean>(false);
+  const queryClient = useQueryClient();
 
   // messages 상태와 ref 동기화
   useEffect(() => {
@@ -78,6 +97,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
   const sendAck = useCallback(() => {
     const ws = socketRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!isActiveRef.current) return;
     const lastId = lastMessageIdRef.current;
     if (!lastId || typeof lastId !== 'string') return;
     ws.send(
@@ -88,7 +108,31 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
         lastReadMessageId: lastId,
       }),
     );
-  }, [roomId]);
+    pendingReadAckRef.current = false;
+    // 읽음 ACK를 보낸 시점에, 방 목록의 unreadCount를 0으로 초기화
+    const resetUnread = (rooms?: import('@/share/libs/react-query/query-options').ArcyouChatRoom[]) => {
+      if (!rooms) return rooms;
+      const idx = rooms.findIndex((r) => r.id === roomId);
+      if (idx === -1) return rooms;
+      const original = rooms[idx];
+      if (original.unreadCount === 0) return rooms;
+      const next = [...rooms];
+      next[idx] = { ...original, unreadCount: 0 };
+      return next;
+    };
+    queryClient.setQueryData(
+      queryKeys.chatRooms.list(),
+      resetUnread,
+    );
+    queryClient.setQueryData(
+      queryKeys.chatRooms.list('direct'),
+      resetUnread,
+    );
+    queryClient.setQueryData(
+      queryKeys.chatRooms.list('group'),
+      resetUnread,
+    );
+  }, [roomId, queryClient]);
 
   const scheduleAck = useCallback(() => {
     if (ackTimerRef.current) clearTimeout(ackTimerRef.current);
@@ -185,6 +229,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
                         historyAckPendingRef.current = true;
                         if (isJoinedRef.current) {
                           historyAckPendingRef.current = false;
+                          pendingReadAckRef.current = true;
                           scheduleAck();
                         }
                       }
@@ -213,6 +258,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
             setReady(joined);
             if (joined && historyAckPendingRef.current) {
               historyAckPendingRef.current = false;
+              pendingReadAckRef.current = true;
               scheduleAck();
             }
             return;
@@ -246,6 +292,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
                     lastMessageIdRef.current = data.message.id;
                     persistedIdSetRef.current.add(data.message.id);
                   }
+                  pendingReadAckRef.current = true;
                   scheduleAck();
                   return copy;
                 }
@@ -277,6 +324,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
                 lastMessageIdRef.current = data.message.id;
                 persistedIdSetRef.current.add(data.message.id);
               }
+              pendingReadAckRef.current = true;
               scheduleAck();
               return out;
             });
@@ -352,6 +400,21 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
     },
   });
 
+  // ArcWork 탭 활성/비활성 상태에 따라 읽음 ACK 전송 타이밍을 제어
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    // 비활성 상태에서 메시지가 쌓여 pendingReadAckRef가 true인 경우,
+    // 탭이 다시 활성화되면 최신 lastMessageId 기준으로 ACK를 한 번 더 전송
+    if (
+      isActive &&
+      pendingReadAckRef.current &&
+      isJoinedRef.current &&
+      isAuthedRef.current
+    ) {
+      scheduleAck();
+    }
+  }, [isActive, scheduleAck]);
+
   useEffect(() => {
     return () => {
       socketRef.current = null;
@@ -361,6 +424,7 @@ export function useArcYouChatRoom(roomId: string): UseArcYouChatRoomReturn {
         ackTimerRef.current = null;
       }
       lastMessageIdRef.current = null;
+      pendingReadAckRef.current = false;
       isAuthedRef.current = false;
       isJoinedRef.current = false;
       setReady(false);

@@ -59,4 +59,20 @@ export const CacheKey = {
     user: (userId: string) => `ratelimit:user:${userId}`,
     ip: (ip: string) => `ratelimit:ip:${ip}`,
   },
+  // 파일 업로드/다운로드 관련 키
+  upload: {
+    process: (processId: string) => `upload:process:${processId}`,
+  },
+  r2: {
+    downloadUrl: (
+      storageKey: string,
+      options?: { filename?: string; mimeType?: string; inline?: boolean }
+    ) => {
+      const filename = options?.filename ?? '';
+      const mimeType = options?.mimeType ?? '';
+      const disposition = options?.inline ? 'inline' : 'attachment';
+      const suffix = JSON.stringify({ filename, mimeType, disposition });
+      return `r2:download:${storageKey}:${suffix}`;
+    },
+  },
 } as const;

@@ -1,7 +1,7 @@
 import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
 import { arcyouChatMembers, arcyouChatMessages, arcyouChatRooms, outbox, users } from '@/share/schema/drizzles';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { ArcyouChatRelationRepository } from './arcyou-chat-relation-repository';
 import type { DB } from './base-repository';
@@ -16,6 +16,16 @@ export type ArcyouChatRoomWithMemberInfo = {
   updatedAt: Date | null;
   role: 'owner' | 'manager' | 'participant';
   lastReadMessageId: string | null;
+  /**
+   * 현재 사용자 기준 읽지 않은 메시지 수
+   *
+   * - 서버 DB의 last_read_message_id와 메시지 created_at을 기준으로 계산
+   * - 자신의 메시지는 unread로 카운트하지 않음
+   * - 성능 보호를 위해 서버에서는 실제 COUNT를 계산하되,
+   *   응답으로는 Math.min(count, 300)을 내려주고,
+   *   클라이언트에서 300 이상인 경우 "300+" 등으로 표시할 수 있습니다.
+   */
+  unreadCount: number;
 };
 
 export type ArcyouChatRoomMemberWithUser = {
@@ -82,18 +92,70 @@ export class ArcyouChatRoomRepository {
         )
       )
       .orderBy(desc(sql`COALESCE(${arcyouChatRooms.updatedAt}, ${arcyouChatRooms.createdAt})`));
+    if (rooms.length === 0) {
+      return [];
+    }
 
-    return rooms.map((room) => ({
-      id: room.id,
-      name: room.name,
-      type: room.type,
-      imageUrl: room.imageUrl,
-      lastMessage: room.lastMessageContent ? { content: room.lastMessageContent } : null,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-      role: room.role,
-      lastReadMessageId: room.lastReadMessageId,
-    }));
+    // 방별 unreadCount 집계 (현재 사용자 기준)
+    const roomIds = rooms.map((room) => room.id);
+    const lastReadMessage = alias(arcyouChatMessages, 'last_read_message');
+
+    const unreadRows = await this.database
+      .select({
+        roomId: arcyouChatMessages.roomId,
+        count: sql<number>`COUNT(${arcyouChatMessages.id})`,
+      })
+      .from(arcyouChatMessages)
+      .innerJoin(
+        arcyouChatMembers,
+        and(
+          eq(arcyouChatMembers.roomId, arcyouChatMessages.roomId),
+          eq(arcyouChatMembers.userId, userId),
+          isNull(arcyouChatMembers.deletedAt),
+        ),
+      )
+      .leftJoin(
+        lastReadMessage,
+        eq(lastReadMessage.id, arcyouChatMembers.lastReadMessageId),
+      )
+      .where(
+        and(
+          inArray(arcyouChatMessages.roomId, roomIds),
+          isNull(arcyouChatMessages.deletedAt),
+          // 자신의 메시지는 unread로 세지 않음
+          ne(arcyouChatMessages.userId, userId),
+          // lastReadMessageId가 없으면 해당 방의 모든 메시지를 unread로 간주
+          // lastReadMessageId가 있으면 createdAt 기준 이후 메시지만 unread로 간주
+          or(
+            isNull(arcyouChatMembers.lastReadMessageId),
+            gt(arcyouChatMessages.createdAt, lastReadMessage.createdAt),
+          ),
+        ),
+      )
+      .groupBy(arcyouChatMessages.roomId);
+
+    const unreadMap = new Map<string, number>();
+    for (const row of unreadRows) {
+      const count = Number(row.count ?? 0);
+      unreadMap.set(row.roomId, count);
+    }
+
+    return rooms.map((room) => {
+      const rawUnread = unreadMap.get(room.id) ?? 0;
+      const unreadCount = Math.min(rawUnread, 300);
+      return {
+        id: room.id,
+        name: room.name,
+        type: room.type,
+        imageUrl: room.imageUrl,
+        lastMessage: room.lastMessageContent ? { content: room.lastMessageContent } : null,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        role: room.role,
+        lastReadMessageId: room.lastReadMessageId,
+        unreadCount,
+      };
+    });
   }
 
   /**
@@ -157,6 +219,9 @@ export class ArcyouChatRoomRepository {
       updatedAt: room.updatedAt,
       role: room.role,
       lastReadMessageId: room.lastReadMessageId,
+      // 기존 direct room 반환 시 unreadCount는 listByUserId 재조회 시 정확히 계산되므로,
+      // 여기서는 0으로 초기화해두고 목록 쿼리로 보정되도록 합니다.
+      unreadCount: 0,
     };
   }
 
@@ -277,6 +342,7 @@ export class ArcyouChatRoomRepository {
         updatedAt: member.updatedAt,
         role: member.role,
         lastReadMessageId: member.lastReadMessageId,
+        unreadCount: 0,
       };
 
       // Outbox에 room.created 이벤트 적재 (WS를 통해 방 목록에 새 방 추가)
@@ -513,6 +579,9 @@ export class ArcyouChatRoomRepository {
         updatedAt: result.updatedAt,
         role: result.role,
         lastReadMessageId: result.lastReadMessageId,
+        // 이름 변경은 unreadCount에 영향을 주지 않으므로 여기서는 0으로 반환하고,
+        // 실제 목록에서는 listByUserId 재조회 또는 WS 이벤트 이후 재계산으로 보정합니다.
+        unreadCount: 0,
       };
     });
   }

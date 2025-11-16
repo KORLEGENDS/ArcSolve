@@ -23,6 +23,10 @@ export type ArcyouChatRoom = {
   lastReadMessageId: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /**
+   * 현재 로그인한 사용자 기준 읽지 않은 메시지 수
+   */
+  unreadCount: number;
 };
 
 export type ChatRoomsListResponse = {

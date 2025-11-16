@@ -28,6 +28,7 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const { bump } = useBumpChatRoomActivity();
   const queryClient = useQueryClient();
+  const currentUserIdRef = useRef<string | null>(null);
 
   useArcYouGatewaySocket({
     wsRef,
@@ -44,6 +45,9 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
 
           if (data.op === 'auth') {
             if (data.success) {
+              if (data.userId) {
+                currentUserIdRef.current = String(data.userId);
+              }
               ws.send(JSON.stringify({ op: 'rooms', action: 'watch' }));
             }
             return;
@@ -69,6 +73,43 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
               typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
 
             bump(data.roomId, { lastMessage, updatedAt });
+            // 방 활동 발생 시 unreadCount 증분 업데이트
+            // - authorId가 현재 사용자라면 unreadCount를 올리지 않는다.
+            const authorId =
+              typeof data.authorId === 'string'
+                ? data.authorId
+                : data.authorId != null
+                  ? String(data.authorId)
+                  : undefined;
+            const selfId = currentUserIdRef.current;
+
+            if (!authorId || !selfId || authorId !== selfId) {
+              const incrementUnread = (rooms?: ArcyouChatRoom[]) => {
+                if (!rooms) return rooms;
+                const idx = rooms.findIndex((r) => r.id === data.roomId);
+                if (idx === -1) return rooms;
+                const original = rooms[idx];
+                const current = typeof original.unreadCount === 'number' ? original.unreadCount : 0;
+                const nextCount = current + 1;
+                const capped = nextCount > 300 ? 300 : nextCount;
+                const nextRooms = [...rooms];
+                nextRooms[idx] = { ...original, unreadCount: capped };
+                return nextRooms;
+              };
+
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list(),
+                incrementUnread,
+              );
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list('direct'),
+                incrementUnread,
+              );
+              queryClient.setQueryData<ArcyouChatRoom[] | undefined>(
+                queryKeys.chatRooms.list('group'),
+                incrementUnread,
+              );
+            }
             return;
           }
 
@@ -91,6 +132,7 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
               lastReadMessageId: roomData.lastReadMessageId ?? null,
               createdAt: roomData.createdAt ?? null,
               updatedAt: roomData.updatedAt ?? null,
+              unreadCount: roomData.unreadCount ?? 0,
             };
 
             const upsert = (rooms?: ArcyouChatRoom[]) => {

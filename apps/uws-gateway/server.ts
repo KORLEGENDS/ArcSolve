@@ -800,6 +800,18 @@ subscriber.on('message', (_channel, message) => {
       ) {
         const messageContent = data.message?.content;
         const createdAt: string | undefined = data.message?.created_at;
+        const authorId: string | undefined =
+          typeof data.message?.user_id === 'string'
+            ? data.message.user_id
+            : data.message?.user_id != null
+              ? String(data.message.user_id)
+              : undefined;
+        const authorId: string | undefined =
+          typeof data.message?.user_id === 'string'
+            ? data.message.user_id
+            : data.message?.user_id != null
+              ? String(data.message.user_id)
+              : undefined;
 
         const activityPayload = {
           op: 'rooms' as const,
@@ -810,6 +822,7 @@ subscriber.on('message', (_channel, message) => {
               ? { content: messageContent }
               : null,
           updatedAt: createdAt ?? new Date().toISOString(),
+          authorId,
         };
 
         for (const userId of recipients) {
@@ -911,6 +924,7 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
               ? { content: messageContent }
               : null,
           updatedAt: createdAt ?? new Date().toISOString(),
+          authorId,
         };
 
         for (const userId of recipients) {

@@ -1,6 +1,6 @@
 ## ArcYou 채팅 구현 상세 (현행)
 
-최종 업데이트: 2025-11-15
+최종 업데이트: 2025-11-16
 
 ### 1) 개요
 - 아키텍처
@@ -133,6 +133,13 @@
           lastReadMessageId: string | null;
           createdAt: string | null;
           updatedAt: string | null;
+          /**
+           * 현재 로그인한 사용자 기준 방별 읽지 않은 메시지 수
+           * - 자신의 메시지는 포함하지 않음
+           * - 서버에서는 실제 COUNT를 계산하되, 응답으로는 Math.min(count, 300)을 내려줌
+           * - 클라이언트에서는 300 이상인 경우 "300+" 등으로 표시 가능
+           */
+          unreadCount: number;
         }>;
       }
     }
@@ -177,6 +184,12 @@
           lastReadMessageId: string | null;
           createdAt: string | null;
           updatedAt: string | null;
+          /**
+           * 방 생성 직후 기준 unreadCount
+           * - 새로운 방에서는 아직 읽지 않은 메시지가 없으므로 0
+           * - 이후 목록 조회 시점에 서버에서 다시 계산된 값으로 보정
+           */
+          unreadCount: number;
         };
       }
     }
@@ -195,11 +208,13 @@
     - `useArcyouChat('group')`: 그룹 채팅방 목록 조회
     - React Query로 자동 캐싱 및 새로고침
   - 채팅방 목록 실시간 갱신:
-    - `useRoomActivitySocket()` 훅을 통해 별도의 WebSocket을 열어 `op:'rooms', action:'watch'` 등록
+    - `useArcYouChatRooms()` 훅을 통해 별도의 WebSocket을 열어 `op:'rooms', action:'watch'` 등록
     - 게이트웨이로부터
-      - `op:'rooms', event:'room.activity'` 수신 시 `useBumpChatRoomActivity()`를 통해
-        - React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)의 해당 방 `lastMessage.content`/`updatedAt`을 갱신
-        - 해당 방을 배열의 맨 앞으로 이동시켜 “최신 메시지 방이 상단에 위치”하도록 정렬
+      - `op:'rooms', event:'room.activity'` 수신 시
+        - `useBumpChatRoomActivity()`를 통해
+          - React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)의 해당 방 `lastMessage.content`/`updatedAt`을 갱신
+          - 해당 방을 배열의 맨 앞으로 이동시켜 “최신 메시지 방이 상단에 위치”하도록 정렬
+        - payload에 포함된 `authorId`가 **현재 사용자와 다를 때만** 해당 room의 `unreadCount`를 1 증가시킴 (최대 300까지)
       - `op:'rooms', event:'room.created'` 수신 시 방 목록 캐시에 새 방을 prepend
       - `op:'rooms', event:'room.updated'` 수신 시 방 목록 캐시의 해당 room `name`/`updatedAt` 을 패치하고, ArcWork 탭 이름도 동기화
   - 채팅방 생성:
@@ -215,11 +230,11 @@
     - 검색 결과 클릭 시 채팅방 생성
 
 - ArcWork 연동 (`apps/main/src/app/(frontend)/[locale]/(user)/(core)/components/ArcWorkContent.tsx`)
-  - FlexLayout 탭의 `node.getId()`를 직접 사용하여 `<ArcYouChatRoom id={node.getId()} />` 렌더
+  - FlexLayout 탭의 `node.getId()`와 `node.isSelected()`를 사용하여 `<ArcYouChatRoom id={node.getId()} isActive={node.isSelected()} />` 렌더
   - 탭 ID는 채팅방 ID와 동일
 
 - ArcYouChatRoom (`apps/main/src/client/components/arc/ArcYou/ArcYouChat/ArcYouChatRoom.tsx`)
-  - props: `{ id: string }`
+  - props: `{ id: string; isActive?: boolean }`
   - 내부 상태:
     - `messages`(로컬 메시지 목록)
     - `currentUserId`
@@ -257,10 +272,13 @@
         - 처음 보는 `id`면: 새 항목 추가, `persistedIdSetRef`에 추가
       - `lastMessageIdRef` 갱신 후 `scheduleAck()` 호출
   - 읽음 동기화(ACK)
-    - `scheduleAck()`: 새 메시지 반영마다 300ms 디바운스로 ACK 전송
-    - `sendAck()`: `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송
+    - `scheduleAck()`: 새 메시지 반영마다 300ms 디바운스로 ACK 전송 시도를 예약
+    - `sendAck()`:
+      - `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송
       - `lastMessageIdRef.current`를 `lastReadMessageId`로 사용
-    - 게이트웨이는 `arcyou_chat_members.last_read_message_id`를 GREATEST로 갱신
+      - 단, ArcWork에서 해당 탭이 **현재 활성 상태(`isActive=true`)인 경우에만** 실제 전송
+      - ACK를 전송한 시점에 React Query 캐시(`chatRooms.list`, `chatRooms.list('direct'|'group')`)에서 해당 room의 `unreadCount`를 0으로 초기화
+    - 게이트웨이는 `arcyou_chat_members.last_read_message_id`를 업데이트하고, `op:'room', event:'read'` 이벤트를 같은 방의 모든 소켓에 브로드캐스트
   - 연결 가드/정리
     - 전송 가드: `isAuthedRef.current && isJoinedRef.current` 확인
     - `id` 변경 시: 별도 `useEffect`로 메시지 상태 초기화 (`pendingMapRef`, `lastMessageIdRef`, `messages` 초기화)
@@ -303,7 +321,9 @@
    - 게이트웨이: DB 저장 + Outbox 적재(해당 방 멤버 userId를 `recipients`로 포함) → 워커 발행 → Redis Pub/Sub
    - Live 이벤트 수신: `{ op:'room', event:'message.created', message:{ temp_id } }` → `temp_id` 매칭 시 낙관적 메시지를 `status: 'delivered'` 로 승격
    - 실패 시: `{ op:'error', action:'send', tempId, error }` 수신 → `status: 'failed'`
-8. 읽음 동기화: 새 메시지마다 300ms 디바운스로 `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송
+8. 읽음 동기화:
+   - 새 메시지마다 300ms 디바운스로 `{ op:'room', action:'ack', roomId, lastReadMessageId }` 전송 시도를 하되,
+   - ArcWork에서 해당 탭이 활성(`isActive=true`)인 경우에만 실제로 ACK 전송 및 `unreadCount` 초기화 수행
 
 #### 채팅방 목록 실시간 갱신 흐름
 1. 어떤 사용자가 채팅방에 메시지를 전송하면 게이트웨이 `op:'room', action:'send'` 처리에서
@@ -314,12 +334,14 @@
 3. uws-gateway Redis subscriber는 payload를 수신하여
    - `op:'room', event:'message.created'`를 해당 `roomId`에 조인한 모든 소켓에 브로드캐스트하고
    - `recipients` 목록을 기준으로 각 user watcher 소켓에
-     - `{ op:'rooms', event:'room.activity', roomId, lastMessage:{ content }, updatedAt }` 이벤트를 전송
-4. 클라이언트 RightSidebar에서 동작하는 `useRoomActivitySocket()` 훅은
+     - `{ op:'rooms', event:'room.activity', roomId, lastMessage:{ content }, updatedAt, authorId }` 이벤트를 전송
+4. 클라이언트 RightSidebar에서 동작하는 `useArcYouChatRooms()` 훅은
    - `rooms.room.activity` 이벤트를 수신할 때마다 `useBumpChatRoomActivity()`를 통해
      - React Query 캐시에 있는 해당 방의 `lastMessage.content`/`updatedAt`을 갱신하고
      - 방 목록 배열에서 해당 방을 맨 앞으로 이동
-   - 결과적으로 “열려 있지 않은 방에 새 메시지가 와도” 방 목록에서 해당 방이 즉시 상단으로 올라감
+   - 동시에 `authorId !== 현재 사용자` 인 경우에만 해당 room의 `unreadCount`를 1 증가시켜,
+     - RightSidebar의 채팅방 목록 항목(`ArcYouChatRoomListItem`)에 아바타 우측 상단 뱃지로 미확인 메시지 수를 표시
+   - 결과적으로 “열려 있지 않은 방에 새 메시지가 와도” 방 목록에서 해당 방이 즉시 상단으로 올라가며, 방별 미확인 메시지 수도 함께 갱신됨
 
 ### 6) 트러블슈팅
 - Unauthorized: auth first

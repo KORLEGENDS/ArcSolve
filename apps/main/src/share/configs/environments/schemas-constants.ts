@@ -131,6 +131,23 @@ export const serverEnvSchema = z
       .enum(['chat.low', 'chat.medium', 'chat.high', 'note.default', 'summary.default'])
       .optional(),
     
+    // ===== Storage (R2) =====
+    [ENV_KEYS.SERVER.SERVICES.STORAGE.R2.ACCOUNT_ID]: z
+      .string()
+      .min(1, 'R2_ACCOUNT_ID is required'),
+    [ENV_KEYS.SERVER.SERVICES.STORAGE.R2.ACCESS_KEY_ID]: z
+      .string()
+      .min(1, 'R2_ACCESS_KEY_ID is required'),
+    [ENV_KEYS.SERVER.SERVICES.STORAGE.R2.SECRET_ACCESS_KEY]: z
+      .string()
+      .min(1, 'R2_SECRET_ACCESS_KEY is required'),
+    [ENV_KEYS.SERVER.SERVICES.STORAGE.R2.BUCKET_NAME]: z
+      .string()
+      .min(1, 'R2_BUCKET_NAME is required'),
+    [ENV_KEYS.SERVER.SERVICES.STORAGE.R2.PUBLIC_URL]: z
+      .string()
+      .url('R2_PUBLIC_URL must be a valid URL'),
+
     // ===== Payments (Order Signing - Stateless) =====
     [ENV_KEYS.SERVER.SERVICES.PAYMENTS.ORDER.SIGNING_SECRET]: z
       .string()

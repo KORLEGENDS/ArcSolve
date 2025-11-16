@@ -1,16 +1,16 @@
 import { sql } from 'drizzle-orm';
 import {
-    customType,
-    index,
-    integer,
-    jsonb,
-    pgEnum,
-    pgTable,
-    text,
-    timestamp,
-    uniqueIndex,
-    uuid,
-    vector,
+  customType,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  vector,
 } from 'drizzle-orm/pg-core';
 
 // ltree custom type for hierarchical document paths
@@ -26,12 +26,31 @@ export const documentKindEnum = pgEnum('document_kind', [
   'folder',
 ]);
 
+// Marker 기반으로 지원하는 파일 MIME 타입 ENUM
+// (필요 시 마이그레이션을 통해 값 추가/수정)
+export const documentFileMimeTypeEnum = pgEnum('document_file_mime_type', [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/html',
+  'application/epub+zip',
+]);
+
 export const documentRelationTypeEnum = pgEnum('document_relation_type', [
   'reference',
   'summary',
   'translation',
-  'derived',
   'duplicate',
+]);
+
+export const documentUploadStatusEnum = pgEnum('document_upload_status', [
+  'pending',
+  'uploading',
+  'uploaded',
+  'upload_failed',
 ]);
 
 export const documents = pgTable(
@@ -49,6 +68,15 @@ export const documents = pgTable(
     path: ltree('path').notNull(),
 
     kind: documentKindEnum('kind').notNull(),
+
+    // 파일 문서에 대한 메타데이터 (kind = 'file'에서만 의미 있음)
+    // 예: { mimeType: 'application/pdf', fileSize: 12345, storageKey: 'users/{userId}/documents/{documentId}' }
+    fileMeta: jsonb('file_meta'),
+
+    // 업로드 상태 (note/folder 등 비파일 문서는 기본적으로 'uploaded' 상태로 간주)
+    uploadStatus: documentUploadStatusEnum('upload_status')
+      .default('uploaded')
+      .notNull(),
 
     // points to the latest content version (nullable for empty documents)
     latestContentId: uuid('latest_content_id'),
@@ -187,6 +215,15 @@ export const documentChunks = pgTable(
 
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
+
+export type DocumentFileMeta = {
+  mimeType?: string | null;
+  fileSize?: number | null;
+  storageKey?: string | null;
+} | null;
+
+export type DocumentUploadStatus =
+  (typeof documentUploadStatusEnum.enumValues)[number];
 
 export type DocumentContent = typeof documentContents.$inferSelect;
 export type NewDocumentContent = typeof documentContents.$inferInsert;

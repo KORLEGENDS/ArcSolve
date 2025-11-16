@@ -19,6 +19,11 @@ ArcSolve/ArcWork 문서 시스템은 다음 네 가지 테이블을 중심으로
   - `user_id (uuid)`: 문서 owner (tenant 기준)
   - `path (ltree)`: 유저 네임스페이스 내 계층 경로
   - `kind (document_kind)`: `note | file | folder`
+  - `file_meta (jsonb | null)`: 파일 문서(`kind = 'file'`)에 대한 메타데이터
+    - 예: `{ mimeType: 'application/pdf', fileSize: 12345, storageKey: 'users/{userId}/documents/{documentId}' }`
+  - `upload_status (document_upload_status)`: 업로드 상태
+    - `pending | uploading | uploaded | upload_failed`
+    - `note/folder` 등 비파일 문서는 기본적으로 `uploaded`로 간주
   - `latest_content_id (uuid | null)`: FK → `document_content.document_content_id`
   - `created_at / updated_at / deleted_at`
 - **제약/인덱스**

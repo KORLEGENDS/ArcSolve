@@ -57,6 +57,10 @@ export interface ArcYouChatRoomListItemProps {
    */
   deletedAt?: string | null;
   /**
+   * 현재 사용자 기준 읽지 않은 메시지 수
+   */
+  unreadCount?: number;
+  /**
    * 우측 끝에 표시할 아이콘
    */
   icon?: React.ReactNode;
@@ -100,8 +104,12 @@ export function ArcYouChatRoomListItem({
   className,
   onClick,
   menuOptions,
+  unreadCount,
 }: ArcYouChatRoomListItemProps) {
   const hasIcon = !!icon || (menuOptions && menuOptions.length > 0);
+  const effectiveUnread = typeof unreadCount === 'number' ? unreadCount : 0;
+  const hasUnread = effectiveUnread > 0;
+  const unreadLabel = effectiveUnread > 300 ? '300+' : String(effectiveUnread);
 
   return (
     <div
@@ -117,8 +125,8 @@ export function ArcYouChatRoomListItem({
       )}
       onClick={onClick}
     >
-      {/* 좌측: 아바타 */}
-      <div className="shrink-0">
+      {/* 좌측: 아바타 + unread 뱃지 (우측 상단 오버레이) */}
+      <div className="shrink-0 relative">
         <Avatar className="size-8">
           {imageUrl && (
             <AvatarImage src={imageUrl} alt={name} />
@@ -127,6 +135,11 @@ export function ArcYouChatRoomListItem({
             {getInitials(name)}
           </AvatarFallback>
         </Avatar>
+        {hasUnread && (
+          <span className="absolute -top-1 -right-1 z-10 inline-flex items-center justify-center rounded-full bg-accent text-foreground text-[0.65rem] leading-none px-1.5 py-0.5 shadow-sm">
+            {unreadLabel}
+          </span>
+        )}
       </div>
 
       {/* 중앙: 위아래 2행 구조 */}

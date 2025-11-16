@@ -1,6 +1,6 @@
 ## ArcYou 채팅 WebSocket 구현 상세
 
-최종 업데이트: 2025-11-XX
+최종 업데이트: 2025-11-16
 
 이 문서는 ArcYou 채팅의 WebSocket(이하 WS) 레이어에 한정하여,
 게이트웨이(uws-gateway) / Outbox 워커 / 클라이언트(브라우저)의 동작을 상세히 정리한 문서입니다.
@@ -13,7 +13,7 @@
   - Next 메인 서버 (토큰 발급 및 REST API)
   - 브라우저 클라이언트
     - 대화방 WS: `ArcYouChatRoom`
-    - 방 목록 WS: `useRoomActivitySocket`
+    - 방 목록 WS: `useArcYouChatRooms` (내부적으로 `useArcYouGatewaySocket` 사용)
 
 - **기본 흐름**
   1. 브라우저가 Next 메인 서버에서 **JWT 토큰 발급** (`/api/arcyou/chat/ws/token`)
@@ -264,12 +264,14 @@
   "lastMessage": {
     "content": "hello"
   },
-  "updatedAt": "2025-11-15T00:00:00.000Z"
+  "updatedAt": "2025-11-15T00:00:00.000Z",
+  "authorId": "<sender-user-uuid>"
 }
 ```
 
 - 클라이언트는 이 이벤트를 수신하면
   - React Query 캐시에서 해당 room을 찾아 `lastMessage.content`/`updatedAt` 을 갱신하고
+  - `authorId !== 현재 사용자` 인 경우에만 해당 room의 `unreadCount` 를 1 증가시킵니다.
   - 방 목록 배열에서 해당 room을 맨 앞으로 이동시켜 UI 상단에 표시합니다.
 
 ---
@@ -358,7 +360,7 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
   - 특정 `roomId` 에 대한 메시지 히스토리 로딩
   - 실시간 메시지 송수신
   - 낙관적 업데이트 및 ACK/이벤트 기반 상태 전환
-  - 읽음 ACK(`op:'room', action:'ack'`) 전송
+  - **ArcWork 내에서 해당 채팅방 탭이 활성화된 경우에만** 읽음 ACK(`op:'room', action:'ack'`) 전송
 - 주요 포인트:
   - 마운트 시:
     1. `/api/arcyou/chat/ws/token` 으로 JWT 발급
@@ -371,15 +373,19 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
     - `{ op:'room', action:'send', roomId, content:{text}, tempId }` 전송
     - 성공 시: `op:'room', event:'message.created'` 이벤트의 `temp_id` 매칭으로 낙관적 메시지를 `status:'delivered'` 로 승격
     - 실패 시: `op:'error', action:'send', tempId` 이벤트 수신 시 `status:'failed'` 로 변경
-  - 라이브 이벤트:
+- 라이브 이벤트:
     - `op:'room', event:'message.created'` 수신 시
       - `temp_id` 매칭이면 기존 낙관적 메시지를 `status:'delivered'` 로 승격
       - 아니라면 중복 체크 후 새 메시지 추가
     - 매 메시지 처리 후 `scheduleAck()` 로 읽음 ACK 디바운스 전송
+      - 단, **해당 채팅방 탭이 ArcWork에서 비활성 상태인 경우** ACK는 실제로 전송되지 않고 `pendingReadAck` 로 표시만 해 둡니다.
+      - 이후 탭이 활성화되면, 마지막 메시지 ID 기준으로 보류 중이던 ACK를 한 번 전송하여 “활성화 시점에 화면에 보이는 마지막 메시지까지 읽음”으로 동기화합니다.
 
-#### 5-2. useRoomActivitySocket / useBumpChatRoomActivity (방 목록 WS)
+#### 5-2. useArcYouChatRooms / useBumpChatRoomActivity (방 목록 WS)
 
-- 파일: `apps/main/src/client/states/queries/useArcyouChat.ts`
+- 파일:
+  - 방 목록 WS 훅: `apps/main/src/client/states/queries/arcyou/useArcYouChatRooms.ts`
+  - 캐시 정렬 헬퍼: `apps/main/src/client/states/queries/arcyou/useArcyouChat.ts`
 
 1. `useBumpChatRoomActivity`
    - 인자: `(roomId, { lastMessage?, updatedAt? })`
@@ -388,9 +394,9 @@ WS 관점에서 Outbox 워커는 **“DB 트랜잭션으로 적재된 이벤트�
      - 해당 `roomId` 를 가진 room을 찾아 `lastMessage.content`/`updatedAt` 을 갱신
      - 배열에서 해당 room을 제거 후 맨 앞에 삽입하여 “최신 방이 상단”이 되도록 보장
 
-2. `useRoomActivitySocket`
-   - `clientEnv.NEXT_PUBLIC_CHAT_WS_URL` 로 전역 WS를 하나 연다.
-   - 플로우:
+2. `useArcYouChatRooms`
+- `clientEnv.NEXT_PUBLIC_CHAT_WS_URL` 로 전역 WS를 하나 연다.
+- 플로우(요약):
 
 ```ts
 // 1) 토큰 발급
@@ -403,27 +409,28 @@ GET /api/arcyou/chat/ws/token
 { op: 'rooms', action: 'watch' } 전송
 
 // 4) room.activity 수신
-{ op: 'rooms', event: 'room.activity', roomId, lastMessage: { content }, updatedAt }
-→ useBumpChatRoomActivity(roomId, { lastMessage: { content }, updatedAt })
+//   { op:'rooms', event:'room.activity', roomId, lastMessage:{content}, updatedAt, authorId }
+//   → useBumpChatRoomActivity(roomId, { lastMessage:{content}, updatedAt }) 호출
+//   → authorId !== 현재 사용자일 때만 해당 room.unreadCount 를 +1 (최대 300까지)
 
 // 5) room.created 수신
-{ op: 'rooms', event: 'room.created', room: { ... } }
-→ React Query 캐시에 새 방을 prepend
+//   { op:'rooms', event:'room.created', room:{...} }
+//   → React Query 캐시에 새 방을 prepend
 
 // 6) room.updated 수신
-{ op: 'rooms', event: 'room.updated', room: { id, name, ... } }
-→ 해당 room의 name/updatedAt 패치
-→ onRoomUpdated 콜백을 통해 ArcWork 탭 이름도 동기화
+//   { op:'rooms', event:'room.updated', room:{ id, name, ... } }
+//   → 해당 room의 name/updatedAt 패치
+//   → onRoomUpdated 콜백을 통해 ArcWork 탭 이름도 동기화
 ```
 
-   - 사용 위치:
-     - `RightSidebarContent` 상단에서 한 번 호출하여
-       - 사이드바가 마운트되어 있는 동안에만 watcher WS를 유지
-       - 페이지를 벗어나면 자동으로 WS 연결 해제
+- 사용 위치:
+  - `RightSidebarContent` 상단에서 한 번 호출하여
+    - 사이드바가 마운트되어 있는 동안에만 watcher WS를 유지
+    - 페이지를 벗어나면 자동으로 WS 연결 해제
 
 결과적으로,
-대화방 단위 WebSocket(`ArcYouChatRoom`)은 메시지 스트림을 담당하고,
-전역 WebSocket(`useRoomActivitySocket`)은 **방 목록 메타데이터(마지막 메시지/정렬 및 이름 변경)**를 실시간으로 동기화하는 역할을 담당합니다.
+대화방 단위 WebSocket(`ArcYouChatRoom`)은 메시지 스트림과 읽음 ACK를 담당하고,
+전역 WebSocket(`useArcYouChatRooms`)은 **방 목록 메타데이터(마지막 메시지/정렬 및 per-room unreadCount)** 를 실시간으로 동기화하는 역할을 담당합니다.
 
 ---
 

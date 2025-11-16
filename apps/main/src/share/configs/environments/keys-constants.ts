@@ -98,6 +98,15 @@ export const ENV_KEYS = {
           MODEL_ALIAS: 'CHAT_MODEL_ALIAS',
         },
       },
+      STORAGE: {
+        R2: {
+          ACCOUNT_ID: 'R2_ACCOUNT_ID',
+          ACCESS_KEY_ID: 'R2_ACCESS_KEY_ID',
+          SECRET_ACCESS_KEY: 'R2_SECRET_ACCESS_KEY',
+          BUCKET_NAME: 'R2_BUCKET_NAME',
+          PUBLIC_URL: 'R2_PUBLIC_URL',
+        },
+      },
       PAYMENTS: {
         ORDER: {
           SIGNING_SECRET: 'ORDER_SIGNING_SECRET',

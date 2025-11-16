@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
           lastMessage: room.lastMessage,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,
+          unreadCount: room.unreadCount,
           createdAt: room.createdAt?.toISOString(),
           updatedAt: room.updatedAt?.toISOString(),
         })),
@@ -186,6 +187,7 @@ function serializeRoom(room: ArcyouChatRoomWithMemberInfo) {
     lastReadMessageId: room.lastReadMessageId,
     createdAt: room.createdAt?.toISOString(),
     updatedAt: room.updatedAt?.toISOString(),
+    unreadCount: room.unreadCount,
   };
 }
 

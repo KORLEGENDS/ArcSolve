@@ -9,18 +9,26 @@ import { ArcYouChatMessageList } from './components/ArcYouChatMessageList';
 export interface ArcYouChatRoomProps {
   id: string;
   className?: string;
+  /**
+   * ArcWork 내에서 이 채팅방 탭이 현재 선택(활성)되어 있는지 여부
+   *
+   * - true: 실제로 화면에 노출된 상태 → 새 메시지를 읽은 것으로 간주하고 ACK 전송
+   * - false: 백그라운드 탭 → 읽음 ACK 전송을 지연
+   */
+  isActive?: boolean;
 }
 
 export function ArcYouChatRoom({
   id,
   className,
+  isActive = true,
 }: ArcYouChatRoomProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState('');
 
   // 채팅방 WebSocket 연결 및 메시지 관리
   const { messages, currentUserId, ready, sendMessage, readByUser, setReadByUser } =
-    useArcYouChatRoom(id);
+    useArcYouChatRoom(id, { isActive });
 
   // 채팅방 멤버 목록 (이름/아바타 등)
   const { data: members } = useChatRoomMembers(id);
