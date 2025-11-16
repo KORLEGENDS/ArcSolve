@@ -13,7 +13,7 @@ import { Input } from '@/client/components/ui/input';
 import { cn } from '@/client/components/ui/utils';
 import { X } from 'lucide-react';
 
-export interface ArcYouChatRoomCreateProps {
+export interface ArcYouRelationRoomCreateProps {
   /**
    * 채팅방 타입
    */
@@ -66,7 +66,7 @@ export interface ArcYouChatRoomCreateProps {
 }
 
 
-export function ArcYouChatRoomCreate({
+export function ArcYouRelationRoomCreate({
   type,
   searchQuery,
   onSearchQueryChange,
@@ -79,7 +79,7 @@ export function ArcYouChatRoomCreate({
   onCreateRoom,
   isCreating = false,
   className,
-}: ArcYouChatRoomCreateProps): React.ReactElement {
+}: ArcYouRelationRoomCreateProps): React.ReactElement {
   // 검색 결과를 아이템 props로 변환
   // 선택된 친구는 검색 결과에서 제외
   const searchItems: ArcYouRelationItemProps[] = React.useMemo(() => {

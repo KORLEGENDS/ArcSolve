@@ -3,7 +3,7 @@
 import { ArcManager } from '@/client/components/arc/ArcManager/ArcManager';
 import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
 import { useArcWorkTabNameUpdateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabNameUpdateAdapter';
-import { ArcYouChatRoomCreate, ArcYouChatRoomList } from '@/client/components/arc/ArcYou/ArcYouChat';
+import { ArcYouRelationRoomCreate, ArcYouChatRoomList } from '@/client/components/arc/ArcYou/ArcYouChat';
 import { ArcYouRelation } from '@/client/components/arc/ArcYou/ArcYouRelation/ArcYouRelation';
 import {
   type ArcYouRelationWithTargetUser,
@@ -267,7 +267,7 @@ export function RightSidebarContent() {
         <div className="h-full w-full flex flex-col">
           {/* 채팅방 생성 컴포넌트 */}
           <div className="px-2 py-2">
-            <ArcYouChatRoomCreate
+            <ArcYouRelationRoomCreate
               type="direct"
               searchQuery={directSearchQuery}
               onSearchQueryChange={setDirectSearchQuery}
@@ -289,7 +289,7 @@ export function RightSidebarContent() {
         <div className="h-full w-full flex flex-col">
           {/* 채팅방 생성 컴포넌트 */}
           <div className="px-2 py-2">
-            <ArcYouChatRoomCreate
+            <ArcYouRelationRoomCreate
               type="group"
               searchQuery={groupSearchQuery}
               onSearchQueryChange={setGroupSearchQuery}
