@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
           documentId: updated.documentId,
           userId: updated.userId,
           path: updated.path,
+          name: (updated as { name?: string | null }).name ?? process.name,
           kind: updated.kind,
           uploadStatus: updated.uploadStatus,
           fileMeta: updated.fileMeta,

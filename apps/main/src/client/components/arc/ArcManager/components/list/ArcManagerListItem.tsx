@@ -9,6 +9,11 @@ export type ItemType = 'folder' | 'item';
 export interface ArcManagerListItem {
   id: string;
   path: string;
+  /**
+   * 표시용 이름
+   * - 서버 DocumentDTO.name을 그대로 전달합니다.
+   */
+  name: string;
   itemType: ItemType;
   tags: string[];
   createdAt: Date;
@@ -31,18 +36,9 @@ export interface ArcManagerListItem {
   hideMenu?: boolean;
 }
 
-/**
- * path에서 파일/폴더 이름을 추출합니다.
- * - ltree 스타일 경로를 기본으로 사용합니다.
- *   예: "files.project.file_txt" -> "file_txt"
- */
-function getNameFromPath(path: string): string {
-  const parts = path.split('.').filter(Boolean);
-  return parts[parts.length - 1] || path;
-}
-
 export function ArcManagerListItem(props: ArcManagerListItem) {
   const {
+    name,
     path,
     itemType,
     icon,
@@ -55,8 +51,6 @@ export function ArcManagerListItem(props: ArcManagerListItem) {
     nameNode,
     hideMenu,
   } = props;
-
-  const name = getNameFromPath(path);
   const displayIcon =
     itemType === 'folder'
       ? isExpanded

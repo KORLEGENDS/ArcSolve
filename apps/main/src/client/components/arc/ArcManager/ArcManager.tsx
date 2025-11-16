@@ -77,7 +77,8 @@ function findTreeNodeByPath(
 }
 
 function buildBreadcrumbItems(
-  currentPath: string
+  currentPath: string,
+  nameMap?: Map<string, string>
 ): { label: string; path: string }[] {
   const segments = currentPath ? currentPath.split('.').filter(Boolean) : [];
   const crumbs: { label: string; path: string }[] = [{ label: '홈', path: '' }];
@@ -85,15 +86,11 @@ function buildBreadcrumbItems(
   let acc = '';
   for (const seg of segments) {
     acc = acc ? `${acc}.${seg}` : seg;
-    crumbs.push({ label: seg, path: acc });
+    const label = nameMap?.get(acc) ?? seg;
+    crumbs.push({ label, path: acc });
   }
 
   return crumbs;
-}
-
-function getNameFromPath(path: string): string {
-  const parts = path.split('.').filter(Boolean);
-  return parts[parts.length - 1] || path;
 }
 
 function getParentPath(path: string): string {
@@ -143,6 +140,17 @@ export function ArcManager(): React.ReactElement {
   // 4. 파일 문서 목록 조회 (kind = 'file')
   const { data: fileDocuments, refetch: refetchFiles } = useDocumentFiles();
 
+  const fileNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (!fileDocuments) return map;
+    for (const doc of fileDocuments) {
+      if (doc.path && doc.name) {
+        map.set(doc.path, doc.name);
+      }
+    }
+    return map;
+  }, [fileDocuments]);
+
   // 문서 이동 및 ArcWork 탭 드래그 훅
   const { move } = useDocumentMove();
   const { createFolder } = useDocumentFolderCreate();
@@ -183,6 +191,7 @@ export function ArcManager(): React.ReactElement {
       const node: TreeNode = {
         id: doc.documentId,
         path: doc.path,
+        name: doc.name,
         itemType,
         tags: [],
         createdAt,
@@ -417,42 +426,43 @@ export function ArcManager(): React.ReactElement {
           <div className="flex-1 overflow-y-auto py-2">
                 {/* 새 폴더 인라인 생성 행 (탭 공통) - ArcManagerListItem 스타일 재사용 */}
                 {creatingFolder && (
-                    <ArcManagerListItemComponent
-                      id={`__new-folder-${tab.value}__`}
-                      // path는 임시 값이지만, 실제로는 nameNode(input)에 의해 표시되므로
-                      // 트리 구조에 영향을 주지 않습니다.
-                      path={currentPath ? `${currentPath}.new_folder` : 'new_folder'}
-                      itemType="folder"
-                      tags={[]}
-                      createdAt={new Date()}
-                      updatedAt={new Date()}
-                      isExpanded={false}
-                      hideMenu
-                      nameNode={
-                        <input
-                          autoFocus
-                          className="bg-transparent flex-1 outline-none text-xs"
-                          value={newFolderName}
-                          onChange={(e) =>
-                            patchTabState(tab.value, { newFolderName: e.target.value })
+                  <ArcManagerListItemComponent
+                    id={`__new-folder-${tab.value}__`}
+                    // path는 임시 값이지만, 실제로는 nameNode(input)에 의해 표시되므로
+                    // 트리 구조에 영향을 주지 않습니다.
+                    path={currentPath ? `${currentPath}.new_folder` : 'new_folder'}
+                    name={newFolderName || ''}
+                    itemType="folder"
+                    tags={[]}
+                    createdAt={new Date()}
+                    updatedAt={new Date()}
+                    isExpanded={false}
+                    hideMenu
+                    nameNode={
+                      <input
+                        autoFocus
+                        className="bg-transparent flex-1 outline-none text-xs"
+                        value={newFolderName}
+                        onChange={(e) =>
+                          patchTabState(tab.value, { newFolderName: e.target.value })
+                        }
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            await handleFolderCreateConfirm(tab.value);
+                          } else if (e.key === 'Escape') {
+                            patchTabState(tab.value, {
+                              creatingFolder: false,
+                              newFolderName: '',
+                            });
                           }
-                          onKeyDown={async (e) => {
-                            if (e.key === 'Enter') {
-                              await handleFolderCreateConfirm(tab.value);
-                            } else if (e.key === 'Escape') {
-                              patchTabState(tab.value, {
-                                creatingFolder: false,
-                                newFolderName: '',
-                              });
-                            }
-                          }}
-                          onBlur={() => {
-                            void handleFolderCreateConfirm(tab.value);
-                          }}
-                          placeholder="새 폴더 이름"
-                        />
-                      }
-                    />
+                        }}
+                        onBlur={() => {
+                          void handleFolderCreateConfirm(tab.value);
+                        }}
+                        placeholder="새 폴더 이름"
+                      />
+                    }
+                  />
                 )}
 
                 {/* 새 YouTube 문서 인라인 생성 행 (files 탭 전용) */}
@@ -464,6 +474,7 @@ export function ArcManager(): React.ReactElement {
                         ? `${currentPath}.new_youtube`
                         : 'new_youtube'
                     }
+                    name={newYoutubeUrl || ''}
                     itemType="item"
                     tags={[]}
                     createdAt={new Date()}
@@ -503,7 +514,7 @@ export function ArcManager(): React.ReactElement {
                   <Collapsible open={!isCollapsed}>
                     <CollapsibleContent>
                       <div className="px-2 pb-1 text-xs text-muted-foreground flex flex-wrap gap-1">
-                        {buildBreadcrumbItems(currentPath).map((crumb, index) => (
+                        {buildBreadcrumbItems(currentPath, fileNameMap).map((crumb, index) => (
                           <span key={crumb.path} className="flex items-center gap-1">
                             {index > 0 && <span>/</span>}
                             <button
@@ -532,14 +543,17 @@ export function ArcManager(): React.ReactElement {
                       patchTabState('files', { currentPath: path, isCollapsed: false }),
                     onItemDragStart: ({ item, event }) => {
                       // ArcWork 탭 드래그 데이터 설정 (파일만)
-                      if (item.itemType === 'item') {
-                        const name = getNameFromPath(item.path);
-                        startAddTabDrag(event, {
-                          id: item.id,
-                          name,
-                          type: 'arcdata-document',
-                        });
-                      }
+                        if (item.itemType === 'item') {
+                          const tabName =
+                            (item as { name?: string }).name && (item as { name?: string }).name!.trim().length > 0
+                              ? (item as { name?: string }).name!
+                              : item.path;
+                          startAddTabDrag(event, {
+                            id: item.id,
+                            name: tabName,
+                            type: 'arcdata-document',
+                          });
+                        }
 
                       // ArcManager 전용 드래그 데이터 설정
                       const dt = event.dataTransfer;

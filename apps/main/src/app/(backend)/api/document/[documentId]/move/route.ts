@@ -60,6 +60,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           documentId: moved.documentId,
           userId: moved.userId,
           path: moved.path as unknown as string,
+          name: (moved as { name?: string | null }).name ?? 'unnamed',
           kind: moved.kind,
           uploadStatus: moved.uploadStatus,
           fileMeta: moved.fileMeta,

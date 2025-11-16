@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { documentParentPathSchema } from './document-upload-zod';
 
+/**
+ * YouTube 문서 생성 요청 스키마
+ * - 클라이언트는 URL과 parentPath만 전달합니다.
+ * - 문서 이름(name)은 서버에서 oEmbed(YouTube title) + fallback 정책으로만 결정합니다.
+ */
 export const youtubeDocumentCreateRequestSchema = z.object({
   url: z.string().url(),
   /**
@@ -8,15 +13,9 @@ export const youtubeDocumentCreateRequestSchema = z.object({
    * - '' = 루트
    */
   parentPath: documentParentPathSchema.default(''),
-  /**
-   * 문서 이름 (선택)
-   * - 제공되지 않은 경우 서버에서 YouTube oEmbed를 통해 title을 조회합니다.
-   */
-  name: z.string().min(1).max(255).optional(),
 });
 
 export type YoutubeDocumentCreateRequest = z.infer<
   typeof youtubeDocumentCreateRequestSchema
 >;
-
 

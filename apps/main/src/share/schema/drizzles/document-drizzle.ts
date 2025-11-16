@@ -1,16 +1,16 @@
 import { sql } from 'drizzle-orm';
 import {
-  customType,
-  index,
-  integer,
-  jsonb,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-  vector,
+    customType,
+    index,
+    integer,
+    jsonb,
+    pgEnum,
+    pgTable,
+    text,
+    timestamp,
+    uniqueIndex,
+    uuid,
+    vector,
 } from 'drizzle-orm/pg-core';
 
 // ltree custom type for hierarchical document paths
@@ -50,6 +50,13 @@ export const documents = pgTable(
 
     // owner (tenant 기준)
     userId: uuid('user_id').notNull(),
+
+    /**
+     * 표시용 문서 이름
+     * - path는 ltree용 slug 경로이므로, 실제 UI에서는 항상 name을 사용합니다.
+     * - name은 UTF-8 전체 범위를 허용하며, 한글/이모지 등도 그대로 저장합니다.
+     */
+    name: text('name'),
 
     // hierarchical path within the user's namespace
     path: ltree('path').notNull(),

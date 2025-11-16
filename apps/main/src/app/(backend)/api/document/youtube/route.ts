@@ -31,17 +31,15 @@ export async function POST(request: NextRequest) {
 
     const input = parsed.data as YoutubeDocumentCreateRequest;
 
-    // 이름 결정: 제공된 name 우선, 없으면 서버에서 oEmbed로 title 시도 → 실패 시 fallback
-    let finalName = input.name?.trim();
+    // 이름 결정: YouTube oEmbed title 시도 → 실패 시 'YouTube'로 fallback
+    let finalName: string | null = null;
 
-    if (!finalName) {
-      const title = await fetchYoutubeTitle(input.url).catch(() => null);
-      if (title && title.length > 0) {
-        finalName = title;
-      }
+    const title = await fetchYoutubeTitle(input.url).catch(() => null);
+    if (title && title.trim().length > 0) {
+      finalName = title.trim();
     }
 
-    if (!finalName || finalName.length === 0) {
+    if (!finalName) {
       finalName = 'YouTube';
     }
 
@@ -60,6 +58,7 @@ export async function POST(request: NextRequest) {
           documentId: created.documentId,
           userId: created.userId,
           path: created.path,
+          name: (created as { name?: string | null }).name ?? finalName,
           kind: created.kind,
           uploadStatus: created.uploadStatus,
           fileMeta: created.fileMeta,

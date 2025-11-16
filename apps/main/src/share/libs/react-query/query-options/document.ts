@@ -44,6 +44,12 @@ export type DocumentDTO = {
   documentId: string;
   userId: string;
   path: string;
+  /**
+   * 표시용 문서 이름
+   * - 서버에서 항상 non-empty 문자열로 채워주며,
+   *   기존 데이터의 경우 path에서 파생된 fallback 이름이 사용될 수 있습니다.
+   */
+  name: string;
   kind: DocumentKind;
   uploadStatus: DocumentUploadStatus;
   fileMeta: DocumentFileMetaDTO;

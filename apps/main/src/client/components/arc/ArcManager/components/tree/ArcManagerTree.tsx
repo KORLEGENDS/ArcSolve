@@ -151,7 +151,15 @@ export function ArcManagerTree({
             onItemDragStart?.({ item, event });
           }}
           onDragOver={(event) => {
-            // 행 위로 드래그된 경우 드롭을 허용합니다.
+            const dt = event.dataTransfer;
+            if (!dt) return;
+            // ArcManager에서 시작된 드래그(전용 MIME)인 경우에만 드롭/하이라이트를 허용합니다.
+            const hasArcManagerMime = Array.from(dt.types || []).includes(
+              'application/x-arcmanager-item'
+            );
+            if (!hasArcManagerMime) return;
+
+            // 행 위로 ArcManager 항목이 드래그된 경우에만 드롭을 허용합니다.
             event.preventDefault();
             if (item.itemType === 'folder') {
               // 폴더 행 위에 있는 경우, 해당 폴더를 드롭 대상로 표시합니다.
@@ -211,7 +219,14 @@ export function ArcManagerTree({
     <div
       className={className}
       onDragOver={(event) => {
-        // 트리 전체 영역 위에서도 드롭을 허용합니다.
+        const dt = event.dataTransfer;
+        if (!dt) return;
+        const hasArcManagerMime = Array.from(dt.types || []).includes(
+          'application/x-arcmanager-item'
+        );
+        if (!hasArcManagerMime) return;
+
+        // 트리 전체 영역 위에서도 ArcManager 항목에 대해서만 드롭을 허용합니다.
         event.preventDefault();
       }}
       onDragLeave={(event) => {
@@ -240,11 +255,25 @@ export function ArcManagerTree({
           transition: 'background-color 0.15s ease, border-color 0.15s ease',
         }}
         onDragOver={(event) => {
+          const dt = event.dataTransfer;
+          if (!dt) return;
+          const hasArcManagerMime = Array.from(dt.types || []).includes(
+            'application/x-arcmanager-item'
+          );
+          if (!hasArcManagerMime) return;
+
           event.preventDefault();
           setIsPlaceholderDragOver(true);
           setDropFolderPath(null);
         }}
         onDragEnter={(event) => {
+          const dt = event.dataTransfer;
+          if (!dt) return;
+          const hasArcManagerMime = Array.from(dt.types || []).includes(
+            'application/x-arcmanager-item'
+          );
+          if (!hasArcManagerMime) return;
+
           event.preventDefault();
           setIsPlaceholderDragOver(true);
           setDropFolderPath(null);

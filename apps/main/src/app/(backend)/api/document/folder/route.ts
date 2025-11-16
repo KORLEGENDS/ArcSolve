@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
           documentId: folder.documentId,
           userId: folder.userId,
           path: folder.path as unknown as string,
+          name: (folder as { name?: string | null }).name ?? body.name,
           kind: folder.kind,
           uploadStatus: folder.uploadStatus,
           fileMeta: folder.fileMeta,

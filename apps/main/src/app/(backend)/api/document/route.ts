@@ -4,6 +4,12 @@ import { DocumentRepository } from '@/share/schema/repositories/document-reposit
 import type { NextRequest } from 'next/server';
 import { auth } from '@auth';
 
+function getFallbackNameFromPath(path: unknown): string {
+  if (typeof path !== 'string') return 'unnamed';
+  const parts = path.split('.').filter(Boolean);
+  return parts[parts.length - 1] || 'unnamed';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
@@ -39,16 +45,25 @@ export async function GET(request: NextRequest) {
 
     return ok(
       {
-        documents: documents.map((doc) => ({
-          documentId: doc.documentId,
-          userId: doc.userId,
-          path: doc.path,
-          kind: doc.kind,
-          uploadStatus: doc.uploadStatus,
-          fileMeta: doc.fileMeta,
-          createdAt: doc.createdAt.toISOString(),
-          updatedAt: doc.updatedAt.toISOString(),
-        })),
+        documents: documents.map((doc) => {
+          const rawName = (doc as { name?: unknown }).name;
+          const name =
+            typeof rawName === 'string' && rawName.trim().length > 0
+              ? rawName
+              : getFallbackNameFromPath(doc.path as unknown as string);
+
+          return {
+            documentId: doc.documentId,
+            userId: doc.userId,
+            path: doc.path,
+            name,
+            kind: doc.kind,
+            uploadStatus: doc.uploadStatus,
+            fileMeta: doc.fileMeta,
+            createdAt: doc.createdAt.toISOString(),
+            updatedAt: doc.updatedAt.toISOString(),
+          };
+        }),
       },
       {
         user: { id: userId, email: session.user.email || undefined },

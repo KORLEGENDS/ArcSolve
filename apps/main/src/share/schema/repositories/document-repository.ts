@@ -4,6 +4,7 @@ import type { Document, DocumentFileMeta, DocumentUploadStatus } from '@/share/s
 import { documents } from '@/share/schema/drizzles';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
+import slugify from 'slugify';
 import type { DB } from './base-repository';
 
 function isDatabaseError(error: unknown): error is DatabaseError {
@@ -16,24 +17,45 @@ function isDatabaseError(error: unknown): error is DatabaseError {
 }
 
 /**
- * ltree 라벨 한 개를 안전한 형식으로 정규화합니다.
+ * ltree 라벨 한 개를 안전한 ASCII slug로 정규화합니다.
+ *
+ * 정책
+ * - UI에 표시되는 이름은 Document.name(UTF-8 전체 범위)에서 관리하고,
+ * - path는 ltree 전용 slug 경로로만 사용합니다.
+ *
+ * 규칙
+ * - slugify를 사용해 다국어를 가능한 한 ASCII로 변환합니다.
  * - 허용 문자: a-z, 0-9, _
- * - 첫 글자가 숫자/기타인 경우 n_ prefix 부여
+ * - 첫 글자가 문자가 아닌 경우 n_ prefix 부여
+ * - slugify/정규화 이후에도 비어 있으면 'unnamed'를 사용합니다.
  */
 function toLtreeLabel(name: string): string {
-  const trimmed = name.trim().toLowerCase();
+  const trimmed = name.trim();
   if (!trimmed) return 'unnamed';
-  let label = trimmed
-    .normalize('NFKD')
-    .replace(/[^\w]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .replace(/_{2,}/g, '_');
 
-  if (!label) label = 'unnamed';
-  if (!/[a-z]/.test(label[0])) {
-    label = `n_${label}`;
+  // 1) slugify로 1차 ASCII 슬러그 생성
+  let slug = slugify(trimmed, {
+    lower: true,
+    strict: true,
+    locale: 'ko',
+  });
+
+  // 2) ltree 규칙에 맞게 후처리 (하이픈 -> 언더스코어 등)
+  slug = slug.replace(/-/g, '_');
+  slug = slug.replace(/[^a-z0-9_]/g, '');
+  slug = slug.replace(/^_+|_+$/g, '');
+  slug = slug.replace(/_{2,}/g, '_');
+
+  if (!slug) {
+    // slugify가 아무 것도 만들지 못한 극단적인 경우
+    return 'unnamed';
   }
-  return label;
+
+  if (!/[a-z]/.test(slug[0])) {
+    slug = `n_${slug}`;
+  }
+
+  return slug;
 }
 
 /**
@@ -104,11 +126,16 @@ export class DocumentRepository {
     if (existing) return existing;
 
     try {
+      const segments = (normalizedPath as string).split('.').filter(Boolean);
+      const lastSegment = segments[segments.length - 1] ?? 'unnamed';
+
       const [row] = await database
         .insert(documents)
         .values({
           userId,
           path: normalizedPath,
+          // 서버에서 보장하는 폴더이므로 path의 마지막 세그먼트를 이름으로 사용합니다.
+          name: lastSegment,
           kind: 'folder',
           uploadStatus: 'uploaded',
           fileMeta: null,
@@ -147,15 +174,42 @@ export class DocumentRepository {
     const label = toLtreeLabel(input.name);
     const parentLtreePath = normalizeLtreePath(input.parentPath);
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
-    const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
-    if (!folder) {
-      throwApi('INTERNAL', '폴더 생성에 실패했습니다.', {
-        userId: input.userId,
-        parentPath: input.parentPath,
-        name: input.name,
-      });
+
+    try {
+      const [row] = await this.database
+        .insert(documents)
+        .values({
+          userId: input.userId,
+          path,
+          name: input.name,
+          kind: 'folder',
+          uploadStatus: 'uploaded',
+          fileMeta: null,
+        })
+        .returning();
+
+      if (!row) {
+        throw new Error('폴더 생성에 실패했습니다.');
+      }
+
+      return row;
+    } catch (error) {
+      if (isDatabaseError(error) && error.code === '23505') {
+        // user_id + path 유니크 제약 위반 → 이미 동일 경로의 폴더가 존재하는 경우,
+        // ensureFolderForOwner를 통해 기존 폴더를 반환합니다.
+        const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
+        if (folder) {
+          return folder;
+        }
+
+        throwApi('CONFLICT', '같은 경로에 이미 폴더가 존재합니다.', {
+          userId: input.userId,
+          parentPath: input.parentPath,
+          name: input.name,
+        });
+      }
+      throw error;
     }
-    return folder;
   }
 
   /**
@@ -188,6 +242,7 @@ export class DocumentRepository {
           documentId: input.documentId,
           userId: input.userId,
           path,
+          name: input.name,
           kind: 'file',
           fileMeta,
           uploadStatus: 'pending',
@@ -240,6 +295,7 @@ export class DocumentRepository {
         .values({
           userId: input.userId,
           path,
+          name: input.name,
           kind: 'file',
           fileMeta,
           uploadStatus: 'uploaded',
