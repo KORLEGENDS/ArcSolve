@@ -18,6 +18,46 @@ export interface ArcYouChatRoomListProps {
 
 const STATUS_BASE_CLASS = 'flex items-center justify-center py-8 text-sm w-full';
 
+/**
+ * 메시지 content JSON에서 프리뷰 텍스트를 추출합니다.
+ * @param content 메시지 content (JSON 객체, 예: { text: "..." } 또는 { url: "...", alt: "..." })
+ * @returns 프리뷰 텍스트 문자열 (없으면 null)
+ */
+function getMessagePreview(content: unknown): string | null {
+  if (!content || typeof content !== 'object') {
+    return null;
+  }
+
+  // text 타입: content.text 반환
+  if ('text' in content && typeof content.text === 'string') {
+    return content.text;
+  }
+
+  // image 타입: "[이미지]" 반환
+  if ('url' in content || 'imageUrl' in content) {
+    return '[이미지]';
+  }
+
+  // file 타입: "[파일] {파일명}" 반환
+  if ('fileName' in content || 'fileUrl' in content) {
+    let fileName = '파일';
+    if ('fileName' in content && typeof content.fileName === 'string') {
+      fileName = content.fileName;
+    } else if ('name' in content && typeof content.name === 'string') {
+      fileName = content.name;
+    }
+    return `[파일] ${fileName}`;
+  }
+
+  // system 타입: "[시스템 메시지]" 반환
+  if ('type' in content && content.type === 'system') {
+    return '[시스템 메시지]';
+  }
+
+  // 알 수 없는 타입: null 반환
+  return null;
+}
+
 export function ArcYouChatRoomList({
   type,
   className,
@@ -32,7 +72,7 @@ export function ArcYouChatRoomList({
     return data.map<ArcYouChatRoomListItemProps>((room) => ({
       id: room.id,
       name: room.name,
-      lastMessage: room.lastMessage?.content ?? null,
+      lastMessage: room.lastMessage ? getMessagePreview(room.lastMessage.content) : null,
       imageUrl: room.imageUrl,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,

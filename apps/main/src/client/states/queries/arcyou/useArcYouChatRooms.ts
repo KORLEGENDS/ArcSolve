@@ -63,12 +63,7 @@ export function useArcYouChatRooms(options?: ArcYouChatRoomsOptions) {
               data.lastMessage &&
               typeof data.lastMessage === 'object' &&
               'content' in data.lastMessage
-                ? {
-                    content:
-                      typeof data.lastMessage.content === 'string'
-                        ? data.lastMessage.content
-                        : null,
-                  }
+                ? { content: data.lastMessage.content }
                 : null;
             const updatedAt =
               typeof data.updatedAt === 'string' ? data.updatedAt : undefined;

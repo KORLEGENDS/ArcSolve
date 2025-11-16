@@ -811,15 +811,7 @@ subscriber.on('message', (_channel, message) => {
         (data.op === 'room' && data.event === 'message.created') ||
         data.type === 'message.created'
       ) {
-        const rawContent = data.message?.content;
-        const lastMessageContent =
-          rawContent &&
-          typeof rawContent === 'object' &&
-          rawContent !== null &&
-          'text' in rawContent
-            ? (rawContent as { text?: string }).text ?? null
-            : null;
-
+        const messageContent = data.message?.content;
         const createdAt: string | undefined = data.message?.created_at;
 
         const activityPayload = {
@@ -827,8 +819,8 @@ subscriber.on('message', (_channel, message) => {
           event: 'room.activity' as const,
           roomId,
           lastMessage:
-            lastMessageContent !== undefined
-              ? { content: lastMessageContent }
+            messageContent !== undefined && messageContent !== null
+              ? { content: messageContent }
               : null,
           updatedAt: createdAt ?? new Date().toISOString(),
         };
@@ -920,15 +912,7 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
         (data.op === 'room' && data.event === 'message.created') ||
         data.type === 'message.created'
       ) {
-        const rawContent = data.message?.content;
-        const lastMessageContent =
-          rawContent &&
-          typeof rawContent === 'object' &&
-          rawContent !== null &&
-          'text' in rawContent
-            ? (rawContent as { text?: string }).text ?? null
-            : null;
-
+        const messageContent = data.message?.content;
         const createdAt: string | undefined = data.message?.created_at;
 
         const activityPayload = {
@@ -936,8 +920,8 @@ subscriber.on('pmessage', (_pattern, channel, message) => {
           event: 'room.activity' as const,
           roomId,
           lastMessage:
-            lastMessageContent !== undefined
-              ? { content: lastMessageContent }
+            messageContent !== undefined && messageContent !== null
+              ? { content: messageContent }
               : null,
           updatedAt: createdAt ?? new Date().toISOString(),
         };

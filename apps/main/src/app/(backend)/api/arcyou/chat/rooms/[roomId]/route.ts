@@ -54,16 +54,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           name: room.name,
           type: room.type,
           imageUrl: room.imageUrl,
-          lastMessage: room.lastMessage
-            ? {
-                content:
-                  typeof room.lastMessage.content === 'object' &&
-                  room.lastMessage.content !== null &&
-                  'text' in room.lastMessage.content
-                    ? (room.lastMessage.content as { text: string }).text
-                    : null,
-              }
-            : null,
+          lastMessage: room.lastMessage,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,
           createdAt: room.createdAt?.toISOString() ?? null,
@@ -76,7 +67,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     );
   } catch (err) {
-    console.error('[PATCH /api/arcyou/chat/rooms/[roomId]] Error:', err);
     return error('INTERNAL', '채팅방 이름 수정 중 오류가 발생했습니다.', {
       details: err instanceof Error ? { message: err.message } : undefined,
     });

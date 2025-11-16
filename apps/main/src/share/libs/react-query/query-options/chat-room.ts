@@ -18,7 +18,7 @@ export type ArcyouChatRoom = {
   name: string;
   type: 'direct' | 'group';
   imageUrl: string | null;
-  lastMessage: { content: string | null } | null;
+  lastMessage: { content: unknown } | null;
   role: 'owner' | 'manager' | 'participant';
   lastReadMessageId: string | null;
   createdAt: string | null;

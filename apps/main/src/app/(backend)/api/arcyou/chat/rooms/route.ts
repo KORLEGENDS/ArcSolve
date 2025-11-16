@@ -46,16 +46,7 @@ export async function GET(request: NextRequest) {
           name: room.name,
           type: room.type,
           imageUrl: room.imageUrl,
-          lastMessage: room.lastMessage
-            ? {
-                content:
-                  typeof room.lastMessage.content === 'object' &&
-                  room.lastMessage.content !== null &&
-                  'text' in room.lastMessage.content
-                    ? (room.lastMessage.content as { text: string }).text
-                    : null,
-              }
-            : null,
+          lastMessage: room.lastMessage,
           role: room.role,
           lastReadMessageId: room.lastReadMessageId,
           createdAt: room.createdAt?.toISOString(),
@@ -190,16 +181,7 @@ function serializeRoom(room: ArcyouChatRoomWithMemberInfo) {
     name: room.name,
     type: room.type,
     imageUrl: room.imageUrl,
-    lastMessage: room.lastMessage
-      ? {
-          content:
-            typeof room.lastMessage.content === 'object' &&
-            room.lastMessage.content !== null &&
-            'text' in room.lastMessage.content
-              ? (room.lastMessage.content as { text: string }).text
-              : null,
-        }
-      : null,
+    lastMessage: room.lastMessage,
     role: room.role,
     lastReadMessageId: room.lastReadMessageId,
     createdAt: room.createdAt?.toISOString(),

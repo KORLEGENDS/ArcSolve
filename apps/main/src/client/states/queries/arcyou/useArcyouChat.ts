@@ -96,7 +96,7 @@ export function useChatRoomMembers(roomId: string) {
 export function useBumpChatRoomActivity() {
   const queryClient = useQueryClient();
 
-  const bump = (roomId: string, opts: { lastMessage?: { content: string | null } | null; updatedAt?: string }) => {
+  const bump = (roomId: string, opts: { lastMessage?: { content: unknown } | null; updatedAt?: string }) => {
     const updateList = (rooms?: ArcyouChatRoom[]) => {
       if (!rooms) return rooms;
       const idx = rooms.findIndex((r) => r.id === roomId);
