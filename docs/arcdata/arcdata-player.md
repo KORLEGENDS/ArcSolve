@@ -186,8 +186,21 @@ export interface ArcDataPlayerProps {
   className?: string;
   zoom?: number; // 25~500 (width 비율, %)
   config?: Record<string, unknown>;
+
+  // 재생 제어 (기본 ArcData 흐름에서는 사용하지 않는 고급 옵션)
+  loop?: boolean; // 루프 재생 여부 (기본 false)
+  playing?: boolean; // 재생 상태 제어 (기본 undefined, 내부 이벤트로 관리)
+  currentTime?: number; // 외부에서 재생 위치(초)를 직접 제어할 때 사용 (고급/실험용)
+
   onReady?: () => void;
   onError?: (error: unknown) => void;
+
+  /**
+   * (옵션) 시킹 이벤트 콜백
+   * - 대본 클릭 등으로 특정 시점으로 점프할 때 호출됨
+   * - 외부에서 currentTime을 직접 관리하는 경우에만 사용 권장
+   */
+  onSeekTo?: (time: number) => void;
 
   /**
    * (옵션) 대본/스크립트 데이터
@@ -205,15 +218,23 @@ export interface ArcDataPlayerProps {
 
 ```tsx
 <AnyReactPlayer
+  ref={playerRef}
   src={src}
   width="100%"
   height={isAudio ? '64px' : '100%'}
   controls
   config={config}
+  loop={loop}
+  playing={playing}
   playsInline
-  onReady={handleReadyInternal}
+  onReady={handleReady}
   onError={onError}
   title={title}
+  onTimeUpdate={handleTimeUpdate}
+  onDurationChange={handleDurationChange}
+  onPlay={handlePlay}
+  onPause={handlePause}
+  onEnded={handleEnded}
 />
 ```
 
@@ -228,9 +249,55 @@ export interface ArcDataPlayerProps {
 - **config**:
   - `react-player`의 `config` prop 그대로 전달됩니다.
   - 필요 시 `config={{ youtube: { playerVars: { modestbranding: 1 } } }}` 등으로 세부 옵션을 조정할 수 있습니다.
+  - ArcData의 기본 흐름에서는 `ArcDataPlayerHost`가 필요한 설정을 모두 주입하며,
+    일반 클라이언트 코드에서는 직접 건드리지 않는 것을 권장합니다.
+
+- **loop / playing / currentTime / onSeekTo**:
+  - `loop`:
+    - `react-player`의 loop 옵션을 그대로 전달합니다.
+    - ArcData 기본 사용에서는 필요하지 않지만, 특수한 플레이어 데모/실험에서 사용할 수 있는 고급 옵션입니다.
+  - `playing`:
+    - 외부에서 재생/일시정지 상태를 강제로 제어해야 할 때 사용할 수 있습니다.
+    - ArcData 기본 흐름에서는 내부 이벤트(`onPlay`, `onPause`, `onEnded`)로 상태를 관리하며, 이 값을 넘기지 않는 것이 기본입니다.
+  - `currentTime`:
+    - 외부에서 재생 위치를 직접 제어해야 하는 고급/실험용 옵션입니다.
+    - 예: 별도의 타임라인 컴포넌트가 있고, 그 타임라인을 기준으로 Player/Transcript를 모두 동기화하고 싶을 때 사용 가능합니다.
+  - `onSeekTo(time)`:
+    - 대본 클릭 등으로 시킹이 발생했을 때, 외부 타임라인/상태에게 "time 위치로 이동했다"는 사실을 알려주기 위한 콜백입니다.
+    - ArcData 기본 흐름에서는 내부에서만 시킹을 처리하므로 이 콜백을 사용하지 않습니다.
 
 > 주의: `react-player` v3 기준으로 URL prop 이름은 `src`입니다.  
 > (과거 문서/예제에서 `url`을 사용하는 경우가 있으나, 현재 구현에서는 `src`를 사용해야 합니다.)
+
+### 4.3. 내부 훅 구조 (`usePlayerController`, `usePlayerTranscript`)
+
+ArcDataPlayer 내부 구현은 다음 두 개의 훅으로 책임을 분리합니다.
+
+- `usePlayerController`
+  - 위치: `apps/main/src/client/components/arc/ArcData/hooks/player/usePlayerController.ts`
+  - 역할:
+    - `ReactPlayer` 인스턴스 ref(`playerRef`) 관리
+    - `currentTime`, `duration`, `isPlaying` 상태를 **스크립트 유무와 관계없이 항상 관리**
+    - `loop`, `playing`, `currentTime`, `onSeekTo`와 연동되는 이벤트 핸들러 제공
+      (`handleReady`, `handleTimeUpdate`, `handleDurationChange`,
+      `handlePlay`, `handlePause`, `handleEnded`, `handleSeekTo`, `handleTogglePlay`)
+    - 외부에서 `currentTime`을 제어하는 경우(`externalCurrentTime` 제공)에는
+      내부 시간을 직접 변경하지 않고, `onSeekTo` 콜백을 통해 상위 상태와 동기화
+
+- `usePlayerTranscript`
+  - 위치: `apps/main/src/client/components/arc/ArcData/hooks/player/usePlayerTranscript.ts`
+  - 역할:
+    - `scriptItems`와 `currentTime`을 입력으로 받아 **현재 활성 스크립트(activeScript)** 계산
+    - `duration`이 비어 있는 경우 마지막 스크립트의 `end` 값을 기준으로 `effectiveDuration` 계산
+    - 자동 스크롤용 ref(`activeItemRef`)와 포커스 모드 상태(`isBlurred`)를 관리
+    - 스크롤/클릭 인터랙션을 위한 핸들러 제공
+      (`handleScroll`, `handleScriptClick`, `formatTime`)
+
+정리하면, ArcDataPlayer는:
+
+- `usePlayerController`로 **플레이어 공통 상태/이벤트를 한 곳에서 관리**하고,
+- `scriptItems`가 존재하는 경우에만 `usePlayerTranscript`를 통해  
+  Transcript(대본) 하이라이트/자동 스크롤/클릭 시킹 UX를 추가로 제공하는 구조입니다.
 
 ---
 
@@ -384,12 +451,12 @@ YouTube/영상/오디오 문서를 자연스럽게 Player 탭으로 재생할 �
 
 ## 7. PlayerManager와 로딩 모드 확장 포인트
 
-Player 계층은 `PlayerManager`를 통해 미디어 로드를 추상화합니다.
+Player 계층은 `ArcDataPlayerManager`(싱글톤 인스턴스 `playerManager`)를 통해 미디어 로드를 추상화합니다.
 
 ### 7.1. PlayerManager 개요
 
 파일 위치:  
-`apps/main/src/client/components/arc/ArcData/managers/PlayerManager.ts`
+`apps/main/src/client/components/arc/ArcData/managers/ArcDataPlayerManager.ts`
 
 핵심 타입은 다음과 같습니다.
 
@@ -436,11 +503,11 @@ export interface LoadedMedia {
    - 작은 파일 → `stream`
    - 큰/자주 쓰이는 파일 → `blob`
    으로 분기할 수 있습니다.
-2. `PlayerManager.load(..., { mode: 'blob' })`로 한 번 로드하면,
+2. `ArcDataPlayerManager.load(..., { mode: 'blob' })`로 한 번 로드하면,
    - Player는 `loaded.src`(object URL)를 사용해 재생하고,
    - 분석/썸네일 로직은 동일 `MediaKey`로 이미 다운로드된 blob을 재활용할 수 있습니다.
 
-이처럼 PlayerManager를 중심으로 미디어 로드를 통합해두면,  
+이처럼 ArcDataPlayerManager를 중심으로 미디어 로드를 통합해두면,  
 현재의 단순 스트리밍 구조에서 추후 고급 기능으로 자연스럽게 확장할 수 있습니다.
 
 

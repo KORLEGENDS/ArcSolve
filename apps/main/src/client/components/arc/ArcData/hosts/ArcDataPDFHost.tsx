@@ -1,5 +1,6 @@
 'use client';
 
+import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import * as React from 'react';
 
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
@@ -7,9 +8,9 @@ import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocu
 import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSidebar';
 import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/ArcDataPDFTopbar';
 import ArcDataPDFNewViewer from '../components/core/ArcDataPDFNew/ArcDataPDFNewViewer';
-import { usePDFInteraction } from '../hooks/pdf/usePDFInteraction';
-import { usePDFLoad } from '../hooks/pdf/usePDFLoad';
-import { ZOOM_LEVELS, usePDFSetting } from '../hooks/pdf/usePDFSetting';
+import { usePDFPageController } from '../hooks/pdf/usePDFPageController';
+import { ZOOM_LEVELS, usePDFViewController } from '../hooks/pdf/usePDFViewController';
+import { pdfManager } from '../managers/ArcDataPDFManager';
 
 export interface ArcDataPDFHostProps {
   /** ArcWork 탭 메타데이터에서 넘어오는 문서 ID (document.documentId) */
@@ -38,12 +39,45 @@ export function ArcDataPDFHost({
 
   const pdfUrl = download?.url ?? null;
 
-  // 2) PDF 문서 로드
-  const {
-    document: pdfDocument,
-    isLoading: isPdfLoading,
-    error: pdfError,
-  } = usePDFLoad(pdfUrl ?? null);
+  // 2) PDF 문서 로드 (ArcDataPDFManager를 통해 로드/캐시 위임)
+  const [pdfDocument, setPdfDocument] = React.useState<PDFDocumentProxy | null>(null);
+  const [isPdfLoading, setIsPdfLoading] = React.useState<boolean>(false);
+  const [pdfError, setPdfError] = React.useState<Error | null>(null);
+
+  React.useEffect(() => {
+    if (!pdfUrl) {
+      setPdfDocument(null);
+      setIsPdfLoading(false);
+      setPdfError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    setIsPdfLoading(true);
+    setPdfError(null);
+
+    const loadDocument = async (): Promise<void> => {
+      try {
+        const doc = await pdfManager.loadDocument(pdfUrl);
+        if (cancelled) return;
+        setPdfDocument(doc);
+        setIsPdfLoading(false);
+      } catch (error) {
+        if (cancelled) return;
+        setPdfDocument(null);
+        setIsPdfLoading(false);
+        setPdfError(error instanceof Error ? error : new Error('PDF 로드 실패'));
+      }
+    };
+
+    void loadDocument();
+
+    return () => {
+      cancelled = true;
+      pdfManager.releaseDocument(pdfUrl);
+    };
+  }, [pdfUrl]);
 
   // 3) 페이지/뷰어 상호작용 상태 (현재 페이지, 총 페이지, 스크롤 이동 등)
   const {
@@ -52,7 +86,8 @@ export function ArcDataPDFHost({
     viewerRef,
     setTotalPages,
     handleSidebarPageClick,
-  } = usePDFInteraction();
+    onVisiblePageChange,
+  } = usePDFPageController();
 
   // 문서 로드 완료 후 총 페이지 수 동기화
   React.useEffect(() => {
@@ -69,7 +104,7 @@ export function ArcDataPDFHost({
     handleZoomOut,
     fitWidthOnce,
     toggleFitWidth,
-  } = usePDFSetting({
+  } = usePDFViewController({
     isPDF: true,
     pdfDocument,
     imageNaturalWidth: null,
@@ -122,6 +157,7 @@ export function ArcDataPDFHost({
             ref={viewerRef}
             document={pdfDocument}
             className="h-full w-full"
+            onPageChange={onVisiblePageChange}
           />
         </div>
       </div>

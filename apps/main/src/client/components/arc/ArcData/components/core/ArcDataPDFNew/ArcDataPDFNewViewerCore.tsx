@@ -14,13 +14,11 @@ export interface ArcDataPDFNewViewerCoreProps {
   eventBus: EventBus | null;
   linkService: PDFLinkService | null;
   findController: PDFFindController | null;
+  onPageChange?: (pageNumber: number) => void;
 }
 
 export const ArcDataPDFNewViewerCore = React.forwardRef<ArcDataPDFNewViewerHandle, ArcDataPDFNewViewerCoreProps>(
-  (
-    { document, className, eventBus, linkService, findController },
-    ref,
-  ) => {
+  ({ document, className, eventBus, linkService, findController, onPageChange }, ref) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const viewerElementRef = React.useRef<HTMLDivElement | null>(null);
     const viewerRef = React.useRef<PDFViewer | null>(null);
@@ -73,6 +71,18 @@ export const ArcDataPDFNewViewerCore = React.forwardRef<ArcDataPDFNewViewerHandl
         }
       };
     }, [document, eventBus, linkService, findController]);
+
+    // pdf.js EventBus로부터 현재 페이지 변경 이벤트를 받아 상위로 전달
+    React.useEffect(() => {
+      if (!eventBus || !onPageChange) return;
+      const handler = (evt: { pageNumber: number }): void => {
+        onPageChange(evt.pageNumber);
+      };
+      eventBus.on('pagechanging', handler);
+      return () => {
+        eventBus.off('pagechanging', handler);
+      };
+    }, [eventBus, onPageChange]);
 
     React.useImperativeHandle(
       ref,

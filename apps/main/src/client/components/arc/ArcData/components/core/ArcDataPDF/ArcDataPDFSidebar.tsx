@@ -2,8 +2,6 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import * as React from 'react';
 
 import { Separator } from '@/client/components/ui/separator';
-
-import { pdfManager } from '@/client/components/arc/ArcData/managers/ArcDataPDFManager';
 import { ArcDataSidebar } from '../../base/ArcDataSidebar';
 import styles from './ArcDataPDFSidebar.module.css';
 
@@ -30,24 +28,34 @@ const ThumbnailItem: React.FC<ThumbnailItemProps> = ({
 }) => {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
-  // 각 페이지의 썸네일 렌더링 (저해상도 DPR로 메모리 사용 최소화)
+  // 각 페이지의 썸네일 렌더링 (pdf.js Core API 사용, 저해상도 DPR로 메모리 사용 최소화)
   React.useEffect(() => {
+    let cancelled = false;
+
     const renderThumbnail = async (): Promise<void> => {
       if (!canvasRef.current) return;
 
       try {
-        const canvas = canvasRef.current;
-        const prefix = pdfManager.getEventPrefix(undefined, pdfDocument);
-        const eventId = `${prefix}:thumb:${pageNumber}`;
+        const page = await pdfDocument.getPage(pageNumber);
+        if (cancelled || !canvasRef.current) return;
 
-        await pdfManager.renderPage({
-          eventId,
-          document: pdfDocument,
-          pageNumber,
-          canvas,
-          scale: 0.2,
-          maxDpr: 1.5,
+        const viewport = page.getViewport({ scale: 0.2 });
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        const width = Math.max(1, Math.floor(viewport.width));
+        const height = Math.max(1, Math.floor(viewport.height));
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+
+        const renderTask = page.render({
+          canvasContext: context,
+          viewport,
         });
+        await renderTask.promise;
       } catch {
         // 썸네일 렌더 실패는 무시 (메인 뷰어에는 영향 없음)
       }
@@ -56,9 +64,7 @@ const ThumbnailItem: React.FC<ThumbnailItemProps> = ({
     void renderThumbnail();
 
     return () => {
-      // 해당 문서의 썸네일 렌더 작업만 취소
-      const prefix = pdfManager.getEventPrefix(undefined, pdfDocument);
-      pdfManager.cancelDocumentRenders(`${prefix}:thumb`);
+      cancelled = true;
     };
   }, [pdfDocument, pageNumber]);
 

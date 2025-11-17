@@ -13,7 +13,7 @@ import { ArcDataPDFNewViewerCore } from './ArcDataPDFNewViewerCore';
 import './ArcDataPDFNewViewer.css';
 
 export const ArcDataPDFNewViewer = React.forwardRef<ArcDataPDFNewViewerHandle, ArcDataPDFNewViewerProps>(
-  ({ document, docKey, className }, ref) => {
+  ({ document, docKey, className, onPageChange }, ref) => {
     const [eventBus, setEventBus] = React.useState<EventBus | null>(null);
     const [linkService, setLinkService] = React.useState<PDFLinkService | null>(null);
     const [findController, setFindController] = React.useState<PDFFindController | null>(null);
@@ -48,6 +48,7 @@ export const ArcDataPDFNewViewer = React.forwardRef<ArcDataPDFNewViewerHandle, A
               linkService={linkService}
               findController={findController}
               className="h-full w-full overflow-auto"
+              onPageChange={onPageChange}
             />
           </div>
         </div>

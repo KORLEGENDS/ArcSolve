@@ -1,7 +1,7 @@
 /**
- * 뷰 설정 훅 (PDF/이미지 공용)
+ * PDF 뷰 설정 컨트롤러 훅
  * - 줌/사이드바/너비맞춤/기준폭측정/리사이즈 대응을 캡슐화
- * - 파일명에 맞춰 PDF 전용 훅처럼 사용하지만, 파라미터 구조는 이미지 등으로 확장 가능하도록 유지합니다.
+ * - 기존 `usePDFSetting` 훅을 보다 역할에 맞게 리네이밍한 구현입니다.
  */
 
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
@@ -15,10 +15,10 @@ export const ZOOM_LEVELS = {
 } as const;
 
 /**
- * PDF 뷰 설정 훅 파라미터
+ * PDF 뷰 컨트롤러 훅 파라미터
  * - 현재는 ArcData PDF 전용으로 사용되지만, 이미지 뷰어 등으로 확장 가능하도록 제너릭 형태를 유지합니다.
  */
-export interface UsePDFSettingParams {
+export interface UsePDFViewControllerParams {
   isPDF: boolean;
   pdfDocument: PDFDocumentProxy | null;
   imageNaturalWidth: number | null;
@@ -28,10 +28,10 @@ export interface UsePDFSettingParams {
 }
 
 /**
- * PDF 뷰 설정 훅 반환 타입
+ * PDF 뷰 컨트롤러 훅 반환 타입
  * - 외부 컴포넌트는 이 인터페이스에만 의존하도록 고정합니다.
  */
-export interface UsePDFSettingReturn {
+export interface UsePDFViewControllerReturn {
   // 상태
   zoomLevel: number;
   isSidebarOpen: boolean;
@@ -53,17 +53,16 @@ export interface UsePDFSettingReturn {
 }
 
 /**
- * PDF 뷰 설정 훅
- * - 파일명(`usePDFSetting.ts`)에 맞춘 기본 이름은 `usePDFSetting`입니다.
- * - 기존 코드 및 문서 호환을 위해 `useViewerSetting` 이름으로도 export 합니다.
+ * PDF 뷰 컨트롤러 훅
+ * - 기존 `usePDFSetting` 구현을 그대로 사용하되, 이름만 컨트롤러 관점으로 명확히 표현합니다.
  */
-export function usePDFSetting({
+export function usePDFViewController({
   isPDF,
   pdfDocument,
   imageNaturalWidth,
   imageNaturalHeight = null,
   fitMode = 'width',
-}: UsePDFSettingParams): UsePDFSettingReturn {
+}: UsePDFViewControllerParams): UsePDFViewControllerReturn {
   // 상태
   const [zoomLevel, setZoomLevel] = useState<number>(ZOOM_LEVELS.DEFAULT);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -111,7 +110,8 @@ export function usePDFSetting({
 
     if (contentBaseWidth <= 0) return;
     const scaleW = availableWidth > 0 ? availableWidth / contentBaseWidth : 1;
-    const scaleH = availableHeight > 0 && contentBaseHeight > 0 ? availableHeight / contentBaseHeight : scaleW;
+    const scaleH =
+      availableHeight > 0 && contentBaseHeight > 0 ? availableHeight / contentBaseHeight : scaleW;
     const baseScale = fitMode === 'longer-edge' ? Math.max(scaleW, scaleH) : scaleW;
     const rawScale = baseScale * 100;
     const clamped = Math.max(ZOOM_LEVELS.MIN, Math.min(rawScale, ZOOM_LEVELS.MAX));
@@ -159,9 +159,7 @@ export function usePDFSetting({
       if (contentBaseWidth <= 0) return;
       const scaleW = availableWidth / contentBaseWidth;
       const scaleH =
-        availableHeight > 0 && contentBaseHeight > 0
-          ? availableHeight / contentBaseHeight
-          : scaleW;
+        availableHeight > 0 && contentBaseHeight > 0 ? availableHeight / contentBaseHeight : scaleW;
       const baseScale = fitMode === 'longer-edge' ? Math.max(scaleW, scaleH) : scaleW;
       const rawScale = baseScale * 100;
       const clamped = Math.max(ZOOM_LEVELS.MIN, Math.min(rawScale, ZOOM_LEVELS.MAX));
@@ -247,8 +245,5 @@ export function usePDFSetting({
     fitWidthOnce,
   };
 }
-
-// 레거시 이름 유지: 기존 문서/코드에서 사용하던 `useViewerSetting` 별칭
-export const useViewerSetting = usePDFSetting;
 
 
