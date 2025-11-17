@@ -1,0 +1,74 @@
+/* ArcDataPDFSidebar 전용 스타일 */
+
+/* ==================== 썸네일 아이템 ==================== */
+.thumbnailItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background-color: transparent;
+  transition:
+    background-color 150ms var(--transition-short),
+    border-color 150ms var(--transition-short);
+}
+
+.thumbnailItem:hover {
+  border-color: var(--color-border);
+  background-color: var(--color-muted);
+}
+
+/* 활성 상태 */
+.active {
+  border-color: var(--color-ring);
+  background-color: var(--color-muted);
+}
+
+/* ==================== 썸네일 프레임 ==================== */
+.thumbFrame {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background-color: var(--color-background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+}
+
+/* ==================== 썸네일 캔버스 ==================== */
+.thumbnailCanvas {
+  max-width: 100%;
+  max-height: 8rem;
+  width: auto;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-xs);
+}
+
+/* ==================== 페이지 라벨 ==================== */
+.pageLabel {
+  position: absolute;
+  top: var(--spacing);
+  left: var(--spacing);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: var(--text-caption-regular);
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--drop-shadow-xs);
+}
+
+
+

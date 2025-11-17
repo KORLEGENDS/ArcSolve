@@ -4,8 +4,8 @@ import * as React from 'react';
 
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
 
-import { ArcDataSidebar } from '../components/base/ArcDataSidebar';
 import { ArcDataTopbar } from '../components/base/ArcDataTopbar';
+import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSidebar';
 import { PDFViewer } from '../components/core/ArcDataPDF';
 import { usePDFInteraction } from '../hooks/pdf/usePDFInteraction';
 import { usePDFLoad } from '../hooks/pdf/usePDFLoad';
@@ -104,7 +104,7 @@ export function ArcDataPDFHost({
 
       <div className="flex h-0 w-full flex-1 flex-row">
         {/* 좌측: PDF 썸네일 사이드바 (고정 폭) */}
-        <ArcDataSidebar
+        <ArcDataPDFSidebar
           currentPage={visiblePage}
           totalPages={totalPages}
           pdfDocument={pdfDocument}

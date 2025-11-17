@@ -1,5 +1,8 @@
 'use client';
 
+import type { ArcDataLoadOptions, ArcDataSource } from './ArcDataManager';
+import { arcDataManager } from './ArcDataManager';
+
 /**
  * 미디어 리소스 관리 싱글톤 (오디오/비디오)
  * - 다운로드(blob) 또는 스트리밍(url) 경로를 단일 API로 관리
@@ -194,61 +197,10 @@ export class PlayerManager {
   }
 
   private async loadBlob(
-    input: string | Blob | ArrayBuffer,
-    opts: {
-      headers?: Record<string, string>;
-      onProgress?: (loaded: number, total: number | null) => void;
-      signal?: AbortSignal;
-      mimeType?: string;
-    },
+    input: ArcDataSource,
+    opts: ArcDataLoadOptions,
   ): Promise<Blob> {
-    if (typeof input === 'string') {
-      const res = await fetch(input, { headers: opts.headers, signal: opts.signal });
-      if (!res.ok) {
-        throw new Error(`미디어 다운로드 실패: ${res.status}`);
-      }
-
-      const totalHeader = res.headers.get('content-length');
-      const total = totalHeader ? Number(totalHeader) || null : null;
-
-      const body = res.body as ReadableStream<Uint8Array> | null;
-      if (!body || typeof (body as any).getReader !== 'function') {
-        return await res.blob();
-      }
-
-      const reader = body.getReader();
-      const chunks: ArrayBuffer[] = [];
-      let loaded = 0;
-
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          const ab = value.buffer.slice(
-            value.byteOffset,
-            value.byteOffset + value.byteLength,
-          );
-          chunks.push(ab);
-          loaded += value.byteLength;
-          opts.onProgress?.(loaded, total);
-        }
-      }
-
-      const blob = new Blob(chunks, {
-        type: opts.mimeType ?? res.headers.get('content-type') ?? 'application/octet-stream',
-      });
-      return blob;
-    }
-
-    if (input instanceof ArrayBuffer) {
-      return new Blob([new Uint8Array(input)], {
-        type: opts.mimeType ?? 'application/octet-stream',
-      });
-    }
-
-    // Blob
-    return input as Blob;
+    return arcDataManager.loadBlobFromSource(input, opts);
   }
 
   private cleanupOld(): void {

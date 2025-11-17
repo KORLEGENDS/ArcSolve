@@ -26,9 +26,10 @@ PDF 뷰어 관련 주요 구성요소는 다음과 같습니다.
   - PDF 상단 툴바
   - **확대/축소/너비 맞춤**을 제어하는 UI를 제공
 
-- `components/base/ArcDataSidebar.tsx`
+- `components/core/ArcDataPDF/ArcDataPDFSidebar.tsx`
   - PDF 썸네일 목록 및 페이지 네비게이션 담당
-  - `pdfManager.renderPage()`를 사용해 각 페이지 썸네일 렌더링
+  - 내부에서 공용 레이아웃 컴포넌트인 `ArcDataSidebar`를 사용해 좌측 사이드바 레이아웃/스크롤 보정을 처리하고,
+  - `pdfManager.renderPage()`를 사용해 각 페이지 썸네일을 렌더링합니다.
 
 - `components/core/ArcDataPDF/PDFViewer.tsx`
   - PDF 코어 렌더러 래퍼
@@ -98,7 +99,7 @@ return (
     />
 
     <div className="flex h-0 w-full flex-1 flex-row">
-      <ArcDataSidebar
+      <ArcDataPDFSidebar
         currentPage={visiblePage}
         totalPages={totalPages}
         pdfDocument={pdfDocument}
@@ -161,12 +162,12 @@ export interface ArcDataTopbarProps {
 
 ---
 
-## 4. 썸네일 사이드바 API (`ArcDataSidebar`)
+## 4. 썸네일 사이드바 API (`ArcDataPDFSidebar`)
 
 ### 4.1. Props
 
 ```ts
-export interface ArcDataSidebarProps {
+export interface ArcDataPDFSidebarProps {
   currentPage: number;
   totalPages: number;
   pdfDocument: PDFDocumentProxy | null;
@@ -180,9 +181,9 @@ export interface ArcDataSidebarProps {
 - PDF 문서가 없거나 `totalPages <= 0`이면 `null`을 반환하여 렌더링하지 않습니다.
 - `pdfDocument.numPages`를 기반으로 `[1, totalPages]` 범위의 페이지에 대해 썸네일 캔버스를 생성합니다.
 - 각 썸네일은 `pdfManager.renderPage`를 호출해 낮은 DPR(기본 1.5)로 렌더링합니다.
-- 현재 페이지(`currentPage`)가 바뀔 때, 활성 썸네일이 리스트 뷰포트 안에 들어오도록 스크롤을 자동 보정합니다.
-- **반응형 동작**
-  - 기본 스타일에서 `hidden md:flex`를 사용하여, 모바일/작은 화면에서는 사이드바를 숨기고 데스크톱 이상에서만 표시하도록 되어 있습니다.
+- `ArcDataPDFSidebar`는 내부에서 공용 레이아웃 컴포넌트인 `ArcDataSidebar`를 사용합니다.
+  - `ArcDataSidebar`는 좌측 고정 폭 사이드바와 스크롤 컨테이너를 제공하고,
+  - 현재 활성 페이지(`currentPage`)가 바뀔 때 해당 썸네일이 리스트 뷰포트 안에 들어오도록 스크롤을 자동 보정합니다.
 
 ---
 
@@ -387,7 +388,7 @@ async renderPage(options: RenderOptions): Promise<void> {
 ```
 
 - `renderToCanvas`는 내부에서 오프스크린 캔버스를 생성해 `renderPage`를 호출한 뒤, 완성된 캔버스를 반환합니다.
-- ArcDataSidebar 및 PDFCore는 이 메서드를 사용해 실제 페이지 비트를 캔버스로 그립니다.
+- ArcDataPDFSidebar 및 PDFCore는 이 메서드를 사용해 실제 페이지 비트를 캔버스로 그립니다.
 
 ---
 
@@ -398,7 +399,7 @@ async renderPage(options: RenderOptions): Promise<void> {
 3. `usePDFLoad(pdfUrl)` → `pdfManager.loadDocument(pdfUrl)`로 PDF 문서를 로드합니다.
 4. `usePDFInteraction()` → `visiblePage`, `totalPages`, `viewerRef`, `handleSidebarPageClick` 등을 초기화합니다.
 5. `usePDFSetting()` → `zoomLevel`, `isFitWidth`, `viewerContentRef`, `fitWidthOnce` 등을 초기화합니다.
-6. `ArcDataTopbar` / `ArcDataSidebar` / `PDFViewer`가 위 상태를 기반으로 렌더링됩니다.
+6. `ArcDataTopbar` / `ArcDataPDFSidebar` / `PDFViewer`가 위 상태를 기반으로 렌더링됩니다.
 7. 사용자의 스크롤/썸네일 클릭/툴바 버튼 액션에 따라:
    - `visiblePage`가 갱신되고,
    - `zoomLevel` 및 `isFitWidth`가 조정되며,

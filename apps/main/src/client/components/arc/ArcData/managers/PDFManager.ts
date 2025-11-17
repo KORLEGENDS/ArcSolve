@@ -7,6 +7,7 @@ import type {
   PDFDocumentProxy,
   RenderTask,
 } from 'pdfjs-dist/types/src/display/api';
+import { arcDataManager } from './ArcDataManager';
 
 // ==================== 타입 정의 ====================
 
@@ -146,7 +147,14 @@ class PDFManager {
    */
   private async loadDocumentInternal(url: string): Promise<PDFDocumentProxy> {
     const pdfjsLib = await this.getPdfJs();
-    const loadingTask = pdfjsLib.getDocument({ url });
+
+    // ArcDataManager를 통해 공통 바이너리 다운로드 경로 사용
+    const blob = await arcDataManager.loadBlobFromSource(url, {
+      mimeType: 'application/pdf',
+    });
+    const data = new Uint8Array(await blob.arrayBuffer());
+
+    const loadingTask = pdfjsLib.getDocument({ data });
     return (await loadingTask.promise) as PDFDocumentProxy;
   }
 
