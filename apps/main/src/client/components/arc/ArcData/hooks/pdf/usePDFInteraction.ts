@@ -5,16 +5,15 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { ArcDataPDFViewerHandle } from '../../components/core/ArcDataPDF/ArcDataPDFViewer';
+import type { ArcDataPDFNewViewerHandle } from '../../components/core/ArcDataPDFNew/ArcDataPDFNewTypes';
 
 interface PDFInteractionState {
   visiblePage: number;
   totalPages: number;
-  viewerRef: React.RefObject<ArcDataPDFViewerHandle | null>;
+  viewerRef: React.RefObject<ArcDataPDFNewViewerHandle | null>;
   setVisiblePage: (page: number) => void;
   setTotalPages: (pages: number) => void;
   handleSidebarPageClick: (pageNumber: number) => void;
-  onVisiblePageChange: (pageNumber: number) => void;
 }
 
 export const usePDFInteraction = (): PDFInteractionState => {
@@ -25,17 +24,12 @@ export const usePDFInteraction = (): PDFInteractionState => {
   const [totalPages, setTotalPages] = useState(1);
 
   // ArcDataPDFViewer ref (페이지 이동용)
-  const viewerRef = useRef<ArcDataPDFViewerHandle | null>(null);
+  const viewerRef = useRef<ArcDataPDFNewViewerHandle | null>(null);
 
   // 사이드바 페이지 클릭 핸들러
   const handleSidebarPageClick = useCallback((pageNumber: number) => {
     setVisiblePage(pageNumber);
     viewerRef.current?.scrollToPage(pageNumber);
-  }, []);
-
-  // ArcDataPDFViewer에서 호출되는 페이지 변경 콜백 (스크롤 감지용)
-  const onVisiblePageChange = useCallback((pageNumber: number) => {
-    setVisiblePage(pageNumber);
   }, []);
 
   return {
@@ -45,6 +39,5 @@ export const usePDFInteraction = (): PDFInteractionState => {
     setVisiblePage,
     setTotalPages,
     handleSidebarPageClick,
-    onVisiblePageChange,
   };
 };

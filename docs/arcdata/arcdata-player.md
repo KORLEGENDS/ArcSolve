@@ -162,6 +162,23 @@ export interface ArcDataPlayerHostProps {
 ### 4.1. Props
 
 ```ts
+export interface ArcDataPlayerScriptItem {
+  id: string;
+  start: number; // 초 단위
+  end: number;   // 초 단위
+  text: string;
+  speaker?: string | null;
+}
+
+export interface ArcDataPlayerTranscriptOptions {
+  /**
+   * 초기 포커스 모드
+   * - 'focus' (기본값): 현재 대본만 또렷하게, 나머지는 블러/감쇠
+   * - 'full' : 모든 대본을 동일하게 표시
+   */
+  initialFocusMode?: 'focus' | 'full';
+}
+
 export interface ArcDataPlayerProps {
   src: string;
   mimeType?: string | null;
@@ -171,6 +188,14 @@ export interface ArcDataPlayerProps {
   config?: Record<string, unknown>;
   onReady?: () => void;
   onError?: (error: unknown) => void;
+
+  /**
+   * (옵션) 대본/스크립트 데이터
+   * - start/end는 초 단위
+   * - ArcData 상위 도메인(예: ArcWork)에서 전달
+   */
+  scriptItems?: ArcDataPlayerScriptItem[];
+  transcriptOptions?: ArcDataPlayerTranscriptOptions;
 }
 ```
 
@@ -206,6 +231,66 @@ export interface ArcDataPlayerProps {
 
 > 주의: `react-player` v3 기준으로 URL prop 이름은 `src`입니다.  
 > (과거 문서/예제에서 `url`을 사용하는 경우가 있으나, 현재 구현에서는 `src`를 사용해야 합니다.)
+
+---
+
+## 6. Transcript(대본) 연동
+
+### 6.1. 데이터 구조
+
+ArcDataPlayer는 `scriptItems`가 전달된 경우, 하단에 **대본 패널**을 함께 렌더링합니다.
+
+- `scriptItems: ArcDataPlayerScriptItem[]`
+  - `start`, `end`: 초 단위 구간
+  - `text`: 대본 내용
+  - `speaker`: 선택적 화자 정보
+- `transcriptOptions.initialFocusMode`
+  - `'focus'`(기본값): 현재 구간만 또렷하게, 나머지는 블러 처리
+  - `'full'`: 모든 대본을 동일하게 표시
+
+### 6.2. 동작 규칙 (ScriptTeleprompter 패턴)
+
+내부 구현은 `ScriptTeleprompter` 예제와 동일한 UX 규칙을 따릅니다.
+
+1. **재생 위치 동기화**
+   - `react-player`의 `onTimeUpdate`, `onDurationChange` 콜백을 사용해
+     - `currentTime`
+     - `duration`
+     상태를 ArcDataPlayer 내부에서 관리합니다.
+   - `currentTime`과 `scriptItems`를 비교해  
+     `start <= currentTime < end` 인 항목을 **현재 활성 대본(activeScript)** 으로 판단합니다.
+
+2. **자동 스크롤 & 블러 포커스**
+   - 규칙 2: 활성 대본이 변경되면
+     - `isBlurred`를 `true`로 되돌려 **포커스 모드**로 복구
+     - 해당 DOM 요소에 `scrollIntoView({ behavior: 'smooth', block: 'center' })` 호출
+     - 내부 플래그(`isAutoScrollingRef`)로 자동 스크롤 중인지 추적
+
+3. **사용자 스크롤**
+   - 규칙 1: 사용자가 대본 영역을 직접 스크롤하면
+     - 자동 스크롤 중이 아닌 경우에만 `isBlurred = false` 로 전환
+     - 전체 대본을 동일한 명도/선명도로 보는 **전체 보기 모드**가 됩니다.
+
+4. **대본 클릭 → 해당 시점으로 점프**
+   - 규칙 3: 사용자가 특정 대본을 클릭하면
+     - 해당 항목의 `start` 시점으로 점프를 요청
+     - 내부적으로는 `react-player` 인스턴스에 대해
+       - v3 기준 `player.currentTime = start` 또는
+       - 구버전 호환을 위해 `player.seekTo(start, 'seconds')`
+       를 우선적으로 시도합니다.
+     - 점프 이후 `isBlurred = true` 로 되돌려 포커스 모드로 복구합니다.
+
+5. **재생/일시정지 상태와의 연동**
+   - Player에서 발생하는 `onPlay`, `onPause`, `onEnded` 이벤트를 감지해
+     - `isPlaying` 상태를 관리
+     - 대본 헤더에서는 `lucide-react` 아이콘을 사용한 **Play/Pause 토글 버튼**으로
+       현재 상태를 표시하고, 클릭 시 ReactPlayer 인스턴스에 `play() / pause()`를 호출합니다.
+
+요약하면, ArcDataPlayer는:
+
+- 미디어 재생은 `react-player` v3 API에 맞추어 처리하면서,
+- `scriptItems`가 주어졌을 때만 **자동 하이라이트 + 자동 스크롤 + 클릭 시킹**이 동작하도록
+  얇은 Transcript 레이어를 함께 제공하는 구조입니다.
 
 ---
 

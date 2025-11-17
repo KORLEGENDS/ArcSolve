@@ -6,7 +6,7 @@ import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocu
 
 import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSidebar';
 import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/ArcDataPDFTopbar';
-import { ArcDataPDFViewer } from '../components/core/ArcDataPDF';
+import ArcDataPDFNewViewer from '../components/core/ArcDataPDFNew/ArcDataPDFNewViewer';
 import { usePDFInteraction } from '../hooks/pdf/usePDFInteraction';
 import { usePDFLoad } from '../hooks/pdf/usePDFLoad';
 import { ZOOM_LEVELS, usePDFSetting } from '../hooks/pdf/usePDFSetting';
@@ -52,7 +52,6 @@ export function ArcDataPDFHost({
     viewerRef,
     setTotalPages,
     handleSidebarPageClick,
-    onVisiblePageChange,
   } = usePDFInteraction();
 
   // 문서 로드 완료 후 총 페이지 수 동기화
@@ -77,6 +76,12 @@ export function ArcDataPDFHost({
     imageNaturalHeight: null,
     fitMode: 'width',
   });
+
+  // 줌 레벨 변경 시 새 뷰어에 반영
+  React.useEffect(() => {
+    if (!viewerRef.current) return;
+    viewerRef.current.setZoom(zoomLevel);
+  }, [zoomLevel, viewerRef]);
 
   // 에러는 조용히 실패 (MVP에서는 렌더 생략)
   if (downloadError || pdfError) {
@@ -103,7 +108,7 @@ export function ArcDataPDFHost({
       />
 
       <div className="flex h-0 w-full flex-1 flex-row">
-        {/* 좌측: PDF 썸네일 사이드바 (고정 폭) */}
+        {/* 좌측: 기존 ArcData 썸네일 사이드바 (pdf.js 코어와 독립된 썸네일 렌더링) */}
         <ArcDataPDFSidebar
           currentPage={visiblePage}
           totalPages={totalPages}
@@ -111,14 +116,11 @@ export function ArcDataPDFHost({
           onPageChange={handleSidebarPageClick}
         />
 
-        {/* 우측: 메인 PDF 뷰어 (남은 영역 전체 차지) */}
+        {/* 우측: 메인 PDF 뷰어 (pdf.js Viewer 기반) */}
         <div ref={viewerContentRef} className="flex h-full min-w-0 flex-1">
-          <ArcDataPDFViewer
+          <ArcDataPDFNewViewer
             ref={viewerRef}
             document={pdfDocument}
-            zoom={zoomLevel}
-            textLayerEnabled
-            onVisiblePageChange={onVisiblePageChange}
             className="h-full w-full"
           />
         </div>

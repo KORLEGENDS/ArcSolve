@@ -188,9 +188,9 @@ export interface ArcDataPDFSidebarProps {
 
 ---
 
-## 5. PDF 뷰어 코어 (`PDFViewer` / `PDFCore`)
+## 5. PDF 뷰어 코어 (기존 `ArcDataPDFViewer` / `ArcDataPDFCore` → 신규 `ArcDataPDFNewViewer`)
 
-### 5.1. `PDFViewer` 래퍼
+### 5.1. (기존) `ArcDataPDFViewer` 래퍼
 
 ```ts
 export interface PDFViewerProps {
@@ -208,7 +208,7 @@ export interface PDFViewerProps {
   - 오버레이/번역/인용 기능을 모두 제거하여 **순수 PDF 캔버스 뷰어**로만 동작합니다.
   - `textLayerEnabled`는 현재 구현에서는 실제 텍스트 레이어를 생성하지 않지만, 향후 확장을 위해 옵션으로 남겨두었습니다.
 
-### 5.2. `PDFViewerHandle`
+### 5.2. (기존) `PDFViewerHandle`
 
 ```ts
 export interface PDFViewerHandle {
@@ -220,7 +220,7 @@ export interface PDFViewerHandle {
 - `ArcData`는 `viewerRef`를 통해 `scrollToPage`를 사용합니다.
   - `usePDFInteraction`에서 사이드바 클릭 시 해당 페이지로 스크롤 이동하는 데 사용됩니다.
 
-### 5.3. `PDFCore`
+### 5.3. (기존) `PDFCore`
 
 - 문서 전체를 세로 방향으로 렌더링하고, 다음을 담당합니다.
   - 페이지별 캔버스 DOM 생성
@@ -228,6 +228,38 @@ export interface PDFViewerHandle {
   - 스크롤 이벤트를 감지하여 현재 보이는 페이지(`visiblePage`)를 계산
   - 가시 범위를 벗어난 페이지는 **저해상도 플레이스홀더 캔버스로 교체**하여 메모리 사용량을 줄임
 - `pdfManager.renderToCanvas`를 활용하여 고해상도 디스플레이에서도 선명한 렌더링을 제공하되, DPR 상한(`maxDpr`)으로 메모리 사용량을 제어합니다.
+
+### 5.4. (신규) `ArcDataPDFNewViewer` (pdf.js Viewer 래퍼)
+
+- 위치: `components/core/ArcDataPDFNew/ArcDataPDFNewViewer.tsx`
+- 역할:
+  - pdf.js의 `PDFViewer`, `PDFThumbnailViewer`, `PDFLinkService`, `PDFRenderingQueue`, `PDFFindController`, `EventBus`를 React 컴포넌트로 감싸는 상위 래퍼입니다.
+  - 내부에서 왼쪽 썸네일 뷰어와 오른쪽 메인 페이지 뷰어를 모두 구성하며, 스크롤/가상화/링크/검색 등의 코어 동작은 pdf.js에 위임합니다.
+- Props (요약):
+
+```ts
+export interface ArcDataPDFNewViewerProps {
+  document: PDFDocumentProxy;
+  docKey?: string;
+  initialPage?: number;
+  initialZoom?: number; // 100 = 100%
+  className?: string;
+  onPageChange?: (pageNumber: number) => void;
+}
+```
+
+- Handle:
+
+```ts
+export interface ArcDataPDFNewViewerHandle {
+  scrollToPage: (pageNumber: number) => void;
+  setZoom: (zoomPercent: number) => void;
+}
+```
+
+- `ArcDataPDFHost`에서는 이제 `ArcDataPDFNewViewer`를 사용하여:
+  - `usePDFSetting`으로 관리하는 `zoomLevel`이 변경될 때 `setZoom(zoomLevel)`을 통해 pdf.js 뷰어의 확대/축소를 제어하고,
+  - `onPageChange` 콜백을 통해 현재 페이지 번호를 `usePDFInteraction`의 `visiblePage` 상태와 동기화합니다.
 
 ---
 
