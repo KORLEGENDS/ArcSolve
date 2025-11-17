@@ -1,1 +1,1 @@
-export { default as PDFViewer, default } from './PDFViewer';
+export { default as ArcDataPDFViewer, default } from './ArcDataPDFViewer';

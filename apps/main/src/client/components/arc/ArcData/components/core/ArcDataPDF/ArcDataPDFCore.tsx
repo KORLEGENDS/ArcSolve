@@ -1,15 +1,15 @@
 /**
- * PDFCore
+ * ArcDataPDFCore
  * - PDF 렌더/가상화/스크롤/텍스트 레이어를 담당하는 코어 컴포넌트
  * - DOM/비즈니스 의존 오버레이(UI/번역/인용 등)는 포함하지 않음
  */
 
 'use client';
 
-import { pdfManager } from '@/client/components/arc/ArcData/managers/PDFManager';
+import { pdfManager } from '@/client/components/arc/ArcData/managers/ArcDataPDFManager';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import styles from './PDFViewer.module.css';
+import styles from './ArcDataPDFViewer.module.css';
 
 export interface PageCanvas {
   pageNumber: number;
@@ -17,7 +17,7 @@ export interface PageCanvas {
   container: HTMLDivElement;
 }
 
-interface PDFCoreProps {
+interface ArcDataPDFCoreProps {
   document: PDFDocumentProxy;
   docKey?: string;
   zoom: number; // 100 = 100%
@@ -27,13 +27,13 @@ interface PDFCoreProps {
   onCoreEnvChange?: (env: { containerEl: HTMLDivElement | null; pages: PageCanvas[]; renderVersion: number; zoomStable: boolean; visibleWindow: { center: number; start: number; end: number } }) => void;
 }
 
-export interface PDFCoreHandle {
+export interface ArcDataPDFCoreHandle {
   scrollToPage: (pageNumber: number) => void;
   getContainerEl: () => HTMLDivElement | null;
   getPages: () => PageCanvas[];
 }
 
-const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKey, zoom, textLayerEnabled = true, onVisiblePageChange, className, onCoreEnvChange }, ref) => {
+const ArcDataPDFCore = React.forwardRef<ArcDataPDFCoreHandle, ArcDataPDFCoreProps>(({ document, docKey, zoom, textLayerEnabled = true, onVisiblePageChange, className, onCoreEnvChange }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<PageCanvas[]>([]);
   const renderVersionRef = useRef(0);
@@ -321,9 +321,7 @@ const PDFCore = React.forwardRef<PDFCoreHandle, PDFCoreProps>(({ document, docKe
   );
 });
 
-PDFCore.displayName = 'PDFCore';
+ArcDataPDFCore.displayName = 'ArcDataPDFCore';
 
-export default PDFCore;
-
-
+export default ArcDataPDFCore;
 

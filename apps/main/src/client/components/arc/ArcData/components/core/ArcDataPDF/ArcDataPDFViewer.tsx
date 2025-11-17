@@ -1,6 +1,6 @@
 /**
- * PDFViewer (래퍼)
- * - PDFCore(렌더/가상화/스크롤/텍스트 레이어)를 감싸는 래퍼 컴포넌트
+ * ArcDataPDFViewer (래퍼)
+ * - ArcDataPDFCore(렌더/가상화/스크롤/텍스트 레이어)를 감싸는 래퍼 컴포넌트
  * - 과거 오버레이/번역/인용 레이어(PDFOverlay)는 MVP 단계에서 제거되어 이 컴포넌트에서는 사용하지 않습니다.
  */
 
@@ -8,9 +8,9 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import React, { useImperativeHandle } from 'react';
-import PDFCore, { type PDFCoreHandle } from './PDFCore';
+import ArcDataPDFCore, { type ArcDataPDFCoreHandle } from './ArcDataPDFCore';
 
-export interface PDFViewerProps {
+export interface ArcDataPDFViewerProps {
   document: PDFDocumentProxy;
   docKey?: string;
   zoom: number; // 100 = 100%
@@ -25,7 +25,7 @@ export interface PDFViewerProps {
   source?: string;
 }
 
-export interface PDFViewerHandle {
+export interface ArcDataPDFViewerHandle {
   scrollToPage: (pageNumber: number) => void;
   captureOverlayRegion: (params: {
     pageNumber: number;
@@ -48,12 +48,12 @@ export interface OverlayHoverInfo {
   height: number;
 }
 
-const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
+const ArcDataPDFViewer = React.forwardRef<ArcDataPDFViewerHandle, ArcDataPDFViewerProps>(
   (
     { document, docKey, zoom, overlayEnabled, textLayerEnabled = true, translateOverlayEnabled, onVisiblePageChange, onError, className, onAddCitation, sourceId, source },
     ref
   ) => {
-    const coreRef = React.useRef<PDFCoreHandle>(null);
+    const coreRef = React.useRef<ArcDataPDFCoreHandle>(null);
 
     useImperativeHandle(
       ref,
@@ -72,7 +72,7 @@ const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
 
     return (
       <div className={className}>
-        <PDFCore
+        <ArcDataPDFCore
           ref={coreRef}
           document={document}
           docKey={docKey}
@@ -88,9 +88,7 @@ const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
   }
 );
 
-PDFViewer.displayName = 'PDFViewer';
+ArcDataPDFViewer.displayName = 'ArcDataPDFViewer';
 
-export default PDFViewer;
-
-
+export default ArcDataPDFViewer;
 

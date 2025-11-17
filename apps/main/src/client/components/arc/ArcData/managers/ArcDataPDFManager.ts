@@ -31,8 +31,8 @@ interface RenderOptions {
 
 // ==================== PDF Manager 싱글톤 ====================
 
-class PDFManager {
-  private static instance: PDFManager;
+class ArcDataPDFManager {
+  private static instance: ArcDataPDFManager;
 
   // 동적 import된 pdf.js 모듈 캐시
   private static pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null =
@@ -60,11 +60,11 @@ class PDFManager {
   /**
    * 싱글톤 인스턴스 획득
    */
-  static getInstance(): PDFManager {
-    if (!PDFManager.instance) {
-      PDFManager.instance = new PDFManager();
+  static getInstance(): ArcDataPDFManager {
+    if (!ArcDataPDFManager.instance) {
+      ArcDataPDFManager.instance = new ArcDataPDFManager();
     }
-    return PDFManager.instance;
+    return ArcDataPDFManager.instance;
   }
 
   /**
@@ -76,8 +76,8 @@ class PDFManager {
       throw new Error('PDF.js는 브라우저 환경에서만 사용할 수 있습니다.');
     }
 
-    if (!PDFManager.pdfjsLibPromise) {
-      PDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
+    if (!ArcDataPDFManager.pdfjsLibPromise) {
+      ArcDataPDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
         // 워커 경로를 한 번만 초기화
         if (!mod.GlobalWorkerOptions.workerSrc) {
           mod.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
@@ -86,7 +86,7 @@ class PDFManager {
       });
     }
 
-    return PDFManager.pdfjsLibPromise;
+    return ArcDataPDFManager.pdfjsLibPromise;
   }
 
   /**
@@ -328,7 +328,8 @@ class PDFManager {
 }
 
 // Export singleton instance
-export const pdfManager = PDFManager.getInstance();
+export const pdfManager = ArcDataPDFManager.getInstance();
 
 // Export type for testing
-export type { PDFManager };
+export type { ArcDataPDFManager };
+

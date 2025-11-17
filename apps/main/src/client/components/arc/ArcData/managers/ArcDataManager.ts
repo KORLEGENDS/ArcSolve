@@ -4,7 +4,7 @@
  * ArcData 공통 바이너리 다운로드/스트림 관리 싱글톤
  * - URL/Blob/ArrayBuffer를 받아 Blob으로 변환
  * - fetch + ReadableStream을 이용한 진행률(onProgress) 콜백 지원
- * - PlayerManager / PDFManager 등에서 공유 사용
+ * - ArcDataPlayerManager / ArcDataPDFManager 등에서 공유 사용
  */
 
 export type ArcDataSource = string | Blob | ArrayBuffer;

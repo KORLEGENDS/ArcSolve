@@ -3,7 +3,7 @@ import * as React from 'react';
 
 import { Separator } from '@/client/components/ui/separator';
 
-import { pdfManager } from '@/client/components/arc/ArcData/managers/PDFManager';
+import { pdfManager } from '@/client/components/arc/ArcData/managers/ArcDataPDFManager';
 import { ArcDataSidebar } from '../../base/ArcDataSidebar';
 import styles from './ArcDataPDFSidebar.module.css';
 

@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
 
 import { ArcDataPlayer } from '../components/core/ArcDataPlayer/ArcDataPlayer';
-import { playerManager } from '../managers/PlayerManager';
+import { playerManager } from '../managers/ArcDataPlayerManager';
 
 export interface ArcDataPlayerHostProps {
   documentId: string;

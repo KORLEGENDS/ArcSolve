@@ -36,8 +36,8 @@ interface CachedMedia {
   mode: LoadMode;
 }
 
-export class PlayerManager {
-  private static instance: PlayerManager;
+export class ArcDataPlayerManager {
+  private static instance: ArcDataPlayerManager;
 
   private mediaCache = new Map<MediaKey, CachedMedia>();
   private loadingTasks = new Map<
@@ -52,11 +52,11 @@ export class PlayerManager {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
 
-  static getInstance(): PlayerManager {
-    if (!PlayerManager.instance) {
-      PlayerManager.instance = new PlayerManager();
+  static getInstance(): ArcDataPlayerManager {
+    if (!ArcDataPlayerManager.instance) {
+      ArcDataPlayerManager.instance = new ArcDataPlayerManager();
     }
-    return PlayerManager.instance;
+    return ArcDataPlayerManager.instance;
   }
 
   /**
@@ -263,6 +263,5 @@ export class PlayerManager {
   }
 }
 
-export const playerManager = PlayerManager.getInstance();
-
+export const playerManager = ArcDataPlayerManager.getInstance();
 

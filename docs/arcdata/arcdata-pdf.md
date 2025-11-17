@@ -22,9 +22,10 @@ PDF 뷰어 관련 주요 구성요소는 다음과 같습니다.
     - 뷰어 설정(줌/너비 맞춤) 관리
     - 상단 툴바 / 좌측 썸네일 / 메인 PDF 뷰어 레이아웃 구성
 
-- `components/base/ArcDataTopbar.tsx`
+- `components/core/ArcDataPDF/ArcDataPDFTopbar.tsx`
   - PDF 상단 툴바
-  - **확대/축소/너비 맞춤**을 제어하는 UI를 제공
+  - 공용 상단 레이아웃 컴포넌트인 `ArcDataTopbar` 위에서 동작하며,
+  - **확대/축소/너비 맞춤**을 제어하는 UI를 제공합니다.
 
 - `components/core/ArcDataPDF/ArcDataPDFSidebar.tsx`
   - PDF 썸네일 목록 및 페이지 네비게이션 담당
@@ -87,7 +88,7 @@ export interface ArcDataProps {
 ```tsx
 return (
   <div className="flex h-full w-full flex-col">
-    <ArcDataTopbar
+    <ArcDataPDFTopbar
       zoomLevel={zoomLevel}
       canZoomIn={zoomLevel < ZOOM_LEVELS.MAX}
       canZoomOut={zoomLevel > ZOOM_LEVELS.MIN}
@@ -123,12 +124,12 @@ return (
 
 ---
 
-## 3. 상단 툴바 API (`ArcDataTopbar`)
+## 3. 상단 툴바 API (`ArcDataPDFTopbar`)
 
 ### 3.1. Props
 
 ```ts
-export interface ArcDataTopbarProps {
+export interface ArcDataPDFTopbarProps {
   zoomLevel: number;
   canZoomIn: boolean;
   canZoomOut: boolean;
@@ -399,7 +400,7 @@ async renderPage(options: RenderOptions): Promise<void> {
 3. `usePDFLoad(pdfUrl)` → `pdfManager.loadDocument(pdfUrl)`로 PDF 문서를 로드합니다.
 4. `usePDFInteraction()` → `visiblePage`, `totalPages`, `viewerRef`, `handleSidebarPageClick` 등을 초기화합니다.
 5. `usePDFSetting()` → `zoomLevel`, `isFitWidth`, `viewerContentRef`, `fitWidthOnce` 등을 초기화합니다.
-6. `ArcDataTopbar` / `ArcDataPDFSidebar` / `PDFViewer`가 위 상태를 기반으로 렌더링됩니다.
+6. `ArcDataPDFTopbar` / `ArcDataPDFSidebar` / `PDFViewer`가 위 상태를 기반으로 렌더링됩니다.
 7. 사용자의 스크롤/썸네일 클릭/툴바 버튼 액션에 따라:
    - `visiblePage`가 갱신되고,
    - `zoomLevel` 및 `isFitWidth`가 조정되며,

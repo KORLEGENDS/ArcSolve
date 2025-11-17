@@ -4,9 +4,9 @@ import * as React from 'react';
 
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
 
-import { ArcDataTopbar } from '../components/base/ArcDataTopbar';
 import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSidebar';
-import { PDFViewer } from '../components/core/ArcDataPDF';
+import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/ArcDataPDFTopbar';
+import { ArcDataPDFViewer } from '../components/core/ArcDataPDF';
 import { usePDFInteraction } from '../hooks/pdf/usePDFInteraction';
 import { usePDFLoad } from '../hooks/pdf/usePDFLoad';
 import { ZOOM_LEVELS, usePDFSetting } from '../hooks/pdf/usePDFSetting';
@@ -19,7 +19,7 @@ export interface ArcDataPDFHostProps {
 /**
  * ArcData 전용 PDF 호스트
  * - documentId 기준으로 파일 다운로드 URL을 조회하고
- * - PDF를 로드한 뒤, Topbar + Sidebar + 메인 PDFViewer 레이아웃으로 렌더링합니다.
+ * - PDF를 로드한 뒤, Topbar + Sidebar + 메인 ArcDataPDFViewer 레이아웃으로 렌더링합니다.
  * - ArcData 엔트리 컴포넌트에서는 어떤 호스트를 사용할지만 결정하고,
  *   실제 PDF 뷰어/상태 관리는 이 컴포넌트에서 담당합니다.
  */
@@ -91,7 +91,7 @@ export function ArcDataPDFHost({
 
   return (
     <div className="flex h-full w-full flex-col">
-      <ArcDataTopbar
+      <ArcDataPDFTopbar
         zoomLevel={zoomLevel}
         canZoomIn={zoomLevel < ZOOM_LEVELS.MAX}
         canZoomOut={zoomLevel > ZOOM_LEVELS.MIN}
@@ -113,7 +113,7 @@ export function ArcDataPDFHost({
 
         {/* 우측: 메인 PDF 뷰어 (남은 영역 전체 차지) */}
         <div ref={viewerContentRef} className="flex h-full min-w-0 flex-1">
-          <PDFViewer
+          <ArcDataPDFViewer
             ref={viewerRef}
             document={pdfDocument}
             zoom={zoomLevel}
