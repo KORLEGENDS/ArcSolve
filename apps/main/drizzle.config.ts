@@ -11,14 +11,14 @@ export default defineConfig({
     user: env.POSTGRES_USER,
     password: env.POSTGRES_PASSWORD,
     database: env.POSTGRES_DB,
-        ssl:
+    ssl:
       (env.POSTGRES_TLS_ENABLED ?? false) === true
-            ? ({
-                rejectUnauthorized: true,
+        ? ({
+            rejectUnauthorized: true,
             servername: env.POSTGRES_TLS_SERVERNAME,
-              } as any)
-            : (false as any),
-      },
+          } as any)
+        : (false as any),
+  },
   verbose: true,
   strict: false,
 });
