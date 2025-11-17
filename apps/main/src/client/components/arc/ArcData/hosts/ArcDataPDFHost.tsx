@@ -9,7 +9,6 @@ import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSideb
 import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/ArcDataPDFTopbar';
 import ArcDataPDFNewViewer from '../components/core/ArcDataPDFNew/ArcDataPDFNewViewer';
 import { usePDFPageController } from '../hooks/pdf/usePDFPageController';
-import { ZOOM_LEVELS, usePDFViewController } from '../hooks/pdf/usePDFViewController';
 import { pdfManager } from '../managers/ArcDataPDFManager';
 
 export interface ArcDataPDFHostProps {
@@ -95,28 +94,86 @@ export function ArcDataPDFHost({
     setTotalPages(pdfDocument.numPages);
   }, [pdfDocument, setTotalPages]);
 
-  // 4) 뷰어 크기/줌 상태 (확대/축소/너비 맞춤)
-  const {
-    zoomLevel,
-    isFitWidth,
-    viewerContentRef,
-    handleZoomIn,
-    handleZoomOut,
-    fitWidthOnce,
-    toggleFitWidth,
-  } = usePDFViewController({
-    isPDF: true,
-    pdfDocument,
-    imageNaturalWidth: null,
-    imageNaturalHeight: null,
-    fitMode: 'width',
-  });
+  // 4) 뷰어 줌/너비 맞춤 상태 (모든 실제 계산은 pdf.js API에 위임)
+  const ZOOM_LEVELS = React.useMemo(
+    () => ({
+      MIN: 25,
+      MAX: 500,
+      DEFAULT: 100,
+      STEP: 25,
+    }),
+    [],
+  );
 
-  // 줌 레벨 변경 시 새 뷰어에 반영
-  React.useEffect(() => {
-    if (!viewerRef.current) return;
-    viewerRef.current.setZoom(zoomLevel);
-  }, [zoomLevel, viewerRef]);
+  const [zoomLevel, setZoomLevel] = React.useState<number>(ZOOM_LEVELS.DEFAULT);
+  const [isFitWidth, setIsFitWidth] = React.useState<boolean>(false);
+  const viewerContentRef = React.useRef<HTMLDivElement | null>(null);
+
+  const syncZoomFromViewer = React.useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const scale = viewer.getCurrentScale?.();
+    if (typeof scale === 'number' && !Number.isNaN(scale)) {
+      setZoomLevel(Math.round(scale * 100));
+    }
+  }, [viewerRef]);
+
+  const handleZoomIn = React.useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    setIsFitWidth(false);
+    setZoomLevel((prev) => {
+      const next = Math.min(prev + ZOOM_LEVELS.STEP, ZOOM_LEVELS.MAX);
+      viewer.setZoom(next);
+      return next;
+    });
+
+    // 실제 적용된 배율은 pdf.js가 최종 결정하므로 동기화
+    syncZoomFromViewer();
+  }, [ZOOM_LEVELS.MAX, ZOOM_LEVELS.STEP, syncZoomFromViewer, viewerRef]);
+
+  const handleZoomOut = React.useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    setIsFitWidth(false);
+    setZoomLevel((prev) => {
+      const next = Math.max(prev - ZOOM_LEVELS.STEP, ZOOM_LEVELS.MIN);
+      viewer.setZoom(next);
+      return next;
+    });
+
+    syncZoomFromViewer();
+  }, [ZOOM_LEVELS.MIN, ZOOM_LEVELS.STEP, syncZoomFromViewer, viewerRef]);
+
+  const handleFitWidthOnce = React.useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    // pdf.js의 'page-width' 프리셋을 그대로 사용 (커스텀 계산 없음)
+    viewer.setZoom('page-width');
+    setIsFitWidth(false);
+    syncZoomFromViewer();
+  }, [syncZoomFromViewer, viewerRef]);
+
+  const handleFitWidthToggle = React.useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    setIsFitWidth((prev) => {
+      const next = !prev;
+      if (next) {
+        // 모드 ON: pdf.js 'page-width' 모드 위임
+        viewer.setZoom('page-width');
+      } else {
+        // 모드 OFF: 기본 100%로 복귀 (필요 시 향후 최근 배율 복원 방식으로 확장 가능)
+        viewer.setZoom(ZOOM_LEVELS.DEFAULT);
+      }
+      syncZoomFromViewer();
+      return next;
+    });
+  }, [ZOOM_LEVELS.DEFAULT, syncZoomFromViewer, viewerRef]);
 
   // 에러는 조용히 실패 (MVP에서는 렌더 생략)
   if (downloadError || pdfError) {
@@ -138,8 +195,8 @@ export function ArcDataPDFHost({
         isFitWidth={isFitWidth}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
-        onFitWidthOnce={fitWidthOnce}
-        onFitWidthToggle={toggleFitWidth}
+        onFitWidthOnce={handleFitWidthOnce}
+        onFitWidthToggle={handleFitWidthToggle}
       />
 
       <div className="flex h-0 w-full flex-1 flex-row">

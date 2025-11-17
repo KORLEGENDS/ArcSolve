@@ -5,7 +5,7 @@ import type { PDFFindController } from 'pdfjs-dist/types/web/pdf_find_controller
 import type { PDFLinkService } from 'pdfjs-dist/types/web/pdf_link_service';
 import type { EventBus, PDFViewer, PDFViewerOptions } from 'pdfjs-dist/types/web/pdf_viewer';
 import * as React from 'react';
-import type { ArcDataPDFNewViewerHandle } from './ArcDataPDFNewTypes';
+import type { ArcDataPDFNewViewerHandle, ArcDataPdfScaleValue } from './ArcDataPDFNewTypes';
 import { loadPdfJsViewerModule } from './pdfjsViewerLoader';
 
 export interface ArcDataPDFNewViewerCoreProps {
@@ -91,27 +91,45 @@ export const ArcDataPDFNewViewerCore = React.forwardRef<ArcDataPDFNewViewerHandl
           if (!viewerRef.current) return;
           viewerRef.current.currentPageNumber = pageNumber;
         },
-        setZoom: (zoomPercent: number) => {
+        setZoom: (zoom: ArcDataPdfScaleValue | number) => {
           if (!viewerRef.current) return;
-          const scale = zoomPercent / 100;
-          if (typeof viewerRef.current.currentScaleValue !== 'undefined') {
-            viewerRef.current.currentScaleValue = String(scale);
+
+          // 문자열 값은 pdf.js 프리셋(e.g. 'page-width') 그대로 위임
+          if (typeof zoom === 'string') {
+            // pdf.js PDFViewer.currentScaleValue는 number | string 을 허용
+            (viewerRef.current as unknown as { currentScaleValue: string }).currentScaleValue = zoom;
+            return;
           }
+
+          // 숫자는 퍼센트(100 = 100%)로 간주하여 1.0 스케일로 변환
+          const scale = zoom / 100;
+          (viewerRef.current as unknown as { currentScaleValue: number }).currentScaleValue = scale;
+        },
+        getCurrentScale: () => {
+          if (!viewerRef.current) return null;
+          const v = (viewerRef.current as unknown as { currentScale?: number }).currentScale;
+          return typeof v === 'number' && !Number.isNaN(v) ? v : null;
+        },
+        getCurrentScaleValue: () => {
+          if (!viewerRef.current) return null;
+          const v = (viewerRef.current as unknown as { currentScaleValue?: number | string }).currentScaleValue;
+          return typeof v === 'number' || typeof v === 'string' ? v : null;
         },
       }),
       [],
     );
 
     return (
-      <div className={className} data-role="pdfjs-viewer-root">
+      <div
+        className={className}
+        data-role="pdfjs-viewer-root"
+        style={{ position: 'relative' }}
+      >
         <div
           ref={containerRef}
           data-role="pdfjs-viewer-container"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            overflow: 'auto',
-          }}
+          className="h-full w-full overflow-auto"
+          style={{ position: 'absolute', inset: 0 }}
         >
           <div
             ref={viewerElementRef}

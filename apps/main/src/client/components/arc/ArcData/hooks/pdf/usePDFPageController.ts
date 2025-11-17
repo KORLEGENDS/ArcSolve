@@ -29,15 +29,21 @@ export const usePDFPageController = (): PDFPageControllerState => {
   const viewerRef = useRef<ArcDataPDFNewViewerHandle | null>(null);
 
   // 사이드바 페이지 클릭 핸들러
-  const handleSidebarPageClick = useCallback((pageNumber: number) => {
-    setVisiblePage(pageNumber);
-    viewerRef.current?.scrollToPage(pageNumber);
-  }, []);
+  const handleSidebarPageClick: (pageNumber: number) => void = useCallback(
+    (pageNumber: number) => {
+      setVisiblePage(pageNumber);
+      viewerRef.current?.scrollToPage(pageNumber);
+    },
+    [],
+  );
 
   // pdf.js 뷰어에서 호출되는 페이지 변경 콜백 (스크롤 감지용)
-  const onVisiblePageChange = useCallback((pageNumber: number) => {
-    setVisiblePage(pageNumber);
-  }, []);
+  const onVisiblePageChange: (pageNumber: number) => void = useCallback(
+    (pageNumber: number) => {
+      setVisiblePage(pageNumber);
+    },
+    [],
+  );
 
   return {
     visiblePage,

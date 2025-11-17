@@ -47,7 +47,7 @@ export const ArcDataPDFNewViewer = React.forwardRef<ArcDataPDFNewViewerHandle, A
               eventBus={eventBus}
               linkService={linkService}
               findController={findController}
-              className="h-full w-full overflow-auto"
+              className="h-full w-full"
               onPageChange={onPageChange}
             />
           </div>
