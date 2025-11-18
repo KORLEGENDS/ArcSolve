@@ -1,0 +1,94 @@
+.editorContainer {
+  height: 100%;
+}
+
+.editor {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto; /* top toolbar / canvas / bottom toolbar */
+  overflow: hidden; /* prevent outer scroll */
+}
+
+/* Excalidraw 테마를 Arc 스타일 시스템에 맞추기 위한 커스텀 스코프 */
+.excalidrawCustomScope :global(.excalidraw) {
+  --theme-filter: none;
+  --button-destructive-bg-color: #ffe3e3;
+  --button-destructive-color: #c92a2a;
+  --button-gray-1: #e9ecef;
+  --button-gray-2: #ced4da;
+  --button-gray-3: #adb5bd;
+  --button-special-active-bg-color: #ebfbee;
+  --dialog-border-color: var(--color-border);
+
+  --focus-highlight-color: color-mix(in oklab, var(--color-ring) 80%, transparent);
+  --icon-fill-color: var(--color-foreground);
+  --icon-green-fill-color: #2b8a3e;
+  --default-bg-color: var(--color-surface);
+  --input-bg-color: var(--color-input);
+  --input-border-color: var(--color-border);
+  --input-hover-bg-color: var(--color-input);
+  --input-label-color: var(--color-muted-foreground);
+  --island-bg-color: var(--color-surface);
+  --keybinding-color: var(--color-muted-foreground);
+  --link-color: var(--color-highlight);
+  --overlay-bg-color: color-mix(in oklab, var(--color-background) 88%, transparent);
+  --popup-bg-color: var(--color-surface);
+  --popup-secondary-bg-color: var(--color-muted);
+  --popup-text-color: var(--color-surface-foreground);
+  --popup-text-inverted-color: var(--color-surface);
+  --select-highlight-color: var(--color-ring);
+  --shadow-island:
+    0px 0px 0.93px 0px rgba(0, 0, 0, 0.17),
+    0px 0px 3.13px 0px rgba(0, 0, 0, 0.08),
+    0px 7px 14px 0px rgba(0, 0, 0, 0.05);
+  --button-hover-bg: var(--color-accent);
+  --button-active-bg: var(--color-accent);
+  --button-active-border: var(--color-ring);
+  --default-border-color: var(--color-border);
+  --default-button-size: 2rem;
+  --default-icon-size: 1rem;
+  --lg-button-size: 2.25rem;
+  --lg-icon-size: 1rem;
+  --editor-container-padding: 1rem;
+  --scrollbar-thumb: color-mix(in oklab, var(--color-border) 80%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--color-border) 100%, transparent);
+}
+
+.excalidrawCustomScope :global(.excalidraw.theme--dark) {
+  --theme-filter: invert(93%) hue-rotate(180deg);
+  --button-destructive-bg-color: #5a0000;
+  --button-destructive-color: #ffa8a8;
+  --button-gray-1: #363636;
+  --button-gray-2: #272727;
+  --button-gray-3: #222222;
+  --button-special-active-bg-color: #204624;
+  --dialog-border-color: var(--color-border);
+
+  --focus-highlight-color: color-mix(in oklab, var(--color-ring) 85%, transparent);
+  --icon-green-fill-color: #69db7c;
+  --default-bg-color: var(--color-surface);
+  --input-bg-color: var(--color-input);
+  --input-border-color: var(--color-border);
+  --input-hover-bg-color: var(--color-input);
+  --input-label-color: var(--color-muted-foreground);
+  --island-bg-color: var(--color-surface);
+  --keybinding-color: var(--color-muted-foreground);
+  --link-color: var(--color-highlight);
+  --overlay-bg-color: var(--color-overlay);
+  --popup-secondary-bg-color: var(--color-muted);
+  --popup-text-color: var(--color-surface-foreground);
+  --popup-text-inverted-color: var(--color-surface);
+  --select-highlight-color: var(--color-ring);
+  --shadow-island:
+    0px 100px 80px rgba(0, 0, 0, 0.07),
+    0px 41.78px 33.42px rgba(0, 0, 0, 0.05),
+    0px 22.34px 17.87px rgba(0, 0, 0, 0.043),
+    0px 12.52px 10.02px rgba(0, 0, 0, 0.035),
+    0px 6.65px 5.32px rgba(0, 0, 0, 0.027),
+    0px 2.77px 2.21px rgba(0, 0, 0, 0.02);
+  --scrollbar-thumb: color-mix(in oklab, var(--color-border) 80%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--color-border) 100%, transparent);
+}
+
+

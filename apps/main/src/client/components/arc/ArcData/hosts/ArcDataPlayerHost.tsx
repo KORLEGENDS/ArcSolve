@@ -16,7 +16,7 @@ export interface ArcDataPlayerHostProps {
 /**
  * ArcData 전용 Player 호스트
  * - 영상/오디오/YouTube 등 재생 가능한 파일에 대해
- *   documentId + fileMeta 정보를 기반으로 실제 재생 URL을 구성하고,
+ *   documentId + mimeType/storageKey 정보를 기반으로 실제 재생 URL을 구성하고,
  *   ArcDataPlayer 뷰어를 렌더링합니다.
  */
 export function ArcDataPlayerHost({

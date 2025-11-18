@@ -3,7 +3,6 @@ import { db as defaultDb } from '@/server/database/postgresql/client-postgresql'
 import type {
   Document,
   DocumentContent,
-  DocumentFileMeta,
   DocumentUploadStatus,
 } from '@/share/schema/drizzles';
 import { documentContents, documents } from '@/share/schema/drizzles';
@@ -11,6 +10,25 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 import slugify from 'slugify';
 import type { DB } from './base-repository';
+
+/**
+ * 노트(contents) 기반으로 MIME 타입을 추론합니다.
+ * - draw 씬(type = 'draw')이면 application/vnd.arc.note+draw
+ * - 그 외(Slate/Plate 배열 또는 기타 값)는 application/vnd.arc.note+plate 로 간주합니다.
+ */
+function inferNoteMimeTypeFromContents(contents: unknown): string {
+  if (
+    contents &&
+    typeof contents === 'object' &&
+    !Array.isArray(contents) &&
+    (contents as { type?: unknown }).type === 'draw'
+  ) {
+    return 'application/vnd.arc.note+draw';
+  }
+
+  // 기본값: Plate 기반 텍스트 노트
+  return 'application/vnd.arc.note+plate';
+}
 
 function isDatabaseError(error: unknown): error is DatabaseError {
   return (
@@ -154,7 +172,9 @@ export class DocumentRepository {
           name: lastSegment,
           kind: 'folder',
           uploadStatus: 'uploaded',
-          fileMeta: null,
+          mimeType: null,
+          fileSize: null,
+          storageKey: null,
         })
         .returning();
 
@@ -200,7 +220,9 @@ export class DocumentRepository {
           name: input.name,
           kind: 'folder',
           uploadStatus: 'uploaded',
-          fileMeta: null,
+          mimeType: null,
+          fileSize: null,
+          storageKey: null,
         })
         .returning();
 
@@ -232,7 +254,7 @@ export class DocumentRepository {
    * 업로드용 파일 문서를 생성합니다.
    * - kind = 'file'
    * - uploadStatus = 'pending'
-   * - fileMeta에 초기 메타데이터 저장
+   * - mimeType / fileSize / storageKey에 초기 메타데이터 저장
    */
   async createPendingFileForUpload(input: CreatePendingFileInput): Promise<Document> {
     const label = toLtreeLabel(input.name);
@@ -245,12 +267,6 @@ export class DocumentRepository {
       await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
     }
 
-    const fileMeta: DocumentFileMeta = {
-      mimeType: input.mimeType,
-      fileSize: input.fileSize,
-      storageKey: input.storageKey,
-    };
-
     try {
       const [row] = await this.database
         .insert(documents)
@@ -260,7 +276,9 @@ export class DocumentRepository {
           path,
           name: input.name,
           kind: 'file',
-          fileMeta,
+          mimeType: input.mimeType,
+          fileSize: input.fileSize,
+          storageKey: input.storageKey,
           uploadStatus: 'pending',
         })
         .returning();
@@ -287,7 +305,7 @@ export class DocumentRepository {
    * 외부 리소스(YouTube 등)를 나타내는 파일 문서를 생성합니다.
    * - kind = 'file'
    * - uploadStatus = 'uploaded'
-   * - fileMeta.mimeType / storageKey만 설정합니다.
+   * - mimeType / storageKey만 설정합니다.
    */
   async createExternalFile(input: CreateExternalFileInput): Promise<Document> {
     const label = toLtreeLabel(input.name);
@@ -299,12 +317,6 @@ export class DocumentRepository {
       await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
     }
 
-    const fileMeta: DocumentFileMeta = {
-      mimeType: input.mimeType,
-      fileSize: 0,
-      storageKey: input.storageKey,
-    };
-
     try {
       const [row] = await this.database
         .insert(documents)
@@ -313,7 +325,9 @@ export class DocumentRepository {
           path,
           name: input.name,
           kind: 'file',
-          fileMeta,
+          mimeType: input.mimeType,
+          fileSize: null,
+          storageKey: input.storageKey,
           uploadStatus: 'uploaded',
         })
         .returning();
@@ -341,7 +355,7 @@ export class DocumentRepository {
    *
    * - kind = 'note'
    * - uploadStatus = 'uploaded'
-   * - fileMeta = null
+   * - mimeType / fileSize / storageKey = null
    * - document_content.version = 1
    * - documents.latestContentId = 생성된 content 행을 가리키도록 설정
    */
@@ -359,6 +373,8 @@ export class DocumentRepository {
         await this.ensureFolderForOwner(tx, input.userId, parentLtreePath);
       }
 
+      const noteMimeType = inferNoteMimeTypeFromContents(input.initialContents);
+
       const [createdDocument] = await tx
         .insert(documents)
         .values({
@@ -367,7 +383,9 @@ export class DocumentRepository {
           name: input.name,
           kind: 'note',
           uploadStatus: 'uploaded',
-          fileMeta: null,
+          mimeType: noteMimeType,
+          fileSize: null,
+          storageKey: null,
         })
         .returning();
 
@@ -586,12 +604,21 @@ export class DocumentRepository {
         throw new Error('노트 콘텐츠 버전 생성에 실패했습니다.');
       }
 
+      const updates: Partial<typeof documents.$inferInsert> = {
+        latestContentId: createdContent.documentContentId,
+        updatedAt: new Date(),
+      };
+
+      // 노트 문서의 경우, 콘텐츠 타입 변화(Slate ↔ Draw)에 따라 mimeType도 동기화합니다.
+      if (doc.kind === 'note') {
+        updates.mimeType = inferNoteMimeTypeFromContents(params.contents);
+        updates.fileSize = null;
+        updates.storageKey = null;
+      }
+
       const [updatedDocument] = await tx
         .update(documents)
-        .set({
-          latestContentId: createdContent.documentContentId,
-          updatedAt: new Date(),
-        })
+        .set(updates)
         .where(
           and(
             eq(documents.documentId, documentId),
@@ -652,14 +679,22 @@ export class DocumentRepository {
     documentId: string;
     userId: string;
     uploadStatus: DocumentUploadStatus;
-    fileMeta?: DocumentFileMeta;
+    mimeType?: string | null;
+    fileSize?: number | null;
+    storageKey?: string | null;
   }): Promise<Document> {
     const updates: Partial<typeof documents.$inferInsert> = {
       uploadStatus: params.uploadStatus,
     };
 
-    if (params.fileMeta !== undefined) {
-      updates.fileMeta = params.fileMeta;
+    if (params.mimeType !== undefined) {
+      updates.mimeType = params.mimeType;
+    }
+    if (params.fileSize !== undefined) {
+      updates.fileSize = params.fileSize;
+    }
+    if (params.storageKey !== undefined) {
+      updates.storageKey = params.storageKey;
     }
 
     const [row] = await this.database

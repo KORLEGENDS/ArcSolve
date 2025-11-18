@@ -1,19 +1,18 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
-import {
-  documentUploadConfirmRequestSchema,
-  type DocumentUploadConfirmRequest,
-} from '@/share/schema/zod/document-upload-zod';
-import type { DocumentFileMeta } from '@/share/schema/drizzles';
-import { auth } from '@auth';
-import type { NextRequest } from 'next/server';
-import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { BUCKET, r2Client } from '@/server/database/r2/client-r2';
 import {
-  getUploadProcess,
-  updateProcessStatus,
+    getUploadProcess,
+    updateProcessStatus,
 } from '@/server/database/r2/upload-process-r2';
+import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+    documentUploadConfirmRequestSchema,
+    type DocumentUploadConfirmRequest,
+} from '@/share/schema/zod/document-upload-zod';
+import { auth } from '@auth';
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import type { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,6 +93,9 @@ export async function POST(request: NextRequest) {
         documentId: document.documentId,
         userId,
         uploadStatus: 'upload_failed',
+        mimeType: null,
+        fileSize: null,
+        storageKey: null,
       });
       await updateProcessStatus(process.processId, 'upload_failed');
       return error('BAD_REQUEST', '업로드된 파일을 찾을 수 없습니다.', {
@@ -106,6 +108,9 @@ export async function POST(request: NextRequest) {
         documentId: document.documentId,
         userId,
         uploadStatus: 'upload_failed',
+        mimeType: null,
+        fileSize: null,
+        storageKey: null,
       });
       await updateProcessStatus(process.processId, 'upload_failed');
       return error('BAD_REQUEST', '업로드된 파일 크기가 유효하지 않습니다.', {
@@ -119,6 +124,9 @@ export async function POST(request: NextRequest) {
         documentId: document.documentId,
         userId,
         uploadStatus: 'upload_failed',
+        mimeType: null,
+        fileSize: null,
+        storageKey: null,
       });
       await updateProcessStatus(process.processId, 'upload_failed');
       return error(
@@ -134,18 +142,13 @@ export async function POST(request: NextRequest) {
     // 현재는 클라이언트에서 전달한 MIME과 사전 정의된 MIME enum만 사용합니다.
     // 필요 시 GetObjectCommand + Range를 사용해 앞부분 바이트를 읽어 검증할 수 있습니다.
 
-    const fileMeta: DocumentFileMeta = {
-      ...(document.fileMeta ?? {}),
-      fileSize: headContentLength,
-      mimeType: process.mimeType,
-      storageKey: process.storageKey,
-    };
-
     const updated = await repository.updateUploadStatusAndMeta({
       documentId: document.documentId,
       userId,
       uploadStatus: 'uploaded',
-      fileMeta,
+      mimeType: process.mimeType,
+      fileSize: headContentLength,
+      storageKey: process.storageKey,
     });
 
     await updateProcessStatus(process.processId, 'uploaded');
@@ -159,7 +162,9 @@ export async function POST(request: NextRequest) {
           name: (updated as { name?: string | null }).name ?? process.name,
           kind: updated.kind,
           uploadStatus: updated.uploadStatus,
-          fileMeta: updated.fileMeta,
+          mimeType: updated.mimeType ?? null,
+          fileSize: updated.fileSize ?? null,
+          storageKey: updated.storageKey ?? null,
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
         },

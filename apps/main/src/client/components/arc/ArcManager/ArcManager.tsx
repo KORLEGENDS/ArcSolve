@@ -22,12 +22,16 @@ import {
 } from '@/client/states/queries/document/useDocument';
 import { setArcWorkTabDragData } from '@/client/states/stores/arcwork-layout-store';
 import type { DocumentDTO } from '@/share/libs/react-query/query-options';
-import { DEFAULT_NOTE_PARAGRAPH } from '@/share/schema/zod/document-note-zod';
+import {
+  DEFAULT_NOTE_PARAGRAPH,
+  type EditorContent,
+} from '@/share/schema/zod/document-note-zod';
 import {
   FolderOpenDot,
   FolderPlus,
   MessageSquare,
   Notebook,
+  Pencil,
   Upload,
   Youtube,
   type LucideIcon,
@@ -65,6 +69,13 @@ const DEFAULT_TABS: ArcManagerTabConfig[] = [
   { value: 'files', icon: FolderOpenDot, label: '파일' },
   { value: 'chat', icon: MessageSquare, label: '채팅' },
 ];
+
+const DEFAULT_DRAW_SCENE: EditorContent = {
+  type: 'draw',
+  elements: [],
+  appState: {},
+  files: {},
+} as const;
 
 function findTreeNodeByPath(
   items: ArcManagerTreeItem[],
@@ -223,7 +234,7 @@ export function ArcManager(): React.ReactElement {
         name: (item as { name?: string }).name ?? item.path,
         kind: (docMeta?.kind as 'file' | 'note' | 'folder') ?? kind,
         itemType: item.itemType,
-        mimeType: docMeta?.fileMeta?.mimeType ?? null,
+        mimeType: docMeta?.mimeType ?? null,
       };
 
       try {
@@ -393,6 +404,33 @@ export function ArcManager(): React.ReactElement {
     [createDocument, getTabState, refetchNotes],
   );
 
+  const handleDrawNoteCreate = React.useCallback(
+    async (tabValue: ArcDataType) => {
+      if (tabValue !== 'notes') return;
+      const state = getTabState('notes');
+      const parentPath = state.currentPath;
+
+      try {
+        await createDocument({
+          kind: 'note',
+          name: '새 그림',
+          parentPath,
+          contents: DEFAULT_DRAW_SCENE,
+        });
+
+        await refetchNotes().catch(() => {
+          // 목록 갱신 실패는 치명적이지 않으므로 콘솔만 남깁니다.
+          // eslint-disable-next-line no-console
+          console.error('노트 목록 갱신 실패');
+        });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('그림 노트 생성 실패:', error);
+      }
+    },
+    [createDocument, getTabState, refetchNotes],
+  );
+
   const handleFolderCreateConfirm = React.useCallback(
     async (tabValue: ArcDataType) => {
       const state = getTabState(tabValue);
@@ -550,19 +588,32 @@ export function ArcManager(): React.ReactElement {
                 <FolderPlus className="h-4 w-4" />
               </Button>
 
-              {/* notes 탭 전용: 노트 추가 버튼 */}
+              {/* notes 탭 전용: 노트 추가 버튼 (텍스트 / 그림) */}
               {isNotesTab && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={isCreatingDocument}
-                  onClick={() => {
-                    void handleNoteCreate(tab.value);
-                  }}
-                  title="노트 추가"
-                >
-                  <Notebook className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isCreatingDocument}
+                    onClick={() => {
+                      void handleNoteCreate(tab.value);
+                    }}
+                    title="텍스트 노트 추가"
+                  >
+                    <Notebook className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isCreatingDocument}
+                    onClick={() => {
+                      void handleDrawNoteCreate(tab.value);
+                    }}
+                    title="그림 노트 추가"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </>
               )}
 
               {/* files 탭 전용: 파일 업로드 버튼 */}

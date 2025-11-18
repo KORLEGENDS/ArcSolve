@@ -1,7 +1,6 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
 import { DocumentRepository } from '@/share/schema/repositories/document-repository';
-import type { DocumentFileMeta } from '@/share/schema/drizzles';
 import { documentDownloadUrlResponseSchema } from '@/share/schema/zod/document-upload-zod';
 import { uuidSchema } from '@/share/schema/zod/base-zod';
 import { auth } from '@auth';
@@ -61,8 +60,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const fileMeta = document.fileMeta as DocumentFileMeta | null;
-    const storageKey = fileMeta?.storageKey;
+    const storageKey = document.storageKey;
     if (!storageKey) {
       return error('INTERNAL', '파일 스토리지 키가 없습니다.', {
         user: { id: userId, email: session.user.email || undefined },
@@ -75,7 +73,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { url, expiresAt } = await getCachedDownloadUrl(storageKey, {
       filename: filename ?? undefined,
-      mimeType: fileMeta?.mimeType ?? undefined,
+      mimeType: document.mimeType ?? undefined,
       inline,
     });
 

@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1763198026983,
-      "tag": "0000_marvelous_ozymandias",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1763212499674,
-      "tag": "0001_curly_paladin",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1763259203681,
-      "tag": "0002_elite_ravenous",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1763269921054,
-      "tag": "0003_stormy_swordsman",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1763270092134,
-      "tag": "0004_smart_stark_industries",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1763270372678,
-      "tag": "0005_early_wildside",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1763271064948,
-      "tag": "0006_breezy_lily_hollister",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1763271222015,
-      "tag": "0007_dry_nitro",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1763292994037,
-      "tag": "0008_harsh_synch",
+      "when": 1763476133767,
+      "tag": "0000_luxuriant_morbius",
       "breakpoints": true
     }
   ]

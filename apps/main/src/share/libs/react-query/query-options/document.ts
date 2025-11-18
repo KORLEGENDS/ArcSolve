@@ -43,12 +43,6 @@ export type DocumentUploadStatus =
   | 'uploaded'
   | 'upload_failed';
 
-export type DocumentFileMetaDTO = {
-  mimeType?: string | null;
-  fileSize?: number | null;
-  storageKey?: string | null;
-} | null;
-
 export type DocumentKind = 'note' | 'file' | 'folder';
 
 export type DocumentDTO = {
@@ -63,7 +57,25 @@ export type DocumentDTO = {
   name: string;
   kind: DocumentKind;
   uploadStatus: DocumentUploadStatus;
-  fileMeta: DocumentFileMetaDTO;
+  /**
+   * MIME 타입
+   * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
+   * - note 문서: 노트 타입 구분 (예: 'application/vnd.arc.note+plate', 'application/vnd.arc.note+draw')
+   * - folder 문서: null
+   */
+  mimeType: string | null;
+  /**
+   * 파일 크기 (bytes)
+   * - file 문서: 실제 파일 크기
+   * - note/folder 문서: null
+   */
+  fileSize: number | null;
+  /**
+   * 스토리지 키 또는 외부 URL
+   * - file 문서: R2 스토리지 키 또는 외부 URL (예: YouTube URL)
+   * - note/folder 문서: null
+   */
+  storageKey: string | null;
   createdAt: string;
   updatedAt: string;
 };

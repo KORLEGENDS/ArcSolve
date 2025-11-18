@@ -6,6 +6,7 @@ import { useDocumentDetail } from '@/client/states/queries/document/useDocument'
 import { ArcDataNoteHost } from './hosts/ArcDataNoteHost';
 import { ArcDataPDFHost } from './hosts/ArcDataPDFHost';
 import { ArcDataPlayerHost } from './hosts/ArcDataPlayerHost';
+import { ArcDataDrawHost } from './hosts/ArcDataDrawHost';
 
 export interface ArcDataProps {
   /** ArcWork 탭 메타데이터에서 넘어오는 문서 ID (document.documentId) */
@@ -15,8 +16,8 @@ export interface ArcDataProps {
 /**
  * ArcData 엔트리 컴포넌트
  * - documentId만 입력으로 받아, 어떤 호스트 컴포넌트로 렌더링할지만 결정합니다.
- * - document의 kind / fileMeta.mimeType / fileMeta.storageKey를 기반으로
- *   PDF / Player 등 적절한 호스트 컴포넌트를 선택합니다.
+ * - document의 kind / mimeType / storageKey를 기반으로
+ *   PDF / Player / Note / Draw 등 적절한 호스트 컴포넌트를 선택합니다.
  */
 export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null {
   const {
@@ -30,6 +31,14 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
   }
 
   if (document.kind === 'note') {
+    // mimeType으로 노트 타입 구분
+    const mimeType = document.mimeType;
+    const isDraw = mimeType === 'application/vnd.arc.note+draw';
+    
+    if (isDraw) {
+      return <ArcDataDrawHost documentId={documentId} />;
+    }
+    
     return <ArcDataNoteHost documentId={documentId} />;
   }
 
@@ -37,8 +46,8 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
     return null;
   }
 
-  const mimeType = document.fileMeta?.mimeType ?? null;
-  const storageKey = document.fileMeta?.storageKey ?? null;
+  const mimeType = document.mimeType ?? null;
+  const storageKey = document.storageKey ?? null;
 
   const isPDF = mimeType === 'application/pdf';
   const isVideo =

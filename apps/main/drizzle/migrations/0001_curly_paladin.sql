@@ -1,1 +1,0 @@
-ALTER TABLE "arcyou_chat_rooms" DROP COLUMN "description";

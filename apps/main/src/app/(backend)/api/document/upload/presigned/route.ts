@@ -5,7 +5,6 @@ import {
   documentUploadPresignRequestSchema,
   type DocumentUploadPresignRequest,
 } from '@/share/schema/zod/document-upload-zod';
-import type { DocumentFileMeta } from '@/share/schema/drizzles';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
@@ -78,18 +77,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const fileMeta: DocumentFileMeta = {
-      ...(document.fileMeta ?? {}),
-      fileSize: process.fileSize,
-      mimeType: process.mimeType,
-      storageKey: process.storageKey,
-    };
-
     await repository.updateUploadStatusAndMeta({
       documentId: document.documentId,
       userId,
       uploadStatus: 'uploading',
-      fileMeta,
+      mimeType: process.mimeType,
+      fileSize: process.fileSize,
+      storageKey: process.storageKey,
     });
 
     const command = new PutObjectCommand({

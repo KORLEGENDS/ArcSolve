@@ -1,1 +1,0 @@
-ALTER TABLE "document_chunk" ALTER COLUMN "chunk_embedding" SET DATA TYPE vector(256);

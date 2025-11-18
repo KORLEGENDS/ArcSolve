@@ -1,1 +1,0 @@
-DROP TYPE IF EXISTS "public"."document_file_mime_type";

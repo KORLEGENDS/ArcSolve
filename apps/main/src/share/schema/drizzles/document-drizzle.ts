@@ -1,16 +1,17 @@
 import { sql } from 'drizzle-orm';
 import {
-    customType,
-    index,
-    integer,
-    jsonb,
-    pgEnum,
-    pgTable,
-    text,
-    timestamp,
-    uniqueIndex,
-    uuid,
-    vector,
+  bigint,
+  customType,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  vector,
 } from 'drizzle-orm/pg-core';
 
 // ltree custom type for hierarchical document paths
@@ -63,9 +64,27 @@ export const documents = pgTable(
 
     kind: documentKindEnum('kind').notNull(),
 
-    // 파일 문서에 대한 메타데이터 (kind = 'file'에서만 의미 있음)
-    // 예: { mimeType: 'application/pdf', fileSize: 12345, storageKey: 'users/{userId}/documents/{documentId}' }
-    fileMeta: jsonb('file_meta'),
+    /**
+     * MIME 타입
+     * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
+     * - note 문서: 노트 타입 구분 (예: 'application/vnd.arc.note+plate', 'application/vnd.arc.note+draw')
+     * - folder 문서: null
+     */
+    mimeType: text('mime_type'),
+
+    /**
+     * 파일 크기 (bytes)
+     * - file 문서: 실제 파일 크기
+     * - note/folder 문서: null
+     */
+    fileSize: bigint('file_size', { mode: 'number' }),
+
+    /**
+     * 스토리지 키 또는 외부 URL
+     * - file 문서: R2 스토리지 키 또는 외부 URL (예: YouTube URL)
+     * - note/folder 문서: null
+     */
+    storageKey: text('storage_key'),
 
     // 업로드 상태 (note/folder 등 비파일 문서는 기본적으로 'uploaded' 상태로 간주)
     uploadStatus: documentUploadStatusEnum('upload_status')
@@ -209,12 +228,6 @@ export const documentChunks = pgTable(
 
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
-
-export type DocumentFileMeta = {
-  mimeType?: string | null;
-  fileSize?: number | null;
-  storageKey?: string | null;
-} | null;
 
 export type DocumentUploadStatus =
   (typeof documentUploadStatusEnum.enumValues)[number];
