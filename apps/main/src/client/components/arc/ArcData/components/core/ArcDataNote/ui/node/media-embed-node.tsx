@@ -1,12 +1,11 @@
 'use client';
 
 import LiteYouTubeEmbed from 'react-lite-youtube-embed';
-import { Tweet } from 'react-tweet';
 
 import type { TMediaEmbedElement } from 'platejs';
 import type { PlateElementProps } from 'platejs/react';
 
-import { parseTwitterUrl, parseVideoUrl } from '@platejs/media';
+import { parseVideoUrl } from '@platejs/media';
 import { MediaEmbedPlugin, useMediaState } from '@platejs/media/react';
 import { ResizableProvider, useResizableValue } from '@platejs/resizable';
 import { PlateElement, withHOC } from 'platejs/react';
@@ -28,13 +27,12 @@ export const MediaEmbedElement = withHOC(
       align = 'center',
       embed,
       focused,
-      isTweet,
       isVideo,
       isYoutube,
       readOnly,
       selected,
     } = useMediaState({
-      urlParsers: [parseTwitterUrl, parseVideoUrl],
+      urlParsers: [parseVideoUrl],
     });
     const width = useResizableValue('width');
     const provider = embed?.provider;
@@ -50,8 +48,8 @@ export const MediaEmbedElement = withHOC(
               align={align}
               options={{
                 align,
-                maxWidth: isTweet ? 550 : '100%',
-                minWidth: isTweet ? 300 : 100,
+                maxWidth: '100%',
+                minWidth: 100,
               }}
             >
               <ResizeHandle
@@ -104,19 +102,6 @@ export const MediaEmbedElement = withHOC(
                   </div>
                 )
               ) : null}
-
-              {isTweet && (
-                <div
-                  className={cn(
-                    '[&_.react-tweet-theme]:my-0',
-                    !readOnly &&
-                      selected &&
-                      '[&_.react-tweet-theme]:ring-2 [&_.react-tweet-theme]:ring-ring [&_.react-tweet-theme]:ring-offset-2'
-                  )}
-                >
-                  <Tweet id={embed!.id!} />
-                </div>
-              )}
 
               <ResizeHandle
                 className={mediaResizeHandleVariants({ direction: 'right' })}

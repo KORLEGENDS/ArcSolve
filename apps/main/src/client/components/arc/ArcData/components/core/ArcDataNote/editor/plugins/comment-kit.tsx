@@ -10,7 +10,7 @@ import {
 import { isSlateString } from 'platejs';
 import { toTPlatePlugin } from 'platejs/react';
 
-import { CommentLeaf } from '@/client/components/ui/comment-node';
+import { CommentLeaf } from '../../ui/node/comment-node';
 
 type CommentConfig = ExtendConfig<
   BaseCommentConfig,

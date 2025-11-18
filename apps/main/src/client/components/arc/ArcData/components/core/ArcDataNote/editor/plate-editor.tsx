@@ -6,7 +6,7 @@ import { Plate, usePlateEditor } from 'platejs/react';
 
 import { EditorKit } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/editor-kit';
 import { SettingsDialog } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/settings-dialog';
-import { Editor, EditorContainer } from '@/client/components/ui/editor';
+import { Editor, EditorContainer } from '../ui/editor';
 
 export function PlateEditor() {
   const editor = usePlateEditor({

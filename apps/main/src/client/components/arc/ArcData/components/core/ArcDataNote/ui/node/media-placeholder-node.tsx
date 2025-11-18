@@ -13,9 +13,8 @@ import {
 import { AudioLines, FileUp, Film, ImageIcon, Loader2Icon } from 'lucide-react';
 import { KEYS } from 'platejs';
 import { PlateElement, useEditorPlugin, withHOC } from 'platejs/react';
-import { useFilePicker } from 'use-file-picker';
 
-import { useUploadFile } from '@/hooks/use-upload-file';
+import { useUploadFile } from '@/client/components/arc/ArcData/hooks/note/use-upload-file';
 import { cn } from '@/share/share-utils/cn-utils';
 
 const CONTENT: Record<
@@ -66,25 +65,6 @@ export const PlaceholderElement = withHOC(
 
     const imageRef = React.useRef<HTMLImageElement>(null);
 
-    const { openFilePicker } = useFilePicker({
-      accept: currentContent.accept,
-      multiple: true,
-      onFilesSelected: (result) => {
-        if (!('plainFiles' in result) || result.plainFiles.length === 0) {
-          return;
-        }
-
-        const firstFile = result.plainFiles[0];
-        const restFiles = result.plainFiles.slice(1);
-
-        replaceCurrentPlaceholder(firstFile);
-
-        if (restFiles.length > 0) {
-          editor.getTransforms(PlaceholderPlugin).insert.media(restFiles);
-        }
-      },
-    });
-
     const replaceCurrentPlaceholder = React.useCallback(
       (file: File) => {
         void uploadFile(file);
@@ -124,6 +104,32 @@ export const PlaceholderElement = withHOC(
     // React dev mode will call React.useEffect twice
     const isReplaced = React.useRef(false);
 
+    const handleOpenLocalFileDialog = React.useCallback(() => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = currentContent.accept.join(',');
+      input.onchange = (event: Event) => {
+        const target = event.target as HTMLInputElement | null;
+        if (!target?.files || target.files.length === 0) return;
+        const fileList = target.files;
+        const firstFile = fileList.item(0);
+        if (!firstFile) return;
+        replaceCurrentPlaceholder(firstFile);
+        if (fileList.length > 1) {
+          const restFiles: File[] = [];
+          for (let i = 1; i < fileList.length; i += 1) {
+            const f = fileList.item(i);
+            if (f) restFiles.push(f);
+          }
+          if (restFiles.length > 0) {
+            editor.getTransforms(PlaceholderPlugin).insert.media(restFiles as unknown as FileList);
+          }
+        }
+      };
+      input.click();
+    }, [currentContent.accept, editor, replaceCurrentPlaceholder]);
+
     /** Paste and drop */
     React.useEffect(() => {
       if (isReplaced.current) return;
@@ -135,7 +141,7 @@ export const PlaceholderElement = withHOC(
 
       if (!currentFiles) return;
 
-      replaceCurrentPlaceholder(currentFiles);
+      replaceCurrentPlaceholder(currentFiles as File);
 
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isReplaced]);
@@ -147,7 +153,7 @@ export const PlaceholderElement = withHOC(
             className={cn(
               'flex cursor-pointer items-center rounded-sm bg-muted p-3 pr-9 select-none hover:bg-primary/10'
             )}
-            onClick={() => !loading && openFilePicker()}
+            onClick={() => !loading && handleOpenLocalFileDialog()}
             contentEditable={false}
           >
             <div className="relative mr-3 flex text-muted-foreground/80 [&_svg]:size-6">

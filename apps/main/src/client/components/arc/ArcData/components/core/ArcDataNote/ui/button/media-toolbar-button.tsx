@@ -6,41 +6,43 @@ import type { DropdownMenuProps } from '@radix-ui/react-dropdown-menu';
 
 import { PlaceholderPlugin } from '@platejs/media/react';
 import {
-    AudioLinesIcon,
-    FileUpIcon,
-    FilmIcon,
-    ImageIcon,
-    LinkIcon,
+  AudioLinesIcon,
+  FileUpIcon,
+  FilmIcon,
+  ImageIcon,
+  LinkIcon,
 } from 'lucide-react';
 import { isUrl, KEYS } from 'platejs';
 import { useEditorRef } from 'platejs/react';
 import { toast } from 'sonner';
-import { useFilePicker } from 'use-file-picker';
 
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/client/components/ui/alert-dialog';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { Input } from '@/client/components/ui/input';
-
 import {
-    ToolbarSplitButton,
-    ToolbarSplitButtonPrimary,
-    ToolbarSplitButtonSecondary,
+  ToolbarSplitButton,
+  ToolbarSplitButtonPrimary,
+  ToolbarSplitButtonSecondary,
 } from '@/client/components/ui/toolbar';
+import {
+  ArcManagerDropZone,
+  type ArcManagerDropItem,
+} from '@/client/components/ui/custom/arcmanager-drop-zone';
 
 const MEDIA_CONFIG: Record<
   string,
@@ -86,24 +88,49 @@ export function MediaToolbarButton({
   const editor = useEditorRef();
   const [open, setOpen] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [arcManagerDialogOpen, setArcManagerDialogOpen] = React.useState(false);
 
-  const { openFilePicker } = useFilePicker({
-    accept: currentConfig.accept,
-    multiple: true,
-    onFilesSelected: (result) => {
-      if (!('plainFiles' in result) || result.plainFiles.length === 0) {
-        return;
-      }
+  const handleUploadFromComputer = React.useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = currentConfig.accept.join(',');
+    input.onchange = (event: Event) => {
+      const target = event.target as HTMLInputElement | null;
+      if (!target?.files) return;
+      const files = Array.from(target.files);
+      if (!files.length) return;
+      editor.getTransforms(PlaceholderPlugin).insert.media(files);
+    };
+    input.click();
+  }, [currentConfig.accept, editor]);
 
-      editor.getTransforms(PlaceholderPlugin).insert.media(result.plainFiles);
+  const handleSelectFromArcManager = React.useCallback(
+    (item: ArcManagerDropItem) => {
+      // 1차 구현: 파일 문서에 대해 간단한 텍스트 블록으로 참조를 추가합니다.
+      // 추후에는 arcdata-document 카드나 실제 미디어 embed로 확장할 수 있습니다.
+      if (item.kind !== 'file') return;
+
+      editor.tf.insertNodes({
+        type: 'p',
+        children: [
+          {
+            text: `[파일] ${item.name}`,
+          },
+        ],
+      });
+
+      setArcManagerDialogOpen(false);
     },
-  });
+    [editor],
+  );
 
   return (
     <>
       <ToolbarSplitButton
         onClick={() => {
-          openFilePicker();
+          // 기본 클릭은 업로드 메뉴를 여는 대신, 드롭다운을 펼칩니다.
+          setOpen((prev) => !prev);
         }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') {
@@ -133,13 +160,21 @@ export function MediaToolbarButton({
             alignOffset={-32}
           >
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={() => openFilePicker()}>
+              <DropdownMenuItem onSelect={() => handleUploadFromComputer()}>
                 {currentConfig.icon}
                 Upload from computer
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setDialogOpen(true)}>
                 <LinkIcon />
                 Insert via URL
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setArcManagerDialogOpen(true);
+                }}
+              >
+                <FileUpIcon className="mr-2 size-4" />
+                Select from ArcManager
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -160,6 +195,30 @@ export function MediaToolbarButton({
           />
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={arcManagerDialogOpen}
+        onOpenChange={(value) => {
+          setArcManagerDialogOpen(value);
+        }}
+      >
+        <AlertDialogContent className="gap-4">
+          <AlertDialogHeader>
+            <AlertDialogTitle>ArcManager에서 파일 선택</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription>
+            ArcManager 파일 트리에서 문서를 드래그해 이 영역에 드롭하면, 노트에 간단한 파일 참조가 추가됩니다.
+          </AlertDialogDescription>
+          <ArcManagerDropZone
+            allowedKinds={['file']}
+            onSelect={handleSelectFromArcManager}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>닫기</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </>
   );
 }

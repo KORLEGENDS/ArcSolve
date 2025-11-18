@@ -2,6 +2,6 @@
 
 import { DatePlugin } from '@platejs/date/react';
 
-import { DateElement } from '@/client/components/ui/date-node';
+import { DateElement } from '../../ui/node/date-node';
 
 export const DateKit = [DatePlugin.withComponent(DateElement)];

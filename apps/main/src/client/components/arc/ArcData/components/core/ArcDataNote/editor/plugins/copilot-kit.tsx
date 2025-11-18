@@ -1,12 +1,10 @@
 'use client';
 
 import type { TElement } from 'platejs';
-
-import { faker } from '@faker-js/faker';
 import { CopilotPlugin } from '@platejs/ai/react';
 import { serializeMd, stripMarkdown } from '@platejs/markdown';
 
-import { GhostText } from '@/client/components/ui/ghost-text';
+import { GhostText } from '../../ui/ghost-text';
 
 import { MarkdownKit } from './markdown-kit';
 
@@ -32,7 +30,8 @@ export const CopilotKit = [
         onError: () => {
           // Mock the API response. Remove it when you implement the route /api/ai/copilot
           api.copilot.setBlockSuggestion({
-            text: stripMarkdown(faker.lorem.sentence()),
+            // 간단한 고정 플레이스홀더 텍스트로 대체 (faker 제거)
+            text: stripMarkdown('Continue writing here to see AI suggestions.'),
           });
         },
         onFinish: (_, completion) => {

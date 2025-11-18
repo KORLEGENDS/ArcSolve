@@ -4,7 +4,7 @@ import { AIChatPlugin } from '@platejs/ai/react';
 import { BlockSelectionPlugin } from '@platejs/selection/react';
 import { getPluginTypes, isHotkey, KEYS } from 'platejs';
 
-import { BlockSelection } from '@/client/components/ui/block-selection';
+import { BlockSelection } from '../../ui/block/block-selection';
 
 export const BlockSelectionKit = [
   BlockSelectionPlugin.configure(({ editor }) => ({

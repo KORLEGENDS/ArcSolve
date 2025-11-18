@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^2.0.93
         version: 2.0.93(react@19.2.0)(zod@4.1.12)
+      '@ariakit/react':
+        specifier: ^0.4.19
+        version: 0.4.19(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@auth/core':
         specifier: ^0.34.3
         version: 0.34.3
@@ -308,6 +311,9 @@ importers:
       react-hook-form:
         specifier: ^7.66.0
         version: 7.66.0(react@19.2.0)
+      react-lite-youtube-embed:
+        specifier: ^3.3.1
+        version: 3.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react-player:
         specifier: ^3.4.0
         version: 3.4.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -357,6 +363,9 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.10
         version: 9.0.10
+      '@types/lodash':
+        specifier: ^4.17.20
+        version: 4.17.20
       '@types/node':
         specifier: ^20
         version: 20.19.24
@@ -422,6 +431,21 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@ariakit/core@0.4.16':
+    resolution: {integrity: sha512-nPJ0Be8d5ZvRApYGqdLMuYUjP7ktkPmTPOXyZFw+0Illk8LKgF3Q74ctVGuoQurJNDsANXcewzlyXK4vyIAGTA==}
+
+  '@ariakit/react-core@0.4.19':
+    resolution: {integrity: sha512-Aj+fu4pMyPXtlBghI+E7KSWItqJkbAqEhut3DlsFAjK9fQdHE+e1tQJG1PtnoEdD9BExkJWQ6R4M5a9HkEhqPA==}
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  '@ariakit/react@0.4.19':
+    resolution: {integrity: sha512-n6q8leSQWXMk4vhcZlpnj8cIlAY0n+1bvVTwHvaVfmec4LjW49MFKkJRZd1AiV+SE73nkxPwSL3IbaS4p1aRxQ==}
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
 
   '@auth/core@0.34.3':
     resolution: {integrity: sha512-jMjY/S0doZnWYNV90x0jmU3B+UcrsfGYnukxYrRbj0CVvGI/MX3JbHsxSrx2d4mbnXaUsqJmAcDfoQWA6r0lOw==}
@@ -3152,6 +3176,9 @@ packages:
   '@types/katex@0.16.7':
     resolution: {integrity: sha512-HMwFiRujE5PjrgwHQ25+bsLJgowjGjm5Z8FVSf0N6PwgJrwxH0QxzHYDcKsTfV3wva0vzrpqMTJS2jXPr5BMEQ==}
 
+  '@types/lodash@4.17.20':
+    resolution: {integrity: sha512-H3MHACvFUEiujabxhaI/ImO6gUrd8oOurg7LQtS7mbwIXA/cUqWrvBsaeJ23aZEPk1TAYkurjfMbSELfoCXlGA==}
+
   '@types/mdast@3.0.15':
     resolution: {integrity: sha512-LnwD+mUEfxWMa1QpDraczIn6k0Ee3SMicuYSSzS6ZYl2gKS09EClnJYGd8Du6rfc5r/GZEk5o1mRb8TaTj03sQ==}
 
@@ -5782,6 +5809,12 @@ packages:
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
+  react-lite-youtube-embed@3.3.1:
+    resolution: {integrity: sha512-TYLipb2K5dVco9iOPKIyj4iPDu8i9A94ckngeqHcSfNvWUFZOCEkZ/Arimny6qaFwAOzaiQH6pGgRSDWsHJ0iw==}
+    peerDependencies:
+      react: '>=18.2.0'
+      react-dom: '>=18.2.0'
+
   react-player@3.4.0:
     resolution: {integrity: sha512-QpQSHXtnMBKjQVNeaCYMtTVcynWQ0DDDhz/FJu1OR9PHLC1Aih94UqNstywzSHbJ6Oc7lI8/7kDDqcIvyTI6zQ==}
     peerDependencies:
@@ -6597,6 +6630,22 @@ snapshots:
       zod: 4.1.12
 
   '@alloc/quick-lru@5.2.0': {}
+
+  '@ariakit/core@0.4.16': {}
+
+  '@ariakit/react-core@0.4.19(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@ariakit/core': 0.4.16
+      '@floating-ui/dom': 1.7.4
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
+      use-sync-external-store: 1.6.0(react@19.2.0)
+
+  '@ariakit/react@0.4.19(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@ariakit/react-core': 0.4.19(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
 
   '@auth/core@0.34.3':
     dependencies:
@@ -9662,6 +9711,8 @@ snapshots:
       '@types/node': 20.19.24
 
   '@types/katex@0.16.7': {}
+
+  '@types/lodash@4.17.20': {}
 
   '@types/mdast@3.0.15':
     dependencies:
@@ -12807,6 +12858,11 @@ snapshots:
       react: 19.2.0
 
   react-is@16.13.1: {}
+
+  react-lite-youtube-embed@3.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+    dependencies:
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
 
   react-player@3.4.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:

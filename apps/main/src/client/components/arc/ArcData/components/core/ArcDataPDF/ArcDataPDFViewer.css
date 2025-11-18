@@ -5491,6 +5491,14 @@
   --hcm-highlight-selected-filter:none;
 }
 
+/* ArcData: Tailwind 전역 box-sizing(border-box)으로 인한 pdf.js 레이아웃 깨짐 방지
+   pdf_viewer.css 는 기본 UA 환경(content-box)을 전제로 .page / .canvasWrapper / .textLayer 크기를 계산하므로
+   PDF 뷰어 서브트리에서는 명시적으로 content-box 로 되돌린다. */
+.pdfViewer,
+.pdfViewer *{
+  box-sizing:content-box;
+}
+
 @media screen and (forced-colors: active){
 
 .pdfViewer{

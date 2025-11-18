@@ -149,7 +149,7 @@ function Draggable(props: PlateElementProps) {
               <Button
                 ref={handleRef}
                 variant="ghost"
-                className="absolute -left-0 h-6 w-full p-0"
+                className="absolute left-0 h-6 w-full p-0"
                 style={{ top: `${dragButtonTop + 3}px` }}
                 data-plate-prevent-deselect
               >
@@ -167,7 +167,7 @@ function Draggable(props: PlateElementProps) {
 
       <div
         ref={previewRef}
-        className={cn('absolute -left-0 hidden w-full')}
+        className={cn('absolute left-0 hidden w-full')}
         style={{ top: `${-previewTop}px` }}
         contentEditable={false}
       />
@@ -328,7 +328,7 @@ const DragHandle = React.memo(function DragHandle({
           <GripVertical className="text-muted-foreground" />
         </div>
       </TooltipTrigger>
-      <TooltipContent>Drag to move</TooltipContent>
+      <TooltipContent title="Drag to move" />
     </Tooltip>
   );
 });

@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 
-import { useDocumentFiles } from '@/client/states/queries/document/useDocument';
+import { useDocumentDetail } from '@/client/states/queries/document/useDocument';
+import { ArcDataNoteHost } from './hosts/ArcDataNoteHost';
 import { ArcDataPDFHost } from './hosts/ArcDataPDFHost';
 import { ArcDataPlayerHost } from './hosts/ArcDataPlayerHost';
 
@@ -19,21 +20,20 @@ export interface ArcDataProps {
  */
 export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null {
   const {
-    data: documents,
-    isLoading: isListLoading,
-    error: listError,
-  } = useDocumentFiles();
+    data: document,
+    isLoading,
+    isError,
+  } = useDocumentDetail(documentId);
 
-  if (listError) {
+  if (isError || isLoading || !document) {
     return null;
   }
 
-  if (isListLoading || !documents) {
-    return null;
+  if (document.kind === 'note') {
+    return <ArcDataNoteHost documentId={documentId} />;
   }
 
-  const document = documents.find((d) => d.documentId === documentId);
-  if (!document || document.kind !== 'file') {
+  if (document.kind !== 'file') {
     return null;
   }
 

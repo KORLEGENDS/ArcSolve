@@ -1,5 +1,5 @@
 import { BaseDatePlugin } from '@platejs/date';
 
-import { DateElementStatic } from '@/client/components/ui/date-node-static';
+import { DateElementStatic } from '../../ui/static/date-node-static';
 
 export const BaseDateKit = [BaseDatePlugin.withComponent(DateElementStatic)];

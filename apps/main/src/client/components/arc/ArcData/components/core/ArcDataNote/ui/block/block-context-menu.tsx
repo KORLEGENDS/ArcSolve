@@ -21,7 +21,7 @@ import {
     ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from '@/client/components/ui/context-menu';
-import { useIsTouchDevice } from '@/hooks/use-is-touch-device';
+import { useIsTouchDevice } from '@/client/components/arc/ArcData/hooks/note/use-is-touch-device';
 
 type Value = 'askAI' | null;
 

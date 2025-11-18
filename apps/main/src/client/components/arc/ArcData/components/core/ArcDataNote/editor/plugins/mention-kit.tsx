@@ -5,7 +5,7 @@ import { MentionInputPlugin, MentionPlugin } from '@platejs/mention/react';
 import {
     MentionElement,
     MentionInputElement,
-} from '@/client/components/ui/mention-node';
+} from '../../ui/node/mention-node';
 
 export const MentionKit = [
   MentionPlugin.configure({

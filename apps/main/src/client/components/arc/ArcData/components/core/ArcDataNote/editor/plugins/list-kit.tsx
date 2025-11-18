@@ -4,7 +4,7 @@ import { ListPlugin } from '@platejs/list/react';
 import { KEYS } from 'platejs';
 
 import { IndentKit } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/indent-kit';
-import { BlockList } from '@/client/components/ui/block-list';
+import { BlockList } from '../../ui/block/block-list';
 
 export const ListKit = [
   ...IndentKit,

@@ -119,7 +119,7 @@ export function EmojiPicker({
     <div
       className={cn(
         'flex flex-col rounded-xl bg-popover text-popover-foreground',
-        'h-[23rem] w-80 border shadow-md'
+        'h-92 w-80 border shadow-md'
       )}
     >
       <EmojiPickerNavigation
@@ -518,9 +518,7 @@ function EmojiPickerNavigation({
                     </span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {i18n.categories[id]}
-                </TooltipContent>
+                <TooltipContent side="bottom" title={i18n.categories[id]} />
               </Tooltip>
             ))}
         </div>

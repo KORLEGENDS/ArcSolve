@@ -12,6 +12,12 @@ import {
   documentUploadRequestSchema,
 } from '@/share/schema/zod/document-upload-zod';
 import {
+  documentContentResponseSchema,
+  documentContentUpdateRequestSchema,
+  documentCreateRequestSchema,
+  documentMetaUpdateRequestSchema,
+} from '@/share/schema/zod/document-note-zod';
+import {
   type YoutubeDocumentCreateRequest,
   youtubeDocumentCreateRequestSchema,
 } from '@/share/schema/zod/document-youtube-zod';
@@ -22,6 +28,11 @@ import type {
   DocumentUploadRequest,
   DocumentUploadRequestResponse,
 } from '@/share/schema/zod/document-upload-zod';
+import type {
+  DocumentContentResponse,
+  DocumentCreateRequest,
+  DocumentMetaUpdateRequest,
+} from '@/share/schema/zod/document-note-zod';
 import { queryOptions } from '@tanstack/react-query';
 import { createApiMutation, createApiQueryOptions } from '../query-builder';
 import { queryKeys } from '../query-keys';
@@ -87,6 +98,12 @@ export type DocumentYoutubeCreateResponse = {
   document: DocumentDTO;
 };
 
+export type DocumentContentDTO = DocumentContentResponse;
+
+export type DocumentDetailResponse = {
+  document: DocumentDTO;
+};
+
 export const documentQueryOptions = {
   uploadRequest: createApiMutation<
     DocumentUploadRequestResponse,
@@ -136,12 +153,42 @@ export const documentQueryOptions = {
   ),
 
   /**
+   * 문서 생성 뮤테이션 옵션
+   * - kind에 따라 note 등 다양한 문서를 생성할 수 있습니다.
+   */
+  create: createApiMutation<DocumentDTO, DocumentDetailResponse, DocumentCreateRequest>(
+    () => '/api/document',
+    (data) => data.document,
+    {
+      method: 'POST',
+      bodyExtractor: (variables) => documentCreateRequestSchema.parse(variables),
+    },
+  ),
+
+  /**
+   * 단일 문서 메타 조회
+   */
+  detail: (documentId: string) =>
+    queryOptions({
+      queryKey: queryKeys.documents.byId(documentId),
+      ...createApiQueryOptions<DocumentDTO, DocumentDetailResponse>(
+        `/api/document/${encodeURIComponent(documentId)}`,
+        (data) => data.document,
+        {
+          method: 'GET',
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
+        },
+      ),
+    }),
+
+  /**
    * 다운로드 URL 발급 (GET)
    * - React Query의 queryOptions를 사용해 필요 시 호출
    */
   downloadUrl: (documentId: string, opts?: { inline?: boolean; filename?: string }) =>
     queryOptions({
-      queryKey: queryKeys.documents.byId(documentId),
+      queryKey: queryKeys.documents.downloadUrl(documentId),
       ...createApiQueryOptions<DocumentDownloadUrlResponse, DocumentDownloadUrlResponse>(
         (() => {
           const params = new URLSearchParams();
@@ -177,6 +224,38 @@ export const documentQueryOptions = {
     }),
 
   /**
+   * 현재 사용자 기준 note 문서 목록 조회
+   */
+  listNotes: () =>
+    queryOptions({
+      queryKey: queryKeys.documents.listNotes(),
+      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
+        '/api/document?kind=note',
+        (data) => data.documents,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
+        },
+      ),
+    }),
+
+  /**
+   * 현재 사용자 기준 모든 kind 문서 목록 조회
+   */
+  listAll: () =>
+    queryOptions({
+      queryKey: queryKeys.documents.listAll(),
+      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
+        '/api/document?kind=all',
+        (data) => data.documents,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
+        },
+      ),
+    }),
+
+  /**
    * 문서 이동 뮤테이션 옵션
    */
   move: createApiMutation<DocumentDTO, DocumentMoveResponse, DocumentMoveMutationVariables>(
@@ -187,6 +266,69 @@ export const documentQueryOptions = {
       bodyExtractor: ({ documentId: _documentId, ...body }) =>
         documentMoveRequestSchema.parse(body),
     }
+  ),
+
+  /**
+   * 문서 메타 업데이트 뮤테이션 옵션
+   */
+  updateMeta: createApiMutation<
+    DocumentDTO,
+    DocumentDetailResponse,
+    DocumentMetaUpdateRequest & { documentId: string }
+  >(
+    (variables) => `/api/document/${encodeURIComponent(variables.documentId)}`,
+    (data) => data.document,
+    {
+      method: 'PATCH',
+      bodyExtractor: ({ documentId: _documentId, ...body }) =>
+        documentMetaUpdateRequestSchema.parse(body),
+    },
+  ),
+
+  /**
+   * 문서 콘텐츠 업데이트(새 버전 추가) 뮤테이션 옵션
+   */
+  updateContent: createApiMutation<
+    DocumentContentDTO,
+    DocumentContentResponse,
+    DocumentContentDTO & { documentId: string }
+  >(
+    (variables) =>
+      `/api/document/${encodeURIComponent(variables.documentId)}/content`,
+    (data) => documentContentResponseSchema.parse(data),
+    {
+      method: 'POST',
+      bodyExtractor: ({ documentId: _documentId, ...body }) =>
+        documentContentUpdateRequestSchema.parse(body),
+    },
+  ),
+
+  /**
+   * 문서 콘텐츠 조회 (최신 버전)
+   */
+  content: (documentId: string) =>
+    queryOptions({
+      queryKey: queryKeys.documents.content(documentId),
+      ...createApiQueryOptions<DocumentContentDTO, DocumentContentResponse>(
+        `/api/document/${encodeURIComponent(documentId)}/content`,
+        (data) => documentContentResponseSchema.parse(data),
+        {
+          method: 'GET',
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.SHORT,
+        },
+      ),
+    }),
+
+  /**
+   * 문서 삭제 뮤테이션 옵션
+   */
+  delete: createApiMutation<void, unknown, { documentId: string }>(
+    (variables) => `/api/document/${encodeURIComponent(variables.documentId)}`,
+    () => undefined,
+    {
+      method: 'DELETE',
+    },
   ),
 
   /**

@@ -15,7 +15,7 @@ import { useEditorReadOnly } from 'platejs/react';
 import { ToolbarGroup } from '@/client/components/ui/toolbar';
 import { AIToolbarButton } from '../button/ai-toolbar-button';
 import { CommentToolbarButton } from '../button/comment-toolbar-button';
-import { InlineEquationToolbarButton } from './equation-toolbar-button';
+import { InlineEquationToolbarButton } from '../button/equation-toolbar-button';
 import { LinkToolbarButton } from '../button/link-toolbar-button';
 import { MarkToolbarButton } from '../button/mark-toolbar-button';
 import { MoreToolbarButton } from '../button/more-toolbar-button';

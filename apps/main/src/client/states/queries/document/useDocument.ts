@@ -11,18 +11,19 @@ import {
   type DocumentDTO,
   type DocumentMoveMutationVariables,
 } from '@/share/libs/react-query/query-options';
-import type { YoutubeDocumentCreateRequest } from '@/share/schema/zod/document-youtube-zod';
+import type { EditorContent } from '@/share/schema/zod/document-note-zod';
 import type {
-    DocumentDownloadUrlResponse,
-    DocumentUploadConfirmRequest,
-    DocumentUploadPresignRequest,
-    DocumentUploadRequest,
-    DocumentUploadRequestResponse,
+  DocumentDownloadUrlResponse,
+  DocumentUploadConfirmRequest,
+  DocumentUploadPresignRequest,
+  DocumentUploadRequest,
+  DocumentUploadRequestResponse,
 } from '@/share/schema/zod/document-upload-zod';
+import type { YoutubeDocumentCreateRequest } from '@/share/schema/zod/document-youtube-zod';
 import {
-    useMutation,
-    useQuery,
-    useQueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
@@ -63,6 +64,44 @@ export interface UseDocumentFilesReturn {
   refetch: () => Promise<DocumentDTO[]>;
 }
 
+export interface UseDocumentDetailReturn {
+  data: DocumentDTO | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+}
+
+export interface UseDocumentContentReturn {
+  data: unknown;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+}
+
+export type UpdateDocumentInput =
+  | {
+      mode: 'meta';
+      documentId: string;
+      name?: string;
+    }
+  | {
+      mode: 'content';
+      documentId: string;
+      contents: unknown;
+    };
+
+export interface UseDocumentUpdateReturn {
+  updateDocument: (input: UpdateDocumentInput) => Promise<void>;
+  isUpdating: boolean;
+  error: unknown;
+}
+
+export interface UseDocumentDeleteReturn {
+  deleteDocument: (documentId: string) => Promise<void>;
+  isDeleting: boolean;
+  error: unknown;
+}
+
 export interface UseDocumentMoveReturn {
   move: (input: { documentId: string; parentPath: string }) => Promise<DocumentDTO>;
   isMoving: boolean;
@@ -77,6 +116,17 @@ export interface UseDocumentFolderCreateReturn {
 
 export interface UseDocumentYoutubeCreateReturn {
   createYoutube: (input: YoutubeDocumentCreateRequest) => Promise<DocumentDTO>;
+  isCreating: boolean;
+  createError: unknown;
+}
+
+export interface UseDocumentCreateReturn {
+  createDocument: (input: {
+    kind: 'note';
+    name: string;
+    parentPath: string;
+    contents?: EditorContent;
+  }) => Promise<DocumentDTO>;
   isCreating: boolean;
   createError: unknown;
 }
@@ -111,6 +161,51 @@ export function useDocumentUpload(): UseDocumentUploadReturn {
     confirmError: confirmMutation.error,
 
     invalidateDocument,
+  };
+}
+
+/**
+ * 문서 생성 훅
+ * - 현재는 kind = 'note'만 지원하며, 추후 folder/external 등으로 확장할 수 있습니다.
+ */
+export function useDocumentCreate(): UseDocumentCreateReturn {
+  const queryClient = useQueryClient();
+  const createMutation = useMutation(documentQueryOptions.create);
+
+  const createDocument: UseDocumentCreateReturn['createDocument'] = useCallback(
+    async (input) => {
+      const { kind, name, parentPath, contents } = input;
+
+      // kind에 따라 payload를 분기합니다. 현재는 'note'만 지원합니다.
+      if (kind === 'note') {
+        const created = await createMutation.mutateAsync({
+          kind: 'note',
+          name,
+          parentPath,
+          contents,
+        });
+
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listNotes(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listAll(),
+          }),
+        ]);
+
+        return created;
+      }
+
+      throw new Error(`지원하지 않는 문서 종류입니다: ${kind}`);
+    },
+    [createMutation, queryClient],
+  );
+
+  return {
+    createDocument,
+    isCreating: createMutation.isPending,
+    createError: createMutation.error,
   };
 }
 
@@ -228,6 +323,89 @@ export function useDocumentFolderCreate(): UseDocumentFolderCreateReturn {
 }
 
 /**
+ * 단일 문서 메타 조회 훅
+ */
+export function useDocumentDetail(documentId: string): UseDocumentDetailReturn {
+  const query = useQuery(documentQueryOptions.detail(documentId));
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+/**
+ * 단일 문서 콘텐츠(최신 버전) 조회 훅
+ */
+export function useDocumentContent(documentId: string): UseDocumentContentReturn {
+  const query = useQuery(documentQueryOptions.content(documentId));
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+/**
+ * 문서 메타/콘텐츠 통합 업데이트 훅
+ */
+export function useDocumentUpdate(): UseDocumentUpdateReturn {
+  const queryClient = useQueryClient();
+
+  const metaMutation = useMutation(documentQueryOptions.updateMeta);
+  const contentMutation = useMutation(documentQueryOptions.updateContent);
+
+  const updateDocument = useCallback(
+    async (input: UpdateDocumentInput) => {
+      if (input.mode === 'meta') {
+        const { documentId, name } = input;
+        await metaMutation.mutateAsync({ documentId, name });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.byId(documentId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listFiles(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listNotes(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listAll(),
+          }),
+        ]);
+        return;
+      }
+
+      const { documentId, contents } = input;
+      await contentMutation.mutateAsync({
+        documentId,
+        contentId: null,
+        contents,
+        version: null,
+        createdAt: null,
+        updatedAt: null,
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.documents.content(documentId),
+      });
+    },
+    [metaMutation, contentMutation, queryClient],
+  );
+
+  return {
+    updateDocument,
+    isUpdating: metaMutation.isPending || contentMutation.isPending,
+    error: metaMutation.error ?? contentMutation.error,
+  };
+}
+
+/**
  * YouTube 링크 기반 문서 생성 훅
  * - ArcManager 파일 탭에서 YouTube URL을 문서로 추가할 때 사용합니다.
  */
@@ -262,6 +440,69 @@ export function useDocumentFiles(): UseDocumentFilesReturn {
     isError: query.isError,
     error: query.error,
     refetch,
+  };
+}
+
+/**
+ * 현재 사용자 기준 note 문서 목록 조회 훅
+ */
+export function useDocumentNotes(): UseDocumentFilesReturn {
+  const query = useQuery(documentQueryOptions.listNotes());
+
+  const refetch = useCallback(
+    async () => {
+      const res = await query.refetch();
+      if (res.data) return res.data;
+      throw res.error ?? new Error('문서 목록을 불러오지 못했습니다.');
+    },
+    [query],
+  );
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch,
+  };
+}
+
+/**
+ * 문서 삭제 훅
+ */
+export function useDocumentDelete(): UseDocumentDeleteReturn {
+  const queryClient = useQueryClient();
+  const deleteMutation = useMutation(documentQueryOptions.delete);
+
+  const deleteDocument = useCallback(
+    async (documentId: string) => {
+      await deleteMutation.mutateAsync({ documentId });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.byId(documentId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.content(documentId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.listFiles(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.listNotes(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.listAll(),
+        }),
+      ]);
+    },
+    [deleteMutation, queryClient],
+  );
+
+  return {
+    deleteDocument,
+    isDeleting: deleteMutation.isPending,
+    error: deleteMutation.error,
   };
 }
 

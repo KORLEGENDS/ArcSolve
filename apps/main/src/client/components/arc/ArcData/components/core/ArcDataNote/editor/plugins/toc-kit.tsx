@@ -2,7 +2,7 @@
 
 import { TocPlugin } from '@platejs/toc/react';
 
-import { TocElement } from '@/client/components/ui/toc-node';
+import { TocElement } from '../../ui/node/toc-node';
 
 export const TocKit = [
   TocPlugin.configure({

@@ -1,8 +1,13 @@
 import { throwApi } from '@/server/api/errors';
 import { db as defaultDb } from '@/server/database/postgresql/client-postgresql';
-import type { Document, DocumentFileMeta, DocumentUploadStatus } from '@/share/schema/drizzles';
-import { documents } from '@/share/schema/drizzles';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import type {
+  Document,
+  DocumentContent,
+  DocumentFileMeta,
+  DocumentUploadStatus,
+} from '@/share/schema/drizzles';
+import { documentContents, documents } from '@/share/schema/drizzles';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 import slugify from 'slugify';
 import type { DB } from './base-repository';
@@ -92,6 +97,17 @@ export type CreateExternalFileInput = {
   name: string;
   mimeType: string;
   storageKey: string;
+};
+
+export type CreateNoteInput = {
+  userId: string;
+  parentPath: string;
+  name: string;
+  /**
+   * 노트 에디터의 초기 contents(JSON)
+   * - Plate 에디터 등에서 직렬화된 값을 그대로 저장합니다.
+   */
+  initialContents?: unknown;
 };
 
 export class DocumentRepository {
@@ -320,6 +336,83 @@ export class DocumentRepository {
     }
   }
 
+  /**
+   * 노트 문서를 생성하고 초기 콘텐츠 버전을 함께 생성합니다.
+   *
+   * - kind = 'note'
+   * - uploadStatus = 'uploaded'
+   * - fileMeta = null
+   * - document_content.version = 1
+   * - documents.latestContentId = 생성된 content 행을 가리키도록 설정
+   */
+  async createNoteForOwner(input: CreateNoteInput): Promise<{
+    document: Document;
+    content: DocumentContent;
+  }> {
+    const label = toLtreeLabel(input.name);
+    const parentLtreePath = normalizeLtreePath(input.parentPath);
+    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
+
+    return this.database.transaction(async (tx) => {
+      // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+      if (parentLtreePath) {
+        await this.ensureFolderForOwner(tx, input.userId, parentLtreePath);
+      }
+
+      const [createdDocument] = await tx
+        .insert(documents)
+        .values({
+          userId: input.userId,
+          path,
+          name: input.name,
+          kind: 'note',
+          uploadStatus: 'uploaded',
+          fileMeta: null,
+        })
+        .returning();
+
+      if (!createdDocument) {
+        throw new Error('노트 문서 생성에 실패했습니다.');
+      }
+
+      const [createdContent] = await tx
+        .insert(documentContents)
+        .values({
+          documentId: createdDocument.documentId,
+          userId: input.userId,
+          contents: (input.initialContents ?? null) as unknown,
+          version: 1,
+        })
+        .returning();
+
+      if (!createdContent) {
+        throw new Error('노트 콘텐츠 생성에 실패했습니다.');
+      }
+
+      const [updatedDocument] = await tx
+        .update(documents)
+        .set({
+          latestContentId: createdContent.documentContentId,
+        })
+        .where(
+          and(
+            eq(documents.documentId, createdDocument.documentId),
+            eq(documents.userId, input.userId),
+          ),
+        )
+        .returning();
+
+      if (!updatedDocument) {
+        throw new Error('노트 문서 상태 업데이트에 실패했습니다.');
+      }
+
+      return {
+        document: updatedDocument,
+        content: createdContent,
+      };
+    });
+  }
+
   async findByIdForOwner(documentId: string, userId: string): Promise<Document | null> {
     const [row] = await this.database
       .select()
@@ -328,6 +421,44 @@ export class DocumentRepository {
 
     if (!row) return null;
     return row;
+  }
+
+  /**
+   * 문서를 최신 콘텐츠 버전과 함께 조회합니다.
+   * - kind에 관계없이 documentId 기준으로 latestContentId를 따라갑니다.
+   */
+  async findWithLatestContentForOwner(
+    documentId: string,
+    userId: string,
+  ): Promise<{ document: Document; content: DocumentContent | null } | null> {
+    const [doc] = await this.database
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.documentId, documentId),
+          eq(documents.userId, userId),
+          isNull(documents.deletedAt),
+        ),
+      );
+
+    if (!doc) return null;
+
+    if (!doc.latestContentId) {
+      return { document: doc, content: null };
+    }
+
+    const [content] = await this.database
+      .select()
+      .from(documentContents)
+      .where(
+        and(
+          eq(documentContents.documentContentId, doc.latestContentId),
+          isNull(documentContents.deletedAt),
+        ),
+      );
+
+    return { document: doc, content: content ?? null };
   }
 
   /**
@@ -353,6 +484,168 @@ export class DocumentRepository {
       );
 
     return rows;
+  }
+
+  /**
+   * 문서 메타데이터(name 등)를 업데이트합니다.
+   * - kind 제약은 두지 않고, 주어진 필드만 부분 업데이트합니다.
+   */
+  async updateDocumentMetaForOwner(params: {
+    documentId: string;
+    userId: string;
+    name?: string;
+  }): Promise<Document> {
+    const updates: Partial<typeof documents.$inferInsert> = {};
+
+    if (typeof params.name === 'string') {
+      updates.name = params.name;
+    }
+
+    updates.updatedAt = new Date();
+
+    const [row] = await this.database
+      .update(documents)
+      .set(updates)
+      .where(
+        and(
+          eq(documents.documentId, params.documentId),
+          eq(documents.userId, params.userId),
+          isNull(documents.deletedAt),
+        ),
+      )
+      .returning();
+
+    if (!row) {
+      throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+        documentId: params.documentId,
+        userId: params.userId,
+      });
+    }
+
+    return row;
+  }
+
+  /**
+   * 문서 콘텐츠 버전을 추가하고 latestContentId를 갱신합니다.
+   * - kind에 관계없이 documentId 기준으로 새로운 버전을 생성합니다.
+   */
+  async appendContentVersionForOwner(params: {
+    documentId: string;
+    userId: string;
+    contents: unknown;
+  }): Promise<{
+    document: Document;
+    content: DocumentContent;
+  }> {
+    const { documentId, userId } = params;
+
+    return this.database.transaction(async (tx) => {
+      const [doc] = await tx
+        .select()
+        .from(documents)
+        .where(
+          and(
+            eq(documents.documentId, documentId),
+            eq(documents.userId, userId),
+            isNull(documents.deletedAt),
+          ),
+        );
+
+      if (!doc) {
+        throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+          documentId,
+          userId,
+        });
+      }
+
+      const [latest] = await tx
+        .select()
+        .from(documentContents)
+        .where(
+          and(
+            eq(documentContents.documentId, documentId),
+            isNull(documentContents.deletedAt),
+          ),
+        )
+        .orderBy(desc(documentContents.version))
+        .limit(1);
+
+      const nextVersion = (latest?.version ?? 0) + 1;
+
+      const [createdContent] = await tx
+        .insert(documentContents)
+        .values({
+          documentId,
+          userId,
+          contents: params.contents as unknown,
+          version: nextVersion,
+        })
+        .returning();
+
+      if (!createdContent) {
+        throw new Error('노트 콘텐츠 버전 생성에 실패했습니다.');
+      }
+
+      const [updatedDocument] = await tx
+        .update(documents)
+        .set({
+          latestContentId: createdContent.documentContentId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(documents.documentId, documentId),
+            eq(documents.userId, userId),
+          ),
+        )
+        .returning();
+
+      if (!updatedDocument) {
+        throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+          documentId,
+          userId,
+        });
+      }
+
+      return {
+        document: updatedDocument,
+        content: createdContent,
+      };
+    });
+  }
+
+  /**
+   * 문서를 소프트 삭제합니다.
+   * - 현재는 단일 문서만 deleted_at을 설정합니다.
+   * - subtree 삭제 등은 향후 필요 시 확장합니다.
+   */
+  async softDeleteDocumentForOwner(params: {
+    documentId: string;
+    userId: string;
+  }): Promise<void> {
+    const { documentId, userId } = params;
+
+    const [row] = await this.database
+      .update(documents)
+      .set({
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(documents.documentId, documentId),
+          eq(documents.userId, userId),
+          isNull(documents.deletedAt),
+        ),
+      )
+      .returning();
+
+    if (!row) {
+      throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+        documentId,
+        userId,
+      });
+    }
   }
 
   async updateUploadStatusAndMeta(params: {

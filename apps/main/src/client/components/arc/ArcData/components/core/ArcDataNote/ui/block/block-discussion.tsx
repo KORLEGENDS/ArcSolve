@@ -9,42 +9,42 @@ import { CommentPlugin } from '@platejs/comment/react';
 import { getTransientSuggestionKey } from '@platejs/suggestion';
 import { SuggestionPlugin } from '@platejs/suggestion/react';
 import {
-    MessageSquareTextIcon,
-    MessagesSquareIcon,
-    PencilLineIcon,
+  MessageSquareTextIcon,
+  MessagesSquareIcon,
+  PencilLineIcon,
 } from 'lucide-react';
 import {
-    type AnyPluginConfig,
-    type NodeEntry,
-    type Path,
-    type TCommentText,
-    type TElement,
-    type TSuggestionText,
-    PathApi,
-    TextApi,
+  type AnyPluginConfig,
+  type NodeEntry,
+  type Path,
+  type TCommentText,
+  type TElement,
+  type TSuggestionText,
+  PathApi,
+  TextApi,
 } from 'platejs';
 import { useEditorPlugin, useEditorRef, usePluginOption } from 'platejs/react';
 
 import { commentPlugin } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/comment-kit';
 import {
-    type TDiscussion,
-    discussionPlugin,
+  type TDiscussion,
+  discussionPlugin,
 } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/discussion-kit';
 import { suggestionPlugin } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/suggestion-kit';
 import { Button } from '@/client/components/ui/button';
 import {
-    Popover,
-    PopoverAnchor,
-    PopoverContent,
-    PopoverTrigger,
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
 } from '@/client/components/ui/popover';
 
-import {
-    BlockSuggestionCard,
-    isResolvedSuggestion,
-    useResolveSuggestion,
-} from './block-suggestion';
 import { Comment, CommentCreateForm } from '../comment';
+import {
+  BlockSuggestionCard,
+  isResolvedSuggestion,
+  useResolveSuggestion,
+} from './block-suggestion';
 
 export const BlockDiscussion: RenderNodeWrapper<AnyPluginConfig> = (props) => {
   const { editor, element } = props;
@@ -254,7 +254,7 @@ const BlockCommentContent = ({
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
-                className="mt-1 ml-1 flex h-6 gap-1 !px-1.5 py-0 text-muted-foreground/80 hover:text-muted-foreground/80 data-[active=true]:bg-muted"
+                className="mt-1 ml-1 flex h-6 gap-1 px-1.5! py-0 text-muted-foreground/80 hover:text-muted-foreground/80 data-[active=true]:bg-muted"
                 data-active={open}
                 contentEditable={false}
               >

@@ -242,6 +242,69 @@ export interface ArcDataPDFViewerHandle {
 - `getCurrentScale()` / `getCurrentScaleValue()`는 실제 적용된 배율을 읽어와 상단 툴바의
   `zoomLevel` 상태와 동기화하는 데 사용됩니다.
 
+---
+
+## 6. Tailwind 전역 스타일과 pdf.js 레이아웃 이슈
+
+### 6.1. 문제 요약
+
+ArcData는 클라이언트 전역에 Tailwind v4 preflight가 적용되어 있으며, 이때 다음과 같은 규칙이 기본으로 깔립니다.
+
+- `*, ::before, ::after { box-sizing: border-box; border-width: 0; ... }`
+
+pdf.js에서 제공하는 기본 뷰어 스타일(`pdf_viewer.css`)은 **기본 UA 환경(= content-box)** 을 전제로 설계되어 있습니다.  
+특히 다음 요소들이 `content-box` 기준으로 크기/좌표를 계산합니다.
+
+- `.pdfViewer .page` — `width: 816px; height: 1056px; border: 9px solid transparent;`
+- `.pdfViewer .canvasWrapper` — `width: 100%; height: 100%;`
+- `.textLayer` — `position: absolute; inset: 0;`
+
+하지만 Tailwind의 전역 `box-sizing: border-box`가 적용되면:
+
+- `.page`의 `width: 816px` 이 “내용 + border” 전체 너비가 되어, **실제 내용 영역은 798px(= 816 - 9*2)** 로 줄어들고
+- `canvasWrapper`는 이 798px 내용 영역만 채우는 반면,
+- `textLayer`는 여전히 816px 기준으로 계산되어 **캔버스보다 우측/하단으로 9px씩 더 크게** 렌더링됩니다.
+
+그 결과:
+
+- 시각적으로는 `.textLayer` outline이 `.page`/캔버스보다 약간 우측·하단으로 커지고,
+- 텍스트 선택 시에는 **줄이 내려갈수록 선택 하이라이트가 점점 아래로 밀리는** 현상이 발생했습니다.
+
+### 6.2. 해결 전략: pdf 뷰어 서브트리를 content-box 로 되돌리기
+
+문제의 근본 원인은 **“pdf.js가 content-box를 가정해 계산한 값”과 “Tailwind에 의해 border-box로 렌더된 DOM” 사이의 불일치**입니다.  
+이를 해결하기 위해 ArcData에서는 **PDF 뷰어 서브트리 내부의 box-sizing을 명시적으로 content-box로 되돌립니다.**
+
+구현 위치:
+
+- 파일: `ArcDataPDFViewer.css`
+- 규칙:
+
+```css
+.pdfViewer,
+.pdfViewer *{
+  box-sizing:content-box;
+}
+```
+
+이렇게 하면:
+
+- `.page`/`.canvasWrapper`/`.textLayer` 등 pdf.js가 생성하는 모든 요소가 **원래 pdf_viewer.css가 전제한 content-box 환경**에서 동작하게 되고,
+- Tailwind 전역 `box-sizing: border-box`는 **뷰어 바깥 영역에만 적용**됩니다.
+
+실제 효과:
+
+- `.textLayer` 영역이 `.page`/캔버스와 정확히 일치하고,
+- 텍스트 선택 시 **줄이 내려갈수록 하이라이트가 아래로 처지는 오차가 사라짐**을 확인했습니다.
+
+### 6.3. 개발 시 주의사항
+
+- PDF 뷰어 내부 레이아웃이 깨지는 현상을 디버깅할 때는 **먼저 box-sizing을 의심**해야 합니다.
+  - DevTools에서 `.pdfViewer .page`, `.canvasWrapper`, `.textLayer`의 `boxSizing`, `clientWidth/clientHeight`, `getBoundingClientRect()`를 비교해보면,
+    Tailwind 전역 스타일과 pdf.js 기본 가정이 충돌하는지 쉽게 확인할 수 있습니다.
+- pdf.js 뷰어 내부에 새로운 커스텀 요소를 추가할 때도,  
+  `.pdfViewer` 서브트리는 `content-box` 기준으로 동작한다는 점을 염두에 두고 레이아웃을 설계해야 합니다.
+
 ### 5.3. `usePDFViewerServices` (EventBus / LinkService / FindController)
 
 - 위치: `hooks/pdf/usePDFViewerServices.ts`

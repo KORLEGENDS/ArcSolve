@@ -206,10 +206,22 @@ export const useArcWorkLayoutStore = create<ArcWorkLayoutStore>()(
 
     makeExternalDragHandler: () => {
       return (event: React.DragEvent<HTMLElement>) => {
+        // 1) Drop sink 탐색: data-arcwork-drop-sink="true" 인 요소 위에서는
+        //    ArcWork 탭 생성/이동을 수행하지 않고 로컬 드롭 처리를 우선합니다.
+        let target = event.target as HTMLElement | null;
+        while (target) {
+          if (target.dataset && target.dataset.arcworkDropSink === 'true') {
+            return undefined;
+          }
+          target = target.parentElement;
+        }
+
+        // 2) Drop sink가 아닌 경우에만 ArcWork 탭 payload를 읽어 탭을 생성/이동합니다.
         const dt = event.dataTransfer;
         if (!dt) return undefined;
         try {
-          const raw = dt.getData('application/x-arcwork-tab') || dt.getData('text/plain');
+          const raw =
+            dt.getData('application/x-arcwork-tab') || dt.getData('text/plain');
           if (!raw) return undefined;
           const payload = JSON.parse(raw) as Partial<ArcWorkTabInput>;
           if (!payload?.id || !payload?.type || !payload?.name) return undefined;

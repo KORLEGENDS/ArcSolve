@@ -11,7 +11,7 @@ import {
     CodeBlockElement,
     CodeLineElement,
     CodeSyntaxLeaf,
-} from '@/client/components/ui/code-block-node';
+} from '../../ui/node/code-block-node';
 
 const lowlight = createLowlight(all);
 

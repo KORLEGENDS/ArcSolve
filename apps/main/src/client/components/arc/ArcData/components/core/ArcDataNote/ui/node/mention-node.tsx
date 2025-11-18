@@ -14,7 +14,7 @@ import {
   useSelected,
 } from 'platejs/react';
 
-import { useMounted } from '@/hooks/use-mounted';
+import { useMounted } from '@/client/components/arc/ArcData/hooks/note/use-mounted';
 import { cn } from '@/share/share-utils/cn-utils';
 
 import {
