@@ -2,7 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import * as React from 'react';
 
 import { Separator } from '@/client/components/ui/separator';
-import { ArcDataSidebar } from '../../base/ArcDataSidebar';
+import { ArcDataSidebar } from '../../../base/ArcDataSidebar';
 import styles from './ArcDataPDFSidebar.module.css';
 
 export interface ArcDataPDFSidebarProps {
@@ -54,6 +54,7 @@ const ThumbnailItem: React.FC<ThumbnailItemProps> = ({
         const renderTask = page.render({
           canvasContext: context,
           viewport,
+          canvas,
         });
         await renderTask.promise;
       } catch {

@@ -6,8 +6,8 @@ import * as React from 'react';
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
 
 import ArcDataPDFViewer from '../components/core/ArcDataPDF/ArcDataPDFViewer';
-import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSidebar';
-import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/ArcDataPDFTopbar';
+import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/layout/ArcDataPDFSidebar';
+import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/layout/ArcDataPDFTopbar';
 import { usePDFPageController } from '../hooks/pdf/usePDFPageController';
 import { pdfManager } from '../managers/ArcDataPDFManager';
 

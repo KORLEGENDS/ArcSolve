@@ -8,7 +8,7 @@ import {
   ToolbarSeparator,
 } from '@/client/components/ui/toolbar';
 import { iconFromToken } from '@/share/configs/icons/icon-utils';
-import { ArcDataTopbar } from '../../base/ArcDataTopbar';
+import { ArcDataTopbar } from '../../../base/ArcDataTopbar';
 import styles from './ArcDataPDFTopbar.module.css';
 
 export interface ArcDataPDFTopbarProps {
