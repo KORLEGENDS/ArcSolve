@@ -19,8 +19,8 @@ import {
     DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 
-import { EditorStatic } from './editor-static';
-import { ToolbarButton } from './toolbar';
+import { ToolbarButton } from '@/client/components/ui/toolbar';
+import { EditorStatic } from '../static/editor-static';
 
 const siteUrl = 'https://platejs.org';
 

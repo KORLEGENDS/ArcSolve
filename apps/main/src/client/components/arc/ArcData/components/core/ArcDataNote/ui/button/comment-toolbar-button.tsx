@@ -6,7 +6,7 @@ import { useEditorRef } from 'platejs/react';
 
 import { commentPlugin } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/comment-kit';
 
-import { ToolbarButton } from './toolbar';
+import { ToolbarButton } from '@/client/components/ui/toolbar';
 
 export function CommentToolbarButton() {
   const editor = useEditorRef();

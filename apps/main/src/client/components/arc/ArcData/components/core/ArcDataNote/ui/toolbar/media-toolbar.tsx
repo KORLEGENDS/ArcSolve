@@ -30,7 +30,7 @@ import {
 } from '@/client/components/ui/popover';
 import { Separator } from '@/client/components/ui/separator';
 
-import { CaptionButton } from './caption';
+import { CaptionButton } from '../caption';
 
 const inputVariants = cva(
   'flex h-[28px] w-full rounded-md border-none bg-transparent px-1.5 py-1 text-base placeholder:text-muted-foreground focus-visible:ring-transparent focus-visible:outline-none md:text-sm'

@@ -41,7 +41,7 @@ import {
     InlineComboboxGroupLabel,
     InlineComboboxInput,
     InlineComboboxItem,
-} from './inline-combobox';
+} from '../inline-combobox';
 
 type Group = {
   group: string;

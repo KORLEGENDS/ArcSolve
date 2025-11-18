@@ -3,12 +3,12 @@
 import * as React from 'react';
 
 import {
-  useLinkToolbarButton,
-  useLinkToolbarButtonState,
+    useLinkToolbarButton,
+    useLinkToolbarButtonState,
 } from '@platejs/link/react';
 import { Link } from 'lucide-react';
 
-import { ToolbarButton } from './toolbar';
+import { ToolbarButton } from '@/client/components/ui/toolbar';
 
 export function LinkToolbarButton(
   props: React.ComponentProps<typeof ToolbarButton>

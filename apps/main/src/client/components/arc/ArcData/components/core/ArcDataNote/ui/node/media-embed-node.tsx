@@ -13,13 +13,13 @@ import { PlateElement, withHOC } from 'platejs/react';
 
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { Caption, CaptionTextarea } from './caption';
-import { MediaToolbar } from './media-toolbar';
+import { Caption, CaptionTextarea } from '../caption';
+import { MediaToolbar } from '../toolbar/media-toolbar';
 import {
   mediaResizeHandleVariants,
   Resizable,
   ResizeHandle,
-} from './resize-handle';
+} from '../resize-handle';
 
 export const MediaEmbedElement = withHOC(
   ResizableProvider,

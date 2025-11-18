@@ -3,8 +3,8 @@
 import React from 'react';
 
 import type {
-  DropdownMenuItemProps,
-  DropdownMenuProps,
+    DropdownMenuItemProps,
+    DropdownMenuProps,
 } from '@radix-ui/react-dropdown-menu';
 
 import { useComposedRef } from '@udecode/cn';
@@ -14,20 +14,20 @@ import { useEditorRef, useEditorSelector } from 'platejs/react';
 
 import { buttonVariants } from '@/client/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from '@/client/components/ui/tooltip';
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { ToolbarButton, ToolbarMenuGroup } from './toolbar';
+import { ToolbarButton, ToolbarMenuGroup } from '@/client/components/ui/toolbar';
 
 export function FontColorToolbarButton({
   children,

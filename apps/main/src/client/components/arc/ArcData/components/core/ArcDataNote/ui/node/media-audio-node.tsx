@@ -9,7 +9,7 @@ import { useMediaState } from '@platejs/media/react';
 import { ResizableProvider } from '@platejs/resizable';
 import { PlateElement, withHOC } from 'platejs/react';
 
-import { Caption, CaptionTextarea } from './caption';
+import { Caption, CaptionTextarea } from '../caption';
 
 export const AudioElement = withHOC(
   ResizableProvider,

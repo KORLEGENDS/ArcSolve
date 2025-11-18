@@ -9,7 +9,7 @@ import { PlateElement } from 'platejs/react';
 import { Button } from '@/client/components/ui/button';
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { EmojiPicker, EmojiPopover } from './emoji-toolbar-button';
+import { EmojiPicker, EmojiPopover } from '../button/emoji-toolbar-button';
 
 export function CalloutElement({
   attributes,

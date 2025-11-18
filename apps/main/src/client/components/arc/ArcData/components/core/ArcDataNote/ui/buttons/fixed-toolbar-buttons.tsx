@@ -1,51 +1,50 @@
 'use client';
 
-import * as React from 'react';
 
 import {
-  ArrowUpToLineIcon,
-  BaselineIcon,
-  BoldIcon,
-  Code2Icon,
-  HighlighterIcon,
-  ItalicIcon,
-  PaintBucketIcon,
-  StrikethroughIcon,
-  UnderlineIcon,
-  WandSparklesIcon,
+    ArrowUpToLineIcon,
+    BaselineIcon,
+    BoldIcon,
+    Code2Icon,
+    HighlighterIcon,
+    ItalicIcon,
+    PaintBucketIcon,
+    StrikethroughIcon,
+    UnderlineIcon,
+    WandSparklesIcon,
 } from 'lucide-react';
 import { KEYS } from 'platejs';
 import { useEditorReadOnly } from 'platejs/react';
 
-import { AIToolbarButton } from './ai-toolbar-button';
-import { AlignToolbarButton } from './align-toolbar-button';
-import { CommentToolbarButton } from './comment-toolbar-button';
-import { EmojiToolbarButton } from './emoji-toolbar-button';
-import { ExportToolbarButton } from './export-toolbar-button';
-import { FontColorToolbarButton } from './font-color-toolbar-button';
-import { FontSizeToolbarButton } from './font-size-toolbar-button';
-import { RedoToolbarButton, UndoToolbarButton } from './history-toolbar-button';
-import { ImportToolbarButton } from './import-toolbar-button';
+import { ToolbarGroup } from '@/client/components/ui/toolbar';
+import { AIToolbarButton } from '../button/ai-toolbar-button';
+import { AlignToolbarButton } from '../button/align-toolbar-button';
+import { CommentToolbarButton } from '../button/comment-toolbar-button';
+import { EmojiToolbarButton } from '../button/emoji-toolbar-button';
+import { ExportToolbarButton } from '../button/export-toolbar-button';
+import { FontColorToolbarButton } from '../button/font-color-toolbar-button';
+import { FontSizeToolbarButton } from '../button/font-size-toolbar-button';
+import { RedoToolbarButton, UndoToolbarButton } from '../button/history-toolbar-button';
+import { ImportToolbarButton } from '../button/import-toolbar-button';
 import {
-  IndentToolbarButton,
-  OutdentToolbarButton,
-} from './indent-toolbar-button';
-import { InsertToolbarButton } from './insert-toolbar-button';
-import { LineHeightToolbarButton } from './line-height-toolbar-button';
-import { LinkToolbarButton } from './link-toolbar-button';
+    IndentToolbarButton,
+    OutdentToolbarButton,
+} from '../button/indent-toolbar-button';
+import { InsertToolbarButton } from '../button/insert-toolbar-button';
+import { LineHeightToolbarButton } from '../button/line-height-toolbar-button';
+import { LinkToolbarButton } from '../button/link-toolbar-button';
 import {
-  BulletedListToolbarButton,
-  NumberedListToolbarButton,
-  TodoListToolbarButton,
-} from './list-toolbar-button';
-import { MarkToolbarButton } from './mark-toolbar-button';
-import { MediaToolbarButton } from './media-toolbar-button';
-import { ModeToolbarButton } from './mode-toolbar-button';
-import { MoreToolbarButton } from './more-toolbar-button';
-import { TableToolbarButton } from './table-toolbar-button';
-import { ToggleToolbarButton } from './toggle-toolbar-button';
-import { ToolbarGroup } from './toolbar';
-import { TurnIntoToolbarButton } from './turn-into-toolbar-button';
+    BulletedListToolbarButton,
+    NumberedListToolbarButton,
+    TodoListToolbarButton,
+} from '../button/list-toolbar-button';
+import { MarkToolbarButton } from '../button/mark-toolbar-button';
+import { MediaToolbarButton } from '../button/media-toolbar-button';
+import { ModeToolbarButton } from '../button/mode-toolbar-button';
+import { MoreToolbarButton } from '../button/more-toolbar-button';
+import { TableToolbarButton } from '../button/table-toolbar-button';
+import { ToggleToolbarButton } from '../button/toggle-toolbar-button';
+import { TurnIntoToolbarButton } from '../button/turn-into-toolbar-button';
 
 export function FixedToolbarButtons() {
   const readOnly = useEditorReadOnly();

@@ -6,7 +6,7 @@ import { insertInlineEquation } from '@platejs/math';
 import { RadicalIcon } from 'lucide-react';
 import { useEditorRef } from 'platejs/react';
 
-import { ToolbarButton } from './toolbar';
+import { ToolbarButton } from '@/client/components/ui/toolbar';
 
 export function InlineEquationToolbarButton(
   props: React.ComponentProps<typeof ToolbarButton>

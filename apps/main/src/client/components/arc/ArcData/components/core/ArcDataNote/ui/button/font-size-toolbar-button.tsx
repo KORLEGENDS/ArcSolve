@@ -11,13 +11,13 @@ import { KEYS } from 'platejs';
 import { useEditorPlugin, useEditorSelector } from 'platejs/react';
 
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from '@/client/components/ui/popover';
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { ToolbarButton } from './toolbar';
+import { ToolbarButton } from '@/client/components/ui/toolbar';
 
 const DEFAULT_FONT_SIZE = '16';
 

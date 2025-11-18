@@ -1,27 +1,26 @@
 'use client';
 
-import * as React from 'react';
 
 import {
-  BoldIcon,
-  Code2Icon,
-  ItalicIcon,
-  StrikethroughIcon,
-  UnderlineIcon,
-  WandSparklesIcon,
+    BoldIcon,
+    Code2Icon,
+    ItalicIcon,
+    StrikethroughIcon,
+    UnderlineIcon,
+    WandSparklesIcon,
 } from 'lucide-react';
 import { KEYS } from 'platejs';
 import { useEditorReadOnly } from 'platejs/react';
 
-import { AIToolbarButton } from './ai-toolbar-button';
-import { CommentToolbarButton } from './comment-toolbar-button';
+import { ToolbarGroup } from '@/client/components/ui/toolbar';
+import { AIToolbarButton } from '../button/ai-toolbar-button';
+import { CommentToolbarButton } from '../button/comment-toolbar-button';
 import { InlineEquationToolbarButton } from './equation-toolbar-button';
-import { LinkToolbarButton } from './link-toolbar-button';
-import { MarkToolbarButton } from './mark-toolbar-button';
-import { MoreToolbarButton } from './more-toolbar-button';
-import { SuggestionToolbarButton } from './suggestion-toolbar-button';
-import { ToolbarGroup } from './toolbar';
-import { TurnIntoToolbarButton } from './turn-into-toolbar-button';
+import { LinkToolbarButton } from '../button/link-toolbar-button';
+import { MarkToolbarButton } from '../button/mark-toolbar-button';
+import { MoreToolbarButton } from '../button/more-toolbar-button';
+import { SuggestionToolbarButton } from '../button/suggestion-toolbar-button';
+import { TurnIntoToolbarButton } from '../button/turn-into-toolbar-button';
 
 export function FloatingToolbarButtons() {
   const readOnly = useEditorReadOnly();

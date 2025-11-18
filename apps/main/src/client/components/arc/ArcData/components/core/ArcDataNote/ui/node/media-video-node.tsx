@@ -14,12 +14,12 @@ import { PlateElement, useEditorMounted, withHOC } from 'platejs/react';
 
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { Caption, CaptionTextarea } from './caption';
+import { Caption, CaptionTextarea } from '../caption';
 import {
   mediaResizeHandleVariants,
   Resizable,
   ResizeHandle,
-} from './resize-handle';
+} from '../resize-handle';
 
 export const VideoElement = withHOC(
   ResizableProvider,

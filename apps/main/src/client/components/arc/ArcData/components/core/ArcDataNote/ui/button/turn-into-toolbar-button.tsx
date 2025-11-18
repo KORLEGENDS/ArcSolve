@@ -37,7 +37,7 @@ import {
     DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 
-import { ToolbarButton, ToolbarMenuGroup } from './toolbar';
+import { ToolbarButton, ToolbarMenuGroup } from '@/client/components/ui/toolbar';
 
 export const turnIntoItems = [
   {

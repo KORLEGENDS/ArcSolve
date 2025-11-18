@@ -2,7 +2,7 @@
 
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { Toolbar } from './toolbar';
+import { Toolbar } from '@/client/components/ui/toolbar';
 
 export function FixedToolbar(props: React.ComponentProps<typeof Toolbar>) {
   return (

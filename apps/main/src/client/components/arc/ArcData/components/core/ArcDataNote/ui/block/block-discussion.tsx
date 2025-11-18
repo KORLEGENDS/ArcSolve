@@ -44,7 +44,7 @@ import {
     isResolvedSuggestion,
     useResolveSuggestion,
 } from './block-suggestion';
-import { Comment, CommentCreateForm } from './comment';
+import { Comment, CommentCreateForm } from '../comment';
 
 export const BlockDiscussion: RenderNodeWrapper<AnyPluginConfig> = (props) => {
   const { editor, element } = props;

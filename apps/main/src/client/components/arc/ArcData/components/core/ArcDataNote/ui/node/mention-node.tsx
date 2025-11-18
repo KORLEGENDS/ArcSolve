@@ -24,7 +24,7 @@ import {
   InlineComboboxGroup,
   InlineComboboxInput,
   InlineComboboxItem,
-} from './inline-combobox';
+} from '../inline-combobox';
 
 export function MentionElement(
   props: PlateElementProps<TMentionElement> & {

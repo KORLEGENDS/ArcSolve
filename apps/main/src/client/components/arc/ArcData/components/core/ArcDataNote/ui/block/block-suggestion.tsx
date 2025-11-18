@@ -39,7 +39,7 @@ import {
   Comment,
   CommentCreateForm,
   formatCommentDate,
-} from './comment';
+} from '../comment';
 
 export interface ResolvedSuggestion extends TResolvedSuggestion {
   comments: TComment[];

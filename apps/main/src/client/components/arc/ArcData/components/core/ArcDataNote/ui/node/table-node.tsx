@@ -6,93 +6,93 @@ import type * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 
 import { useDraggable, useDropLine } from '@platejs/dnd';
 import {
-  BlockSelectionPlugin,
-  useBlockSelected,
+    BlockSelectionPlugin,
+    useBlockSelected,
 } from '@platejs/selection/react';
 import { setCellBackground } from '@platejs/table';
 import {
-  TablePlugin,
-  TableProvider,
-  useTableBordersDropdownMenuContentState,
-  useTableCellElement,
-  useTableCellElementResizable,
-  useTableElement,
-  useTableMergeState,
+    TablePlugin,
+    TableProvider,
+    useTableBordersDropdownMenuContentState,
+    useTableCellElement,
+    useTableCellElementResizable,
+    useTableElement,
+    useTableMergeState,
 } from '@platejs/table/react';
 import { PopoverAnchor } from '@radix-ui/react-popover';
 import { cva } from 'class-variance-authority';
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  CombineIcon,
-  EraserIcon,
-  Grid2X2Icon,
-  GripVertical,
-  PaintBucketIcon,
-  SquareSplitHorizontalIcon,
-  Trash2Icon,
-  XIcon,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    CombineIcon,
+    EraserIcon,
+    Grid2X2Icon,
+    GripVertical,
+    PaintBucketIcon,
+    SquareSplitHorizontalIcon,
+    Trash2Icon,
+    XIcon,
 } from 'lucide-react';
 import {
-  type TElement,
-  type TTableCellElement,
-  type TTableElement,
-  type TTableRowElement,
-  KEYS,
-  PathApi,
+    type TElement,
+    type TTableCellElement,
+    type TTableElement,
+    type TTableRowElement,
+    KEYS,
+    PathApi,
 } from 'platejs';
 import {
-  type PlateElementProps,
-  PlateElement,
-  useComposedRef,
-  useEditorPlugin,
-  useEditorRef,
-  useEditorSelector,
-  useElement,
-  useElementSelector,
-  useFocusedLast,
-  usePluginOption,
-  useReadOnly,
-  useRemoveNodeButton,
-  useSelected,
-  withHOC,
+    type PlateElementProps,
+    PlateElement,
+    useComposedRef,
+    useEditorPlugin,
+    useEditorRef,
+    useEditorSelector,
+    useElement,
+    useElementSelector,
+    useFocusedLast,
+    usePluginOption,
+    useReadOnly,
+    useRemoveNodeButton,
+    useSelected,
+    withHOC,
 } from 'platejs/react';
 
 import { Button } from '@/client/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuPortal,
+    DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { Popover, PopoverContent } from '@/client/components/ui/popover';
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { blockSelectionVariants } from './block-selection';
 import {
-  ColorDropdownMenuItems,
-  DEFAULT_COLORS,
-} from './font-color-toolbar-button';
-import { ResizeHandle } from './resize-handle';
+    Toolbar,
+    ToolbarButton,
+    ToolbarGroup,
+    ToolbarMenuGroup,
+} from '@/client/components/ui/toolbar';
+import { blockSelectionVariants } from '../block/block-selection';
 import {
-  BorderAllIcon,
-  BorderBottomIcon,
-  BorderLeftIcon,
-  BorderNoneIcon,
-  BorderRightIcon,
-  BorderTopIcon,
-} from './table-icons';
+    ColorDropdownMenuItems,
+    DEFAULT_COLORS,
+} from '../button/font-color-toolbar-button';
+import { ResizeHandle } from '../resize-handle';
 import {
-  Toolbar,
-  ToolbarButton,
-  ToolbarGroup,
-  ToolbarMenuGroup,
-} from './toolbar';
+    BorderAllIcon,
+    BorderBottomIcon,
+    BorderLeftIcon,
+    BorderNoneIcon,
+    BorderRightIcon,
+    BorderTopIcon,
+} from '../table-icons';
 export const TableElement = withHOC(
   TableProvider,
   function TableElement({
