@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { ArcDataPDFNewViewerHandle } from '../../components/core/ArcDataPDFNew/ArcDataPDFNewTypes';
+import type { ArcDataPDFNewViewerHandle } from '../../components/core/ArcDataPDF/ArcDataPDFNewTypes';
 
 interface PDFPageControllerState {
   visiblePage: number;
