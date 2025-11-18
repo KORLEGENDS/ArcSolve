@@ -16,41 +16,49 @@ PDF 뷰어 관련 주요 구성요소는 다음과 같습니다.
   - ArcData 도메인의 **엔트리 포인트 컴포넌트**
   - props: `{ documentId: string }`
   - 역할:
-    - `documentId`로 문서 다운로드 URL 조회
-    - PDF 문서 로드
-    - 페이지/뷰어 상호작용 상태 관리
-    - 뷰어 설정(줌/너비 맞춤) 관리
-    - 상단 툴바 / 좌측 썸네일 / 메인 PDF 뷰어 레이아웃 구성
+    - `documentId`로 문서 메타데이터/다운로드 URL 조회
+    - 파일 MIME 타입에 따라 **어떤 호스트를 사용할지 결정**
+    - PDF인 경우 `ArcDataPDFHost`로 위임
 
-- `components/core/ArcDataPDF/ArcDataPDFTopbar.tsx`
+- `hosts/ArcDataPDFHost.tsx`
+  - ArcData 전용 **PDF 호스트 컴포넌트**
+  - 역할:
+    - `useDocumentDownloadUrl(documentId)`로 R2 서명 URL 발급
+    - `ArcDataPDFManager(pdfManager)`를 통해 PDF 문서 로드/캐시/해제 관리
+    - `usePDFPageController()`로 현재 페이지/총 페이지/페이지 이동 상태 관리
+    - 확대/축소/너비 맞춤 상태를 관리하고 `ArcDataPDFTopbar`/`ArcDataPDFViewer`에 전달
+    - 상단 툴바 / 좌측 썸네일 / 메인 PDF 뷰어 레이아웃을 조립
+
+- `components/core/ArcDataPDF/layout/ArcDataPDFTopbar.tsx`
   - PDF 상단 툴바
   - 공용 상단 레이아웃 컴포넌트인 `ArcDataTopbar` 위에서 동작하며,
   - **확대/축소/너비 맞춤**을 제어하는 UI를 제공합니다.
 
-- `components/core/ArcDataPDF/ArcDataPDFSidebar.tsx`
+- `components/core/ArcDataPDF/layout/ArcDataPDFSidebar.tsx`
   - PDF 썸네일 목록 및 페이지 네비게이션 담당
   - 내부에서 공용 레이아웃 컴포넌트인 `ArcDataSidebar`를 사용해 좌측 사이드바 레이아웃/스크롤 보정을 처리하고,
-  - `pdfManager.renderPage()`를 사용해 각 페이지 썸네일을 렌더링합니다.
+  - `pdfDocument.getPage()` + `page.render()`를 사용해 각 페이지 썸네일을 렌더링합니다.
 
-- `components/core/ArcDataPDF/PDFViewer.tsx`
-  - PDF 코어 렌더러 래퍼
-  - 내부에서 **`PDFCore`**만 사용 (오버레이는 MVP에서 비활성화)
+- `components/core/ArcDataPDF/ArcDataPDFViewer.tsx`
+  - pdf.js의 `PDFViewer`를 감싸는 **메인 PDF 뷰어 래퍼**
+  - `usePDFViewerServices()`로 생성한 `EventBus` / `PDFLinkService` / `PDFFindController`와 연동하여
+    스크롤/현재 페이지/줌 등을 pdf.js에게 위임합니다.
 
-- `components/core/ArcDataPDF/PDFCore.tsx`
-  - 실제 PDF 페이지 캔버스를 렌더링하고, 가상화/스크롤/페이지 감지 등을 처리
+- `hooks/pdf/usePDFPageController.ts`
+  - 현재 페이지, 총 페이지 수, 사이드바 클릭 시 페이지 이동, 스크롤 기반 페이지 감지 등을 관리
+  - `ArcDataPDFViewerHandle` ref를 통해 메인 뷰어를 제어합니다.
 
-- `hooks/pdf/usePDFLoad.ts`
-  - PDF 문서를 로드하는 단순 상태 훅
+- `hooks/pdf/usePDFViewController.ts`
+  - 줌 레벨, 너비 맞춤, 뷰어 컨테이너 ref를 관리하는 **뷰 설정 컨트롤러 훅**
+  - 현재 PDF 호스트에서는 일부 로직을 인라인으로 구현하지만, 공통 패턴은 이 훅에 캡슐화되어 있습니다.
 
-- `hooks/pdf/usePDFInteraction.ts`
-  - 현재 페이지, 총 페이지 수, 스크롤 기반 페이지 감지 등을 관리
+- `hooks/pdf/usePDFViewerServices.ts`
+  - pdf.js Viewer 계열 모듈을 동적으로 로드하고,
+  - `EventBus` / `PDFLinkService` / `PDFFindController`를 **한 번에 생성/캐시**하는 훅과 로더 함수를 제공합니다.
 
-- `hooks/pdf/usePDFSetting.ts` (`usePDFSetting` / `useViewerSetting`)
-  - 줌 레벨, 너비 맞춤, 뷰어 컨테이너 ref를 관리하는 뷰 설정 훅
-
-- `managers/PDFManager.ts`
+- `managers/ArcDataPDFManager.ts`
   - pdf.js(`pdfjs-dist`)와 상호작용하는 **싱글톤 매니저**
-  - 문서 로드/캐시/렌더링/취소를 담당
+  - 문서 로드/캐시/렌더링/취소를 담당하며 `pdfManager` 이름으로 사용됩니다.
 
 ---
 
@@ -68,19 +76,20 @@ export interface ArcDataProps {
 - ArcData는 **문서 전체 DTO가 아니라 `documentId`만**을 인자로 받습니다.
 - 실제 문서 데이터/다운로드 URL 조회는 내부에서 React Query(`useDocumentDownloadUrl`)를 통해 수행합니다.
 
-### 2.2. ArcData 내부 렌더링 플로우
+### 2.2. ArcDataPDFHost 내부 렌더링 플로우
 
 1. **다운로드 URL 발급**
    - `useDocumentDownloadUrl(documentId, { inline: true, enabled: true })`
    - 서버는 R2 사인 URL을 만들어 `{ url, expiresAt }`를 반환합니다.
 2. **PDF 문서 로드**
-   - `usePDFLoad(pdfUrl)` → `pdfManager.loadDocument(pdfUrl)` 호출
-   - 캐시를 활용해 동일 URL에 대한 중복 로드를 방지합니다.
+   - `pdfManager.loadDocument(pdfUrl)`을 호출하여 pdf.js 문서를 로드하고,
+   - 동일 URL에 대해 캐시를 활용해 중복 로드를 방지합니다.
 3. **페이지/스크롤 상호작용 관리**
-   - `usePDFInteraction()`으로 현재 페이지, 총 페이지 수, 뷰어 ref, 사이드바 클릭 핸들러를 관리합니다.
+   - `usePDFPageController()`로 현재 페이지, 총 페이지 수, 뷰어 ref, 사이드바 클릭 핸들러를 관리합니다.
 4. **뷰어 설정(줌/너비 맞춤) 관리**
-   - `useViewerSetting({ isPDF: true, pdfDocument, imageNaturalWidth: null, ... })`
-   - `zoomLevel` / `isFitWidth` / `viewerContentRef` / `fitWidthOnce` 등을 제공합니다.
+   - 현재 구현에서는 `ArcDataPDFHost` 내부에서 줌/너비 맞춤 상태를 관리하며,
+   - `viewerRef`(= `ArcDataPDFViewerHandle`)의 `setZoom()` / `getCurrentScale()`를 통해 pdf.js 뷰어와 동기화합니다.
+   - 동일 패턴은 `usePDFViewController` 훅으로 일반화되어 있으며, 다른 호스트에서 재사용할 수 있습니다.
 5. **상단 툴바 + 좌/우 레이아웃 렌더링**
 
 핵심 레이아웃은 다음과 같습니다 (요약):
@@ -108,13 +117,11 @@ return (
       />
 
       <div ref={viewerContentRef} className="flex h-full min-w-0 flex-1">
-        <PDFViewer
+        <ArcDataPDFViewer
           ref={viewerRef}
           document={pdfDocument}
-          zoom={zoomLevel}
-          textLayerEnabled
-          onVisiblePageChange={onVisiblePageChange}
           className="h-full w-full"
+          onPageChange={onVisiblePageChange}
         />
       </div>
     </div>
@@ -181,111 +188,98 @@ export interface ArcDataPDFSidebarProps {
 
 - PDF 문서가 없거나 `totalPages <= 0`이면 `null`을 반환하여 렌더링하지 않습니다.
 - `pdfDocument.numPages`를 기반으로 `[1, totalPages]` 범위의 페이지에 대해 썸네일 캔버스를 생성합니다.
-- 각 썸네일은 `pdfManager.renderPage`를 호출해 낮은 DPR(기본 1.5)로 렌더링합니다.
+- 각 썸네일은 `pdfDocument.getPage(pageNumber)`로 페이지를 가져온 뒤,
+  `page.getViewport({ scale: 0.2 })`와 `page.render({ canvasContext, viewport, canvas })`를 사용해
+  **저해상도 DPR**로 렌더링합니다.
 - `ArcDataPDFSidebar`는 내부에서 공용 레이아웃 컴포넌트인 `ArcDataSidebar`를 사용합니다.
   - `ArcDataSidebar`는 좌측 고정 폭 사이드바와 스크롤 컨테이너를 제공하고,
   - 현재 활성 페이지(`currentPage`)가 바뀔 때 해당 썸네일이 리스트 뷰포트 안에 들어오도록 스크롤을 자동 보정합니다.
 
 ---
 
-## 5. PDF 뷰어 코어 (기존 `ArcDataPDFViewer` / `ArcDataPDFCore` → 신규 `ArcDataPDFNewViewer`)
+## 5. PDF 뷰어 코어 (`ArcDataPDFViewer` + `usePDFViewerServices`)
 
-### 5.1. (기존) `ArcDataPDFViewer` 래퍼
+### 5.1. `ArcDataPDFViewerProps`
 
 ```ts
-export interface PDFViewerProps {
+export interface ArcDataPDFViewerProps {
   document: PDFDocumentProxy;
+  /** 문서를 구분하기 위한 키 (히스토리/이벤트 prefix 등으로 사용 가능) */
   docKey?: string;
-  zoom: number; // 100 = 100%
-  textLayerEnabled?: boolean;
-  onVisiblePageChange?: (pageNumber: number) => void;
   className?: string;
-}
-```
-
-- `zoom`은 **퍼센트 값(예: 100, 125, 150)**으로 전달되며, 내부에서 `scale = zoom / 100`으로 변환됩니다.
-- MVP 버전에서는:
-  - 오버레이/번역/인용 기능을 모두 제거하여 **순수 PDF 캔버스 뷰어**로만 동작합니다.
-  - `textLayerEnabled`는 현재 구현에서는 실제 텍스트 레이어를 생성하지 않지만, 향후 확장을 위해 옵션으로 남겨두었습니다.
-
-### 5.2. (기존) `PDFViewerHandle`
-
-```ts
-export interface PDFViewerHandle {
-  scrollToPage: (pageNumber: number) => void;
-  // 오버레이 관련 메서드는 MVP에서는 no-op 또는 null 반환
-}
-```
-
-- `ArcData`는 `viewerRef`를 통해 `scrollToPage`를 사용합니다.
-  - `usePDFInteraction`에서 사이드바 클릭 시 해당 페이지로 스크롤 이동하는 데 사용됩니다.
-
-### 5.3. (기존) `PDFCore`
-
-- 문서 전체를 세로 방향으로 렌더링하고, 다음을 담당합니다.
-  - 페이지별 캔버스 DOM 생성
-  - 뷰포트(viewport) 기반 렌더링 크기 계산
-  - 스크롤 이벤트를 감지하여 현재 보이는 페이지(`visiblePage`)를 계산
-  - 가시 범위를 벗어난 페이지는 **저해상도 플레이스홀더 캔버스로 교체**하여 메모리 사용량을 줄임
-- `pdfManager.renderToCanvas`를 활용하여 고해상도 디스플레이에서도 선명한 렌더링을 제공하되, DPR 상한(`maxDpr`)으로 메모리 사용량을 제어합니다.
-
-### 5.4. (신규) `ArcDataPDFNewViewer` (pdf.js Viewer 래퍼)
-
-- 위치: `components/core/ArcDataPDFNew/ArcDataPDFNewViewer.tsx`
-- 역할:
-  - pdf.js의 `PDFViewer`, `PDFThumbnailViewer`, `PDFLinkService`, `PDFRenderingQueue`, `PDFFindController`, `EventBus`를 React 컴포넌트로 감싸는 상위 래퍼입니다.
-  - 내부에서 왼쪽 썸네일 뷰어와 오른쪽 메인 페이지 뷰어를 모두 구성하며, 스크롤/가상화/링크/검색 등의 코어 동작은 pdf.js에 위임합니다.
-- Props (요약):
-
-```ts
-export interface ArcDataPDFNewViewerProps {
-  document: PDFDocumentProxy;
-  docKey?: string;
-  initialPage?: number;
-  initialZoom?: number; // 100 = 100%
-  className?: string;
+  /** pdf.js 뷰어에서 인식하는 "현재 페이지"가 바뀔 때 호출 */
   onPageChange?: (pageNumber: number) => void;
 }
 ```
 
-- Handle:
+- `document`는 pdf.js의 `PDFDocumentProxy`입니다.
+- `docKey`는 이벤트/히스토리 prefix 등으로 사용할 수 있는 선택적 식별자입니다.
+- `onPageChange`는 pdf.js `EventBus`의 `pagechanging` 이벤트를 통해 전달되는
+  현재 페이지 번호를 상위(`ArcDataPDFHost` 등)에 전달합니다.
+
+### 5.2. `ArcDataPDFViewerHandle`
 
 ```ts
-export interface ArcDataPDFNewViewerHandle {
+export interface ArcDataPDFViewerHandle {
+  /** 지정한 페이지로 스크롤 이동 */
   scrollToPage: (pageNumber: number) => void;
-  setZoom: (zoomPercent: number) => void;
+  /**
+   * 줌 설정
+   * - number: 퍼센트(100 = 100%)
+   * - string: pdf.js 프리셋 값(e.g. 'page-width')
+   */
+  setZoom: (zoom: ArcDataPdfScaleValue | number) => void;
+  /** 현재 numeric 스케일(1.0 = 100%)을 반환 (없으면 null) */
+  getCurrentScale: () => number | null;
+  /** pdf.js의 currentScaleValue 그대로 반환 (없으면 null) */
+  getCurrentScaleValue: () => number | string | null;
 }
 ```
 
-- `ArcDataPDFHost`에서는 이제 `ArcDataPDFNewViewer`를 사용하여:
-  - `usePDFSetting`으로 관리하는 `zoomLevel`이 변경될 때 `setZoom(zoomLevel)`을 통해 pdf.js 뷰어의 확대/축소를 제어하고,
-  - `onPageChange` 콜백을 통해 현재 페이지 번호를 `usePDFInteraction`의 `visiblePage` 상태와 동기화합니다.
+- `ArcDataPDFHost`는 이 핸들을 `usePDFPageController`에서 관리하며,
+  - 썸네일 클릭 시 `scrollToPage(pageNumber)`를 호출해 해당 페이지로 이동하고,
+  - 확대/축소/너비 맞춤 시 `setZoom()`을 통해 pdf.js 뷰어의 스케일을 제어합니다.
+- `getCurrentScale()` / `getCurrentScaleValue()`는 실제 적용된 배율을 읽어와 상단 툴바의
+  `zoomLevel` 상태와 동기화하는 데 사용됩니다.
+
+### 5.3. `usePDFViewerServices` (EventBus / LinkService / FindController)
+
+- 위치: `hooks/pdf/usePDFViewerServices.ts`
+- 역할:
+  - pdf.js Viewer 모듈(`pdfjs-dist/web/pdf_viewer.mjs`)을 **브라우저 환경에서만 동적 import**하고,
+  - `EventBus` / `PDFLinkService` / `PDFFindController`를 **한 번만 생성하여 재사용**할 수 있도록 제공합니다.
+
+요약 시그니처는 다음과 같습니다.
+
+```ts
+export interface UsePDFViewerServicesResult {
+  eventBus: EventBus | null;
+  linkService: PDFLinkService | null;
+  findController: PDFFindController | null;
+}
+
+export function usePDFViewerServices(): UsePDFViewerServicesResult;
+
+export async function loadPdfJsViewerModule(): Promise<
+  typeof import('pdfjs-dist/web/pdf_viewer.mjs')
+>;
+```
+
+- `ArcDataPDFViewer`는 `usePDFViewerServices()`를 호출해 준비된 `eventBus` / `linkService` / `findController`를 받아
+  내부에서 `PDFViewer` 인스턴스를 생성하고, `EventBus`의 `pagechanging` 이벤트를 구독합니다.
+- `loadPdfJsViewerModule()`는 동일 프로세스 내에서 한 번만 pdf.js Viewer 모듈을 로드하도록
+  `viewerModulePromise`를 캐시합니다.
 
 ---
 
-## 6. 뷰 상태 훅
+## 6. 뷰 상태 훅 / 컨트롤러
 
-### 6.1. `usePDFLoad`
-
-- 시그니처 (요약):
-
-```ts
-function usePDFLoad(src: string | null): {
-  document: PDFDocumentProxy | null;
-  isLoading: boolean;
-  error: Error | null;
-}
-```
-
-- `src`가 `null`이면 로드를 시도하지 않고 `{ document: null }`을 유지합니다.
-- `src`가 변경될 때마다 `pdfManager.loadDocument(src)`를 호출합니다.
-
-### 6.2. `usePDFInteraction`
+### 6.1. `usePDFPageController`
 
 - 역할:
   - 현재 보이는 페이지(`visiblePage`) 계산
   - 총 페이지 수(`totalPages`) 상태 관리
-  - `viewerRef`를 통해 `PDFViewerHandle`을 제어
+  - `viewerRef`를 통해 `ArcDataPDFViewerHandle`을 제어
   - 사이드바 클릭 → `scrollToPage`로 스크롤 이동
 - 반환값 (요약):
 
@@ -293,14 +287,20 @@ function usePDFLoad(src: string | null): {
 {
   visiblePage: number;
   totalPages: number;
-  viewerRef: React.RefObject<PDFViewerHandle | null>;
+  viewerRef: React.RefObject<ArcDataPDFViewerHandle | null>;
+  setVisiblePage: (page: number) => void;
   setTotalPages: (n: number) => void;
   handleSidebarPageClick: (pageNumber: number) => void;
   onVisiblePageChange: (pageNumber: number) => void;
 }
 ```
 
-### 6.3. `usePDFSetting` / `useViewerSetting` (`usePDFSetting.ts`)
+- `ArcDataPDFHost`는 이 훅을 통해:
+  - 썸네일 사이드바 클릭 시 `handleSidebarPageClick(pageNumber)`를 호출하고,
+  - pdf.js 뷰어에서 감지한 페이지 변경 시 `onVisiblePageChange(pageNumber)`를 통해
+    상단/사이드바와 현재 페이지를 동기화합니다.
+
+### 6.2. `usePDFViewController` (`usePDFViewController.ts`)
 
 - **줌/너비 맞춤/사이드바 상태**를 캡슐화하는 훅입니다.
 
@@ -316,14 +316,14 @@ export const ZOOM_LEVELS = {
 - 파라미터:
 
 ```ts
-usePDFSetting({
+usePDFViewController({
   isPDF: boolean;
   pdfDocument: PDFDocumentProxy | null;
   imageNaturalWidth: number | null;
   imageNaturalHeight?: number | null;
   fitMode?: 'width' | 'longer-edge';
 });
-// 기존 코드 호환을 위해 useViewerSetting() 별칭도 제공합니다.
+```
 
 - 반환값 (주요 필드):
 
@@ -357,17 +357,17 @@ usePDFSetting({
 ### 7.1. 싱글톤 및 동적 import
 
 ```ts
-class PDFManager {
-  private static instance: PDFManager;
+class ArcDataPDFManager {
+  private static instance: ArcDataPDFManager;
   private static pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
 
   private constructor() {}
 
-  static getInstance(): PDFManager {
-    if (!PDFManager.instance) {
-      PDFManager.instance = new PDFManager();
+  static getInstance(): ArcDataPDFManager {
+    if (!ArcDataPDFManager.instance) {
+      ArcDataPDFManager.instance = new ArcDataPDFManager();
     }
-    return PDFManager.instance;
+    return ArcDataPDFManager.instance;
   }
 
   private async getPdfJs() {
@@ -375,8 +375,8 @@ class PDFManager {
       throw new Error('PDF.js는 브라우저 환경에서만 사용할 수 있습니다.');
     }
 
-    if (!PDFManager.pdfjsLibPromise) {
-      PDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
+    if (!ArcDataPDFManager.pdfjsLibPromise) {
+      ArcDataPDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
         if (!mod.GlobalWorkerOptions.workerSrc) {
           mod.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
         }
@@ -384,7 +384,7 @@ class PDFManager {
       });
     }
 
-    return PDFManager.pdfjsLibPromise;
+    return ArcDataPDFManager.pdfjsLibPromise;
   }
 }
 ```
@@ -396,15 +396,15 @@ class PDFManager {
 ### 7.2. 문서 로드
 
 ```ts
-private async loadDocumentInternal(url: string): Promise<PDFDocumentProxy> {
+async loadDocument(url: string): Promise<PDFDocumentProxy> {
   const pdfjsLib = await this.getPdfJs();
   const loadingTask = pdfjsLib.getDocument({ url });
   return (await loadingTask.promise) as PDFDocumentProxy;
 }
 ```
 
-- 현재는 pdf.js의 기본 설정만 사용하며, wasm/cMap 등 추가 자원은 사용하지 않습니다.
-- R2 사인 URL을 그대로 `getDocument`에 전달합니다.
+- 실제 구현에서는 캐시/동시 로딩 제어 로직이 추가되어 있지만,
+  기본적으로는 R2 서명 URL을 그대로 `getDocument`에 전달하여 pdf.js 문서를 로드합니다.
 
 ### 7.3. 렌더링
 
@@ -421,7 +421,7 @@ async renderPage(options: RenderOptions): Promise<void> {
 ```
 
 - `renderToCanvas`는 내부에서 오프스크린 캔버스를 생성해 `renderPage`를 호출한 뒤, 완성된 캔버스를 반환합니다.
-- ArcDataPDFSidebar 및 PDFCore는 이 메서드를 사용해 실제 페이지 비트를 캔버스로 그립니다.
+- 썸네일/프리뷰 등, 메인 뷰어와는 독립적인 캔버스 렌더링을 위해 사용할 수 있는 유틸리티 메서드입니다.
 
 ---
 
@@ -429,13 +429,14 @@ async renderPage(options: RenderOptions): Promise<void> {
 
 1. ArcWork 탭에서 `ArcData documentId`를 열면 `ArcData`가 마운트됩니다.
 2. `useDocumentDownloadUrl(documentId)`로 R2 사인 URL을 발급받습니다.
-3. `usePDFLoad(pdfUrl)` → `pdfManager.loadDocument(pdfUrl)`로 PDF 문서를 로드합니다.
-4. `usePDFInteraction()` → `visiblePage`, `totalPages`, `viewerRef`, `handleSidebarPageClick` 등을 초기화합니다.
-5. `usePDFSetting()` → `zoomLevel`, `isFitWidth`, `viewerContentRef`, `fitWidthOnce` 등을 초기화합니다.
-6. `ArcDataPDFTopbar` / `ArcDataPDFSidebar` / `PDFViewer`가 위 상태를 기반으로 렌더링됩니다.
+3. `pdfManager.loadDocument(pdfUrl)`로 PDF 문서를 로드하고, 언마운트 시 `releaseDocument(pdfUrl)`로 캐시를 정리합니다.
+4. `usePDFPageController()` → `visiblePage`, `totalPages`, `viewerRef`, `handleSidebarPageClick`, `onVisiblePageChange` 등을 초기화합니다.
+5. `ArcDataPDFHost` 내부의 뷰어 설정 상태 → `zoomLevel`, `isFitWidth`, `viewerContentRef` 등을 초기화하고,
+   `ArcDataPDFTopbar`/`ArcDataPDFViewer`와 동기화합니다.
+6. `ArcDataPDFTopbar` / `ArcDataPDFSidebar` / `ArcDataPDFViewer`가 위 상태를 기반으로 렌더링됩니다.
 7. 사용자의 스크롤/썸네일 클릭/툴바 버튼 액션에 따라:
    - `visiblePage`가 갱신되고,
    - `zoomLevel` 및 `isFitWidth`가 조정되며,
-   - PDFCore가 필요한 페이지 캔버스만 고해상도 렌더링을 유지하도록 가상화합니다.
+   - pdf.js `PDFViewer`가 내부 가상화/렌더링 전략에 따라 필요한 페이지만 고해상도로 유지합니다.
 
 
