@@ -63,6 +63,10 @@ dt.setData('application/x-arcmanager-item', JSON.stringify(payload));
 이때 **ArcManager에서는 `startAddTabDrag`와 같이 flexlayout 내부 DnD를 직접 시작하는 API를 사용하지 않는다.**  
 ArcWork 탭 생성은 **항상 external drag(`onExternalDrag`) 경로에서만 결정**되도록 한다.
 
+> 참고: 과거에는 `startAddTabDrag`를 외부에서도 사용할 수 있었으나,  
+> 현재는 ArcWork 내부 flexlayout 전용으로만 사용되며,  
+> ArcManager / ArcYou 등 외부 도메인에서는 **반드시 `setArcWorkTabDragData` + `onExternalDrag` 경로만 사용**한다.
+
 ---
 
 ## 4. Drop Sink 요소 정책 (`data-arcwork-drop-sink`)

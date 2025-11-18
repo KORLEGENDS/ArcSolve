@@ -4,7 +4,10 @@ import * as React from 'react';
 
 import { cn } from '@/client/components/ui/utils';
 import { useArcyouChat } from '@/client/states/queries/arcyou/useArcyouChat';
-import { useArcWorkEnsureOpenTab, useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-layout-store';
+import {
+  useArcWorkEnsureOpenTab,
+  setArcWorkTabDragData,
+} from '@/client/states/stores/arcwork-layout-store';
 
 import {
   ArcYouChatRoomListItem,
@@ -63,7 +66,6 @@ export function ArcYouChatRoomList({
   className,
 }: ArcYouChatRoomListProps): React.ReactElement {
   const ensureOpen = useArcWorkEnsureOpenTab();
-  const startAddTabDrag = useArcWorkStartAddTabDrag();
   const { data, isLoading, error } = useArcyouChat(type);
 
   const normalizedRooms = React.useMemo<ArcYouChatRoomListItemProps[]>(() => {
@@ -140,8 +142,8 @@ export function ArcYouChatRoomList({
             key={room.id}
             draggable
             onDragStart={(e) => {
-              // 통합 드래그 시작(존재 시 move, 미존재 시 add). 레이아웃 미존재 시 내부에서 폴백 처리.
-              startAddTabDrag(e, { id, type: targetType, name });
+              // ArcWork external drag용 payload만 설정합니다.
+              setArcWorkTabDragData(e, { id, type: targetType, name });
             }}
             onDoubleClick={() => {
               ensureOpen({ id, type: targetType, name });

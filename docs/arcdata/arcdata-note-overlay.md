@@ -1,7 +1,12 @@
 ## ArcDataNote Overlay DnD 아이디어 메모
 
 > 상태: **설계 아이디어만 정리**, 구현은 보류  
-> 실제 코드 구현 중 React Hooks 순서 문제가 발생하여, 현재는 ArcDataNote 내부 커스텀 오버레이 로직을 모두 제거해 둔 상태입니다.
+> 실제 코드 구현 중 React Hooks 순서 문제가 발생하여, 현재는 ArcDataNote 내부 커스텀 오버레이 로직을 모두 제거해 둔 상태입니다.  
+> 현재 DnD 환경은 다음과 같이 정리되어 있습니다:
+> - Plate DnD: ArcDataNote 루트 div를 `rootElement` 로 사용하는 `DndProvider + HTML5Backend` 위에서만 동작
+> - ArcWork 탭 DnD: `setArcWorkTabDragData` + `makeExternalDragHandler` + `data-arcwork-drop-sink` 정책으로 처리
+> - ArcManager → ArcDataNote 파일 첨부: 전역 `AlertDialog` + `ArcManagerDropZone` (Drop Sink) 기반
+> 이 문서는 위 환경을 전제로, 다시 "에디터 내부 Overlay 기반 DropZone"을 도입할 때의 설계 아이디어를 기록합니다.
 
 ---
 
@@ -12,7 +17,7 @@
   - ArcWork 전체를 가리는 전역 모달(`AlertDialog`)이 아니라,
   - **ArcDataNote 탭 영역 안에 한정된 overlay**가 뜨고,
   - ArcManager에서 파일을 끌어다 놓으면 노트에 참조/Embed를 삽입한다.
-- ArcWork의 탭 DnD(startAddTabDrag)와 충돌하지 않고,  
+- ArcWork의 탭 DnD(`setArcWorkTabDragData` + `onExternalDrag` + Drop Sink 정책)와 충돌하지 않고,  
   ArcManager → ArcDataNote 간 DnD UX를 자연스럽게 만든다.
 
 ---
@@ -146,11 +151,11 @@ function ArcDataNoteOverlay() {
 ```
 
 - ArcManager에서 시작한 드래그는:
-  - `startAddTabDrag(event, { id, type: 'arcdata-document', name })` 호출로 ArcWork 탭 DnD도 동시에 시작되고,
-  - `application/x-arcmanager-item` payload도 포함.
+  - `setArcWorkTabDragData(event, { id, type: 'arcdata-document', name })` 호출로 ArcWork 쪽에 탭 정보를 싣고,
+  - 동시에 `application/x-arcmanager-item` payload도 포함합니다.
 - Overlay 위에서 드롭하면:
-  - `ArcManagerDropZone`이 `application/x-arcmanager-item`을 읽어 로컬 삽입 처리.
-  - 필요 시 `event.stopPropagation()`을 사용해 ArcWork 레이어까지 이벤트가 버블업되지 않도록 제어할 수도 있음.
+  - `ArcManagerDropZone`이 `application/x-arcmanager-item`을 읽어 로컬 삽입을 처리하고,
+  - 루트에 `data-arcwork-drop-sink="true"` 가 있기 때문에 ArcWork `onExternalDrag` 는 이 드롭을 탭 생성/이동으로 해석하지 않습니다.
 
 ---
 
@@ -194,9 +199,24 @@ const { open } = useArcDataNoteOverlay();
 향후 구현 시 고려할 점:
 
 - Plate `render.belowRootNodes`와 기존 플러그인들의 렌더 순서/훅 호출 순서가 충돌하지 않도록 주의.
-- ArcWork `startAddTabDrag`와 Overlay DropZone의 이벤트 버블링/캡처 관계를 다시 한 번 정밀하게 설계.
-- 필요하다면, Overlay 모드를 켤 때 **ArcManager 쪽 DnD를 조금 더 “첨부 전용”으로 바꾸는 전역/로컬 플래그**도 함께 도입할 수 있다.
+- ArcWork external drag (`setArcWorkTabDragData` + `makeExternalDragHandler`) 와  
+  Overlay DropZone의 Drop Sink(`data-arcwork-drop-sink="true"`) 관계를 다시 한 번 정밀하게 설계.
+- 필요하다면, Overlay 모드를 켤 때 **ArcManager 쪽 DnD를 조금 더 "첨부 전용"으로 바꾸는 전역/로컬 플래그**도 함께 도입할 수 있다.
 
 이 문서는 ArcDataNote Overlay 기능을 다시 도입할 때 참고하기 위한 설계 메모로 유지한다.
+
+---
+
+## 7. 현재 해결된 문제 요약
+
+- **React DnD HTML5 backend와 ArcWork 탭 DnD 충돌**  
+  - ArcDataNote에서 `DndProvider` 의 `rootElement` 를 노트 탭 컨테이너로 한정하여,  
+    ArcWork/ArcManager 쪽 탭 드래그는 Plate DnD backend에서 관찰하지 않도록 분리했습니다.
+- **ArcManager → ArcWork/ArcData 탭/로컬 드롭 혼재 문제**  
+  - ArcManager는 항상 `setArcWorkTabDragData` + `application/x-arcmanager-item` 두 payload를 싣고,  
+    ArcWork는 Drop Sink(`data-arcwork-drop-sink="true"`) 유무로 "탭 생성 vs 로컬 드롭"을 분기합니다.
+- **ArcDataNote 전용 Overlay 설계**는 아직 구현하지 않았으며,  
+  - 현재는 전역 `AlertDialog + ArcManagerDropZone` 을 사용해 기능을 제공하고,  
+  - Overlay는 이 문서를 바탕으로 향후 다시 설계/도입할 예정입니다.
 
 

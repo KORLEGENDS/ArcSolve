@@ -13,14 +13,16 @@ import { Collapsible, CollapsibleContent } from '@/client/components/ui/collapsi
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/client/components/ui/custom/tabs';
 import { Input } from '@/client/components/ui/input';
 import {
+  useDocumentCreate,
   useDocumentFiles,
   useDocumentFolderCreate,
-  useDocumentNotes,
   useDocumentMove,
-  useDocumentCreate,
+  useDocumentNotes,
   useDocumentYoutubeCreate,
 } from '@/client/states/queries/document/useDocument';
-import { useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-layout-store';
+import { setArcWorkTabDragData } from '@/client/states/stores/arcwork-layout-store';
+import type { DocumentDTO } from '@/share/libs/react-query/query-options';
+import { DEFAULT_NOTE_PARAGRAPH } from '@/share/schema/zod/document-note-zod';
 import {
   FolderOpenDot,
   FolderPlus,
@@ -31,8 +33,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import * as React from 'react';
-import type { DocumentDTO } from '@/share/libs/react-query/query-options';
-import { DEFAULT_NOTE_PARAGRAPH } from '@/share/schema/zod/document-note-zod';
 import s from './ArcManager.module.css';
 
 export type ArcDataType = 'notes' | 'files' | 'chat';
@@ -177,12 +177,64 @@ export function ArcManager(): React.ReactElement {
     return map;
   }, [noteDocuments]);
 
-  // 문서 이동 및 ArcWork 탭 드래그 훅
+  // 문서 이동
   const { move } = useDocumentMove();
   const { createFolder } = useDocumentFolderCreate();
   const { createYoutube } = useDocumentYoutubeCreate();
   const { createDocument, isCreating: isCreatingDocument } = useDocumentCreate();
-  const startAddTabDrag = useArcWorkStartAddTabDrag();
+
+  const handleArcManagerItemDragStart = React.useCallback(
+    (params: {
+      item: ArcManagerTreeItem;
+      event: React.DragEvent<HTMLDivElement>;
+      kind: 'file' | 'note';
+    }) => {
+      const { item, event, kind } = params;
+      const dt = event.dataTransfer;
+      if (!dt) return;
+
+      // 1) ArcWork 탭용 payload: leaf(item)만 ArcWork 탭으로 열 수 있습니다.
+      if (item.itemType === 'item') {
+        const tabName =
+          (item as { name?: string }).name &&
+          (item as { name?: string }).name!.trim().length > 0
+            ? (item as { name?: string }).name!
+            : item.path;
+
+        setArcWorkTabDragData(event, {
+          id: item.id,
+          name: tabName,
+          type: 'arcdata-document',
+        });
+      }
+
+      // 2) ArcManager 전용 payload: 트리 내부 이동 및 DropZone에서 사용
+      let docMeta: DocumentDTO | undefined;
+      if (kind === 'file') {
+        docMeta = fileDocumentMap.get(item.id);
+      }
+
+      const payload = {
+        source: 'arcmanager' as const,
+        // 호환성: 일부 기존 코드는 id를, 새로운 코드는 documentId를 사용하므로 둘 다 설정
+        id: item.id,
+        documentId: item.id,
+        path: item.path,
+        name: (item as { name?: string }).name ?? item.path,
+        kind: (docMeta?.kind as 'file' | 'note' | 'folder') ?? kind,
+        itemType: item.itemType,
+        mimeType: docMeta?.fileMeta?.mimeType ?? null,
+      };
+
+      try {
+        dt.setData('application/x-arcmanager-item', JSON.stringify(payload));
+        dt.effectAllowed = 'move';
+      } catch {
+        // ignore
+      }
+    },
+    [fileDocumentMap],
+  );
 
   type FolderCreateHandler = (params: { parentPath: string; name: string }) => Promise<void>;
 
@@ -696,39 +748,11 @@ export function ArcManager(): React.ReactElement {
                     onFolderEnter: (path: string) =>
                       patchTabState('files', { currentPath: path, isCollapsed: false }),
                     onItemDragStart: ({ item, event }) => {
-                      // ArcWork 탭 드래그 데이터 설정 (파일만)
-                      if (item.itemType === 'item') {
-                        const tabName =
-                          (item as { name?: string }).name &&
-                          (item as { name?: string }).name!.trim().length > 0
-                            ? (item as { name?: string }).name!
-                            : item.path;
-                        startAddTabDrag(event, {
-                          id: item.id,
-                          name: tabName,
-                          type: 'arcdata-document',
-                        });
-                      }
-
-                      // ArcManager 전용 드래그 데이터 설정
-                      const dt = event.dataTransfer;
-                      if (!dt) return;
-                      const docMeta = fileDocumentMap.get(item.id);
-                      const payload = {
-                        source: 'arcmanager' as const,
-                        documentId: item.id,
-                        path: item.path,
-                        name: (item as { name?: string }).name ?? item.path,
-                        kind: docMeta?.kind ?? 'file',
-                        itemType: item.itemType,
-                        mimeType: docMeta?.fileMeta?.mimeType ?? null,
-                      };
-                      try {
-                        dt.setData('application/x-arcmanager-item', JSON.stringify(payload));
-                        dt.effectAllowed = 'move';
-                      } catch {
-                        // ignore
-                      }
+                      handleArcManagerItemDragStart({
+                        item,
+                        event,
+                        kind: 'file',
+                      });
                     },
                     onItemDropOnRow: async ({ target, event }) => {
                       try {
@@ -820,16 +844,10 @@ export function ArcManager(): React.ReactElement {
                     onFolderEnter: (path: string) =>
                       patchTabState('notes', { currentPath: path, isCollapsed: false }),
                     onItemDragStart: ({ item, event }) => {
-                      if (item.itemType !== 'item') return;
-                      const tabName =
-                        (item as { name?: string }).name &&
-                        (item as { name?: string }).name!.trim().length > 0
-                          ? (item as { name?: string }).name!
-                          : item.path;
-                      startAddTabDrag(event, {
-                        id: item.id,
-                        name: tabName,
-                        type: 'arcdata-document',
+                      handleArcManagerItemDragStart({
+                        item,
+                        event,
+                        kind: 'note',
                       });
                     },
                   })}

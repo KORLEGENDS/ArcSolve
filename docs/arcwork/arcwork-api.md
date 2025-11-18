@@ -259,14 +259,17 @@ export interface ArcWorkLayoutActions {
   ensureOpen(input: ArcWorkTabInput): boolean;
 
   // DnD helpers
-  makeExternalDragHandler(): (event: React.DragEvent<HTMLElement>) =>
-    | undefined
-    | { json: any; onDrop?: (node?: unknown, event?: React.DragEvent<HTMLElement>) => void };
-  startAddTabDrag(
+  makeExternalDragHandler(): (
     event: React.DragEvent<HTMLElement>,
-    input: ArcWorkTabInput,
-    options?: { dragImage?: React.ReactNode; imageOffset?: { x: number; y: number } }
-  ): boolean;
+  ) =>
+    | undefined
+    | {
+        json: any;
+        onDrop?: (
+          node?: unknown,
+          event?: React.DragEvent<HTMLElement>,
+        ) => void;
+      };
 }
 ```
 
@@ -307,48 +310,68 @@ export interface ArcWorkLayoutActions {
 
 ### 4.6. DnD 헬퍼와 MIME 타입
 
-#### 4.6.1. `startAddTabDrag(event, input, options?)`
+#### 4.6.1. `setArcWorkTabDragData(event, data)`
 
-- ArcWork 내부/외부에서 동일한 로직으로 사용 가능한 **통합 드래그 시작 함수**
-- 동작:
-  1. `layoutRef`가 없으면:
-     - `dataTransfer`에 `{ id, type, name }` JSON을 저장
-     - MIME 타입:  
-       - `application/x-arcwork-tab`  
-       - `text/plain` (fallback)
-     - ArcWork의 `onExternalDrag`가 이 데이터를 읽어 탭 생성
-  2. `layoutRef`가 있으면:
-     - `options.dragImage`가 있으면 `layout.setDragComponent`로 커스텀 드래그 이미지를 설정
-     - `model.getNodeById(input.id)`로 기존 탭 존재 여부 확인
-       - 있으면: `moveTabWithDragAndDrop` (기존 탭 이동)
-       - 없으면: `addTabWithDragAndDrop` (새 탭 생성)
-
-#### 4.6.2. `makeExternalDragHandler()`
-
-- ArcWork `Layout`의 `onExternalDrag`에 연결되는 핸들러 팩토리
-- 동작:
-  - `dataTransfer`에서 `application/x-arcwork-tab` 또는 `text/plain`을 읽음
-  - `{ id, name, type }`를 파싱하고 유효성 검사
-  - flexlayout 탭 JSON `{ type: 'tab', id, name, component: type }`를 반환
-  - ArcWork는 이 JSON을 사용해 드롭 위치에 탭을 생성
-
-#### 4.6.3. `setArcWorkTabDragData(event, data)`
+- ArcManager / ArcYou 등 **외부 컴포넌트에서 ArcWork 탭 DnD를 시작할 때 사용하는 단일 유틸 함수**입니다.
+- 역할:
+  - 드래그 시작 시점의 `DragEvent | React.DragEvent` 에 대해
+    - `dataTransfer`에 `{ id, type, name }` JSON을 설정하고
+    - MIME 타입 `application/x-arcwork-tab` + `text/plain` 으로 저장합니다.
+  - 동시에 보조 채널(`currentExternalTab`)에도 마지막 탭 정보를 저장하여,
+    - 일부 브라우저에서 `getData(...)` 접근이 제한되는 경우에도 ArcWork가 payload 를 복원할 수 있게 합니다.
+- 구현은 다음과 같습니다.
 
 ```ts
 export function setArcWorkTabDragData(
   event: DragEvent | React.DragEvent<HTMLElement>,
   data: ArcWorkTabInput
 ) {
-  const dt = (event as DragEvent).dataTransfer || (event as React.DragEvent<HTMLElement>).dataTransfer;
-  if (!dt) return;
-  const json = JSON.stringify({ id: data.id, type: data.type, name: data.name });
+  const dt =
+    (event as DragEvent).dataTransfer ||
+    (event as React.DragEvent<HTMLElement>).dataTransfer;
+  if (!dt) {
+    return;
+  }
+  const json = JSON.stringify({
+    id: data.id,
+    type: data.type,
+    name: data.name,
+  });
+  try {
   dt.setData('application/x-arcwork-tab', json);
+  } catch {
+    // ignore
+  }
+  try {
   dt.setData('text/plain', json);
+  } catch {
+    // ignore
+  }
+
+  // ArcWork external drag 해석을 위한 보조 채널에도 마지막 탭 정보를 저장합니다.
+  currentExternalTab = { ...data };
 }
 ```
 
-- 레이아웃이 아직 준비되지 않은 환경이나 외부 드래그에서 사용
-- 반드시 `{ id, type, name }` 전체를 포함해야 합니다 (`name` 필수).
+- **중요**: 이 함수는 ArcWork 레이아웃 내부를 직접 건드리지 않습니다.  
+  - “드래그가 ArcWork 위에 도착했을 때 탭으로 해석할 수 있도록, dataTransfer에 메타데이터만 싣는 역할”입니다.
+
+#### 4.6.2. `makeExternalDragHandler()`
+
+- ArcWork `Layout`의 `onExternalDrag`에 연결되는 핸들러 팩토리
+- 동작:
+  1. `event.target`에서 시작해 상위 DOM을 순회하며  
+     `data-arcwork-drop-sink="true"` 인 요소를 찾습니다.
+     - 발견되면: **해당 드롭은 로컬 컴포넌트에서 처리해야 한다고 판단하고**, `undefined` 를 반환합니다.  
+       → ArcWork는 탭 생성/이동을 수행하지 않습니다.
+  2. Drop Sink가 아닌 경우에만:
+     - `event.dataTransfer`에서 `application/x-arcwork-tab` 또는 `text/plain` 을 읽어 `{ id, name, type }` 를 파싱합니다.
+     - dataTransfer 에서 읽지 못하면, `setArcWorkTabDragData` 가 저장해 둔 `currentExternalTab` 을 보조 채널로 사용합니다.
+     - 동일 `id` 의 탭이 이미 열려 있으면:
+       - 새 탭을 만들지 않고 `selectTab(id)` 로 **기존 탭만 활성화**하고 종료합니다.
+     - 그렇지 않으면:
+       - flexlayout 탭 JSON `{ type: 'tab', id, name, component: type }` 를 반환합니다.
+       - ArcWork `Layout` 이 이 JSON을 사용해 드롭 위치에 탭을 생성/이동합니다.
 
 ### 4.7. 셀렉터 훅 요약
 
@@ -372,10 +395,6 @@ export const useArcWorkOpenTab =
 
 export const useArcWorkEnsureOpenTab =
   (): ArcWorkLayoutActions['ensureOpen'] => useArcWorkLayoutStore((s) => s.ensureOpen);
-
-export const useArcWorkStartAddTabDrag =
-  (): ArcWorkLayoutActions['startAddTabDrag'] =>
-    useArcWorkLayoutStore((s) => s.startAddTabDrag);
 ```
 
 ---

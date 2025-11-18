@@ -450,39 +450,66 @@ export function useDocumentMove(): UseDocumentMoveReturn {
    - `DataTransfer`에 `application/x-arcmanager-item` 타입으로  
      `{ source: 'arcmanager', id, path, itemType }`를 저장 (출처 식별용)
 
-```380:399:apps/main/src/client/components/arc/ArcManager/ArcManager.tsx
-onItemDragStart: ({ item, event }) => {
-  // ArcWork 탭 드래그 데이터 설정 (파일만)
+```186:235:apps/main/src/client/components/arc/ArcManager/ArcManager.tsx
+const handleArcManagerItemDragStart = React.useCallback(
+  (params: {
+    item: ArcManagerTreeItem;
+    event: React.DragEvent<HTMLDivElement>;
+    kind: 'file' | 'note';
+  }) => {
+    const { item, event, kind } = params;
+    const dt = event.dataTransfer;
+    if (!dt) return;
+
+    // 1) ArcWork 탭용 payload: leaf(item)만 ArcWork 탭으로 열 수 있습니다.
   if (item.itemType === 'item') {
     const tabName =
       (item as { name?: string }).name &&
       (item as { name?: string }).name!.trim().length > 0
         ? (item as { name?: string }).name!
         : item.path;
-    startAddTabDrag(event, {
+
+      setArcWorkTabDragData(event, {
       id: item.id,
       name: tabName,
       type: 'arcdata-document',
     });
   }
 
-  // ArcManager 전용 드래그 데이터 설정
-  const dt = event.dataTransfer;
-  if (!dt) return;
+    // 2) ArcManager 전용 payload: 트리 내부 이동 및 DropZone에서 사용
+    let docMeta: DocumentDTO | undefined;
+    if (kind === 'file') {
+      docMeta = fileDocumentMap.get(item.id);
+    }
+
   const payload = {
     source: 'arcmanager' as const,
+      // 호환성: 일부 기존 코드는 id를, 새로운 코드는 documentId를 사용하므로 둘 다 설정
     id: item.id,
+      documentId: item.id,
     path: item.path,
+      name: (item as { name?: string }).name ?? item.path,
+      kind: (docMeta?.kind as 'file' | 'note' | 'folder') ?? kind,
     itemType: item.itemType,
+      mimeType: docMeta?.fileMeta?.mimeType ?? null,
   };
+
+    try {
   dt.setData('application/x-arcmanager-item', JSON.stringify(payload));
   dt.effectAllowed = 'move';
+    } catch {
+      // ignore
+    }
 },
+  [fileDocumentMap],
+);
 ```
 
 > **정책 정리**
-> - **탭 열기(DnD → ArcWork)**: `item`(파일)만 대상
-> - **문서 이동(DnD → ArcManager 내부)**: `folder`/`item` 모두 대상
+> - **탭 열기(DnD → ArcWork)**: `item`(파일/노트 등 leaf)만 대상이며,  
+>   `setArcWorkTabDragData(event, { id, type: 'arcdata-document', name })` 로 payload 를 설정합니다.
+> - **문서 이동(DnD → ArcManager 내부 / 기타 DropZone)**: `folder`/`item` 모두 대상이며,  
+>   `application/x-arcmanager-item` payload 를 기준으로 동작합니다.
 
 ### 7.2 드롭 타겟: 행 위 (onItemDropOnRow)
 

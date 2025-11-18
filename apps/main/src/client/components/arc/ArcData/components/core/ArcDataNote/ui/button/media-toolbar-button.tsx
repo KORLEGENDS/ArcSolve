@@ -6,38 +6,38 @@ import type { DropdownMenuProps } from '@radix-ui/react-dropdown-menu';
 
 import { PlaceholderPlugin } from '@platejs/media/react';
 import {
-  AudioLinesIcon,
-  FileUpIcon,
-  FilmIcon,
-  ImageIcon,
-  LinkIcon,
+    AudioLinesIcon,
+    FileUpIcon,
+    FilmIcon,
+    ImageIcon,
+    LinkIcon,
 } from 'lucide-react';
 import { isUrl, KEYS } from 'platejs';
 import { useEditorRef } from 'platejs/react';
 import { toast } from 'sonner';
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from '@/client/components/ui/alert-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '@/client/components/ui/dropdown-menu';
 import { Input } from '@/client/components/ui/input';
 import {
-  ToolbarSplitButton,
-  ToolbarSplitButtonPrimary,
-  ToolbarSplitButtonSecondary,
+    ToolbarSplitButton,
+    ToolbarSplitButtonPrimary,
+    ToolbarSplitButtonSecondary,
 } from '@/client/components/ui/toolbar';
 import {
   ArcManagerDropZone,
@@ -118,7 +118,7 @@ export function MediaToolbarButton({
             text: `[파일] ${item.name}`,
           },
         ],
-      });
+  });
 
       setArcManagerDialogOpen(false);
     },
