@@ -5,12 +5,12 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { ArcDataPDFNewViewerHandle } from '../../components/core/ArcDataPDF/ArcDataPDFNewTypes';
+import type { ArcDataPDFViewerHandle } from '../../components/core/ArcDataPDF/ArcDataPDFTypes';
 
 interface PDFPageControllerState {
   visiblePage: number;
   totalPages: number;
-  viewerRef: React.RefObject<ArcDataPDFNewViewerHandle | null>;
+  viewerRef: React.RefObject<ArcDataPDFViewerHandle | null>;
   setVisiblePage: (page: number) => void;
   setTotalPages: (pages: number) => void;
   handleSidebarPageClick: (pageNumber: number) => void;
@@ -25,8 +25,8 @@ export const usePDFPageController = (): PDFPageControllerState => {
   // 총 페이지 수
   const [totalPages, setTotalPages] = useState(1);
 
-  // ArcDataPDFNewViewer ref (페이지 이동용)
-  const viewerRef = useRef<ArcDataPDFNewViewerHandle | null>(null);
+  // ArcDataPDFViewer ref (페이지 이동용)
+  const viewerRef = useRef<ArcDataPDFViewerHandle | null>(null);
 
   // 사이드바 페이지 클릭 핸들러
   const handleSidebarPageClick: (pageNumber: number) => void = useCallback(

@@ -5,10 +5,10 @@ import type { PDFFindController } from 'pdfjs-dist/types/web/pdf_find_controller
 import type { PDFLinkService } from 'pdfjs-dist/types/web/pdf_link_service';
 import type { EventBus, PDFViewer, PDFViewerOptions } from 'pdfjs-dist/types/web/pdf_viewer';
 import * as React from 'react';
-import type { ArcDataPDFNewViewerHandle, ArcDataPdfScaleValue } from './ArcDataPDFNewTypes';
+import type { ArcDataPDFViewerHandle, ArcDataPdfScaleValue } from './ArcDataPDFTypes';
 import { loadPdfJsViewerModule } from './pdfjsViewerLoader';
 
-export interface ArcDataPDFNewViewerCoreProps {
+export interface ArcDataPDFViewerCoreProps {
   document: PDFDocumentProxy;
   className?: string;
   eventBus: EventBus | null;
@@ -17,7 +17,7 @@ export interface ArcDataPDFNewViewerCoreProps {
   onPageChange?: (pageNumber: number) => void;
 }
 
-export const ArcDataPDFNewViewerCore = React.forwardRef<ArcDataPDFNewViewerHandle, ArcDataPDFNewViewerCoreProps>(
+export const ArcDataPDFViewerCore = React.forwardRef<ArcDataPDFViewerHandle, ArcDataPDFViewerCoreProps>(
   ({ document, className, eventBus, linkService, findController, onPageChange }, ref) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const viewerElementRef = React.useRef<HTMLDivElement | null>(null);
@@ -142,8 +142,8 @@ export const ArcDataPDFNewViewerCore = React.forwardRef<ArcDataPDFNewViewerHandl
   },
 );
 
-ArcDataPDFNewViewerCore.displayName = 'ArcDataPDFNewViewerCore';
+ArcDataPDFViewerCore.displayName = 'ArcDataPDFViewerCore';
 
-export default ArcDataPDFNewViewerCore;
+export default ArcDataPDFViewerCore;
 
 

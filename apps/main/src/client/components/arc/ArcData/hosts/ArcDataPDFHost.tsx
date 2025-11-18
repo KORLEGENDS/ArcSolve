@@ -5,7 +5,7 @@ import * as React from 'react';
 
 import { useDocumentDownloadUrl } from '@/client/states/queries/document/useDocument';
 
-import ArcDataPDFNewViewer from '../components/core/ArcDataPDF/ArcDataPDFNewViewer';
+import ArcDataPDFViewer from '../components/core/ArcDataPDF/ArcDataPDFViewer';
 import { ArcDataPDFSidebar } from '../components/core/ArcDataPDF/ArcDataPDFSidebar';
 import { ArcDataPDFTopbar } from '../components/core/ArcDataPDF/ArcDataPDFTopbar';
 import { usePDFPageController } from '../hooks/pdf/usePDFPageController';
@@ -210,7 +210,7 @@ export function ArcDataPDFHost({
 
         {/* 우측: 메인 PDF 뷰어 (pdf.js Viewer 기반) */}
         <div ref={viewerContentRef} className="flex h-full min-w-0 flex-1">
-          <ArcDataPDFNewViewer
+          <ArcDataPDFViewer
             ref={viewerRef}
             document={pdfDocument}
             className="h-full w-full"

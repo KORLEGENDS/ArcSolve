@@ -5,15 +5,15 @@ import type { EventBus } from 'pdfjs-dist/types/web/pdf_viewer';
 import * as React from 'react';
 import { loadPdfJsViewerModule } from './pdfjsViewerLoader';
 
-export interface ArcDataPDFNewLinkServiceProps {
+export interface ArcDataPDFLinkServiceProps {
   eventBus: EventBus | null;
   onReady: (linkService: PDFLinkService) => void;
 }
 
-export function ArcDataPDFNewLinkService({
+export function ArcDataPDFLinkService({
   eventBus,
   onReady,
-}: ArcDataPDFNewLinkServiceProps): React.ReactElement | null {
+}: ArcDataPDFLinkServiceProps): React.ReactElement | null {
   const linkServiceRef = React.useRef<PDFLinkService | null>(null);
 
   React.useEffect(() => {
@@ -42,9 +42,9 @@ export function ArcDataPDFNewLinkService({
   return null;
 }
 
-ArcDataPDFNewLinkService.displayName = 'ArcDataPDFNewLinkService';
+ArcDataPDFLinkService.displayName = 'ArcDataPDFLinkService';
 
-export default ArcDataPDFNewLinkService;
+export default ArcDataPDFLinkService;
 
 
 

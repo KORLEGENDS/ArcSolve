@@ -6,17 +6,17 @@ import type { EventBus } from 'pdfjs-dist/types/web/pdf_viewer';
 import * as React from 'react';
 import { loadPdfJsViewerModule } from './pdfjsViewerLoader';
 
-export interface ArcDataPDFNewFindControllerProps {
+export interface ArcDataPDFFindControllerProps {
   eventBus: EventBus | null;
   linkService: PDFLinkService | null;
   onReady: (findController: PDFFindController) => void;
 }
 
-export function ArcDataPDFNewFindController({
+export function ArcDataPDFFindController({
   eventBus,
   linkService,
   onReady,
-}: ArcDataPDFNewFindControllerProps): React.ReactElement | null {
+}: ArcDataPDFFindControllerProps): React.ReactElement | null {
   const findControllerRef = React.useRef<PDFFindController | null>(null);
 
   React.useEffect(() => {
@@ -48,9 +48,9 @@ export function ArcDataPDFNewFindController({
   return null;
 }
 
-ArcDataPDFNewFindController.displayName = 'ArcDataPDFNewFindController';
+ArcDataPDFFindController.displayName = 'ArcDataPDFFindController';
 
-export default ArcDataPDFNewFindController;
+export default ArcDataPDFFindController;
 
 
 

@@ -4,11 +4,11 @@ import type { EventBus } from 'pdfjs-dist/types/web/pdf_viewer';
 import * as React from 'react';
 import { loadPdfJsViewerModule } from './pdfjsViewerLoader';
 
-export interface ArcDataPDFNewEventBusProps {
+export interface ArcDataPDFEventBusProps {
   onReady: (eventBus: EventBus) => void;
 }
 
-export function ArcDataPDFNewEventBus({ onReady }: ArcDataPDFNewEventBusProps): React.ReactElement | null {
+export function ArcDataPDFEventBus({ onReady }: ArcDataPDFEventBusProps): React.ReactElement | null {
   const eventBusRef = React.useRef<EventBus | null>(null);
 
   React.useEffect(() => {
@@ -33,9 +33,9 @@ export function ArcDataPDFNewEventBus({ onReady }: ArcDataPDFNewEventBusProps): 
   return null;
 }
 
-ArcDataPDFNewEventBus.displayName = 'ArcDataPDFNewEventBus';
+ArcDataPDFEventBus.displayName = 'ArcDataPDFEventBus';
 
-export default ArcDataPDFNewEventBus;
+export default ArcDataPDFEventBus;
 
 
 

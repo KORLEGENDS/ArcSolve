@@ -7,7 +7,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
  */
 export type ArcDataPdfScaleValue = number | 'auto' | 'page-width' | 'page-fit';
 
-export interface ArcDataPDFNewViewerProps {
+export interface ArcDataPDFViewerProps {
   document: PDFDocumentProxy;
   /** 문서를 구분하기 위한 키 (히스토리/이벤트 prefix 등으로 사용 가능) */
   docKey?: string;
@@ -16,7 +16,7 @@ export interface ArcDataPDFNewViewerProps {
   onPageChange?: (pageNumber: number) => void;
 }
 
-export interface ArcDataPDFNewViewerHandle {
+export interface ArcDataPDFViewerHandle {
   /** 지정한 페이지로 스크롤 이동 */
   scrollToPage: (pageNumber: number) => void;
   /**
@@ -31,7 +31,7 @@ export interface ArcDataPDFNewViewerHandle {
   getCurrentScaleValue: () => number | string | null;
 }
 
-export interface ArcDataPDFNewInternalContext {
+export interface ArcDataPDFInternalContext {
   container: HTMLDivElement | null;
   sidebarContainer: HTMLDivElement | null;
 }
