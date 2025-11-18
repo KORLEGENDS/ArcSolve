@@ -38,27 +38,28 @@ import {
   TextApi,
 } from 'platejs';
 import {
+  type PlateEditor,
   useEditorPlugin,
+  useEditorRef,
   useFocusedLast,
   useHotkeys,
   usePluginOption,
 } from 'platejs/react';
-import { type PlateEditor, useEditorRef } from 'platejs/react';
 
-import { Button } from '@/components/ui/button';
+import { commentPlugin } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/comment-kit';
+import { Button } from '@/client/components/ui/button';
 import {
   Command,
   CommandGroup,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from '@/client/components/ui/command';
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-} from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { commentPlugin } from '@/components/editor/plugins/comment-kit';
+} from '@/client/components/ui/popover';
+import { cn } from '@/share/share-utils/cn-utils';
 
 import { AIChatEditor } from './ai-chat-editor';
 

@@ -1,9 +1,9 @@
 import { BaseEquationPlugin, BaseInlineEquationPlugin } from '@platejs/math';
 
 import {
-  EquationElementStatic,
-  InlineEquationElementStatic,
-} from '@/components/ui/equation-node-static';
+    EquationElementStatic,
+    InlineEquationElementStatic,
+} from '@/client/components/ui/equation-node-static';
 
 export const BaseMathKit = [
   BaseInlineEquationPlugin.withComponent(InlineEquationElementStatic),

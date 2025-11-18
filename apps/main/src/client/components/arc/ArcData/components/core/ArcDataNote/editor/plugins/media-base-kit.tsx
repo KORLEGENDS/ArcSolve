@@ -1,18 +1,18 @@
 import { BaseCaptionPlugin } from '@platejs/caption';
 import {
-  BaseAudioPlugin,
-  BaseFilePlugin,
-  BaseImagePlugin,
-  BaseMediaEmbedPlugin,
-  BasePlaceholderPlugin,
-  BaseVideoPlugin,
+    BaseAudioPlugin,
+    BaseFilePlugin,
+    BaseImagePlugin,
+    BaseMediaEmbedPlugin,
+    BasePlaceholderPlugin,
+    BaseVideoPlugin,
 } from '@platejs/media';
 import { KEYS } from 'platejs';
 
-import { AudioElementStatic } from '@/components/ui/media-audio-node-static';
-import { FileElementStatic } from '@/components/ui/media-file-node-static';
-import { ImageElementStatic } from '@/components/ui/media-image-node-static';
-import { VideoElementStatic } from '@/components/ui/media-video-node-static';
+import { AudioElementStatic } from '@/client/components/ui/media-audio-node-static';
+import { FileElementStatic } from '@/client/components/ui/media-file-node-static';
+import { ImageElementStatic } from '@/client/components/ui/media-image-node-static';
+import { VideoElementStatic } from '@/client/components/ui/media-video-node-static';
 
 export const BaseMediaKit = [
   BaseImagePlugin.withComponent(ImageElementStatic),

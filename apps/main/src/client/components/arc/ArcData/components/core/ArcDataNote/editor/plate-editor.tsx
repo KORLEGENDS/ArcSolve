@@ -1,13 +1,12 @@
 'use client';
 
-import * as React from 'react';
 
 import { normalizeNodeId } from 'platejs';
 import { Plate, usePlateEditor } from 'platejs/react';
 
-import { EditorKit } from '@/components/editor/editor-kit';
-import { SettingsDialog } from '@/components/editor/settings-dialog';
-import { Editor, EditorContainer } from '@/components/ui/editor';
+import { EditorKit } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/editor-kit';
+import { SettingsDialog } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/settings-dialog';
+import { Editor, EditorContainer } from '@/client/components/ui/editor';
 
 export function PlateEditor() {
   const editor = usePlateEditor({

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useEditorRef } from 'platejs/react';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/client/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -24,7 +24,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from '@/client/components/ui/command';
 import {
   Dialog,
   DialogContent,
@@ -32,14 +32,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+} from '@/client/components/ui/dialog';
+import { Input } from '@/client/components/ui/input';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+} from '@/client/components/ui/popover';
+import { cn } from '@/share/share-utils/cn-utils';
 
 import { aiChatPlugin } from './plugins/ai-kit';
 

@@ -1,28 +1,28 @@
 'use client';
 
 import {
-  BlockquotePlugin,
-  H1Plugin,
-  H2Plugin,
-  H3Plugin,
-  H4Plugin,
-  H5Plugin,
-  H6Plugin,
-  HorizontalRulePlugin,
+    BlockquotePlugin,
+    H1Plugin,
+    H2Plugin,
+    H3Plugin,
+    H4Plugin,
+    H5Plugin,
+    H6Plugin,
+    HorizontalRulePlugin,
 } from '@platejs/basic-nodes/react';
 import { ParagraphPlugin } from 'platejs/react';
 
-import { BlockquoteElement } from '@/components/ui/blockquote-node';
+import { BlockquoteElement } from '@/client/components/ui/blockquote-node';
 import {
-  H1Element,
-  H2Element,
-  H3Element,
-  H4Element,
-  H5Element,
-  H6Element,
-} from '@/components/ui/heading-node';
-import { HrElement } from '@/components/ui/hr-node';
-import { ParagraphElement } from '@/components/ui/paragraph-node';
+    H1Element,
+    H2Element,
+    H3Element,
+    H4Element,
+    H5Element,
+    H6Element,
+} from '@/client/components/ui/heading-node';
+import { HrElement } from '@/client/components/ui/hr-node';
+import { ParagraphElement } from '@/client/components/ui/paragraph-node';
 
 export const BasicBlocksKit = [
   ParagraphPlugin.withComponent(ParagraphElement),

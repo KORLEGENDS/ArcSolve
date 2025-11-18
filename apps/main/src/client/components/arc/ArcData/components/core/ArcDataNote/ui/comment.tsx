@@ -29,21 +29,21 @@ import {
   usePluginOption,
 } from 'platejs/react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { BasicMarksKit } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/basic-marks-kit';
+import {
+  type TDiscussion,
+  discussionPlugin,
+} from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/plugins/discussion-kit';
+import { Avatar, AvatarFallback, AvatarImage } from '@/client/components/ui/avatar';
+import { Button } from '@/client/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
-import { BasicMarksKit } from '@/components/editor/plugins/basic-marks-kit';
-import {
-  type TDiscussion,
-  discussionPlugin,
-} from '@/components/editor/plugins/discussion-kit';
+} from '@/client/components/ui/dropdown-menu';
+import { cn } from '@/share/share-utils/cn-utils';
 
 import { Editor, EditorContainer } from './editor';
 

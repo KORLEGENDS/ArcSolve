@@ -13,8 +13,8 @@ import {
 import { createPrimitiveComponent } from '@udecode/cn';
 import { cva } from 'class-variance-authority';
 
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Button } from '@/client/components/ui/button';
+import { cn } from '@/share/share-utils/cn-utils';
 
 const captionVariants = cva('max-w-full', {
   defaultVariants: {
@@ -51,7 +51,7 @@ export function CaptionTextarea(
       {...props}
       className={cn(
         'mt-2 w-full resize-none border-none bg-inherit p-0 font-[inherit] text-inherit',
-        'focus:outline-none focus:[&::placeholder]:opacity-0',
+        'focus:outline-none focus:placeholder:opacity-0',
         'text-center print:placeholder:text-transparent',
         props.className
       )}

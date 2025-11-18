@@ -1,16 +1,16 @@
 import {
-  BaseTableCellHeaderPlugin,
-  BaseTableCellPlugin,
-  BaseTablePlugin,
-  BaseTableRowPlugin,
+    BaseTableCellHeaderPlugin,
+    BaseTableCellPlugin,
+    BaseTablePlugin,
+    BaseTableRowPlugin,
 } from '@platejs/table';
 
 import {
-  TableCellElementStatic,
-  TableCellHeaderElementStatic,
-  TableElementStatic,
-  TableRowElementStatic,
-} from '@/components/ui/table-node-static';
+    TableCellElementStatic,
+    TableCellHeaderElementStatic,
+    TableElementStatic,
+    TableRowElementStatic,
+} from '@/client/components/ui/table-node-static';
 
 export const BaseTableKit = [
   BaseTablePlugin.withComponent(TableElementStatic),
