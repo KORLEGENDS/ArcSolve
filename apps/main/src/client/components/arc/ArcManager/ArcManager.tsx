@@ -58,6 +58,10 @@ interface ArcManagerTabViewState {
   creatingFolder: boolean;
   /** 새 폴더 이름 입력값 */
   newFolderName: string;
+  /** 새 노트 인라인 생성 타입 (텍스트 / 그림) */
+  creatingNoteType: 'text' | 'draw' | null;
+  /** 새 노트 이름 입력값 */
+  newNoteName: string;
   /** YouTube 문서 인라인 생성 여부 */
   creatingYoutube: boolean;
   /** 새 YouTube URL 입력값 */
@@ -125,6 +129,8 @@ export function ArcManager(): React.ReactElement {
       isCollapsed: true,
       creatingFolder: false,
       newFolderName: '',
+      creatingNoteType: null,
+      newNoteName: '',
       creatingYoutube: false,
       newYoutubeUrl: '',
     },
@@ -134,6 +140,8 @@ export function ArcManager(): React.ReactElement {
       isCollapsed: true,
       creatingFolder: false,
       newFolderName: '',
+      creatingNoteType: null,
+      newNoteName: '',
       creatingYoutube: false,
       newYoutubeUrl: '',
     },
@@ -143,6 +151,8 @@ export function ArcManager(): React.ReactElement {
       isCollapsed: true,
       creatingFolder: false,
       newFolderName: '',
+      creatingNoteType: null,
+      newNoteName: '',
       creatingYoutube: false,
       newYoutubeUrl: '',
     },
@@ -386,18 +396,28 @@ export function ArcManager(): React.ReactElement {
     [],
   );
 
-  const handleNoteCreate = React.useCallback(
-    async (tabValue: ArcDataType) => {
-      if (tabValue !== 'notes') return;
+  const handleNoteCreateConfirm = React.useCallback(
+    async () => {
       const state = getTabState('notes');
+      const name = (state.newNoteName ?? '').trim();
       const parentPath = state.currentPath;
+      const noteType = state.creatingNoteType;
+
+      // 입력 없거나 타입이 없는 경우: 생성 취소
+      if (!noteType || !name) {
+        patchTabState('notes', { creatingNoteType: null, newNoteName: '' });
+        return;
+      }
+
+      const contents =
+        noteType === 'draw' ? DEFAULT_DRAW_SCENE : DEFAULT_NOTE_PARAGRAPH;
 
       try {
         await createDocument({
           kind: 'note',
-          name: '새 노트',
+          name,
           parentPath,
-          contents: DEFAULT_NOTE_PARAGRAPH,
+          contents,
         });
 
         await refetchNotes().catch(() => {
@@ -408,36 +428,11 @@ export function ArcManager(): React.ReactElement {
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('노트 생성 실패:', error);
+      } finally {
+        patchTabState('notes', { creatingNoteType: null, newNoteName: '' });
       }
     },
-    [createDocument, getTabState, refetchNotes],
-  );
-
-  const handleDrawNoteCreate = React.useCallback(
-    async (tabValue: ArcDataType) => {
-      if (tabValue !== 'notes') return;
-      const state = getTabState('notes');
-      const parentPath = state.currentPath;
-
-      try {
-        await createDocument({
-          kind: 'note',
-          name: '새 그림',
-          parentPath,
-          contents: DEFAULT_DRAW_SCENE,
-        });
-
-        await refetchNotes().catch(() => {
-          // 목록 갱신 실패는 치명적이지 않으므로 콘솔만 남깁니다.
-          // eslint-disable-next-line no-console
-          console.error('노트 목록 갱신 실패');
-        });
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('그림 노트 생성 실패:', error);
-      }
-    },
-    [createDocument, getTabState, refetchNotes],
+    [createDocument, getTabState, patchTabState, refetchNotes],
   );
 
   const handleFolderCreateConfirm = React.useCallback(
@@ -547,6 +542,8 @@ export function ArcManager(): React.ReactElement {
             isCollapsed,
             creatingFolder,
             newFolderName,
+            creatingNoteType,
+            newNoteName,
             creatingYoutube,
             newYoutubeUrl,
           } = tabState;
@@ -605,7 +602,10 @@ export function ArcManager(): React.ReactElement {
                     size="icon"
                     disabled={isCreatingDocument}
                     onClick={() => {
-                      void handleNoteCreate(tab.value);
+                      patchTabState('notes', {
+                        creatingNoteType: 'text',
+                        newNoteName: '',
+                      });
                     }}
                     title="텍스트 노트 추가"
                   >
@@ -616,7 +616,10 @@ export function ArcManager(): React.ReactElement {
                     size="icon"
                     disabled={isCreatingDocument}
                     onClick={() => {
-                      void handleDrawNoteCreate(tab.value);
+                      patchTabState('notes', {
+                        creatingNoteType: 'draw',
+                        newNoteName: '',
+                      });
                     }}
                     title="그림 노트 추가"
                   >
@@ -698,6 +701,62 @@ export function ArcManager(): React.ReactElement {
                           void handleFolderCreateConfirm(tab.value);
                         }}
                         placeholder="새 폴더 이름"
+                      />
+                    }
+                  />
+                )}
+
+                {/* 새 노트 인라인 생성 행 (notes 탭 전용) */}
+                {isNotesTab && creatingNoteType && (
+                  <ArcManagerListItemComponent
+                    id={`__new-note-${tab.value}__`}
+                    path={
+                      currentPath
+                        ? `${currentPath}.new_note`
+                        : 'new_note'
+                    }
+                    name={newNoteName || ''}
+                    itemType="item"
+                    tags={[]}
+                    createdAt={new Date()}
+                    updatedAt={new Date()}
+                    icon={
+                      creatingNoteType === 'draw' ? (
+                        <Pencil className="h-4 w-4" />
+                      ) : (
+                        <Notebook className="h-4 w-4" />
+                      )
+                    }
+                    hideMenu
+                    nameNode={
+                      <input
+                        autoFocus
+                        className="bg-transparent flex-1 outline-none text-xs"
+                        value={newNoteName}
+                        onChange={(e) =>
+                          patchTabState(tab.value, {
+                            newNoteName: e.target.value,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          } else if (e.key === 'Escape') {
+                            patchTabState(tab.value, {
+                              creatingNoteType: null,
+                              newNoteName: '',
+                            });
+                          }
+                        }}
+                        onBlur={() => {
+                          void handleNoteCreateConfirm();
+                        }}
+                        placeholder={
+                          creatingNoteType === 'draw'
+                            ? '그림 노트 이름을 입력하세요'
+                            : '노트 이름을 입력하세요'
+                        }
                       />
                     }
                   />
