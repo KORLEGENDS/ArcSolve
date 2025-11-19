@@ -82,7 +82,9 @@ export const documents = pgTable(
 
 - **엔드포인트**: `GET /api/document?kind=file`
 - **핵심 정책**
-  - 현재 구현에서는 ArcManager 파일 트리(view=files)만 지원합니다.
+  - 현재 구현에서는 ArcManager **파일 탭(view=files)과 노트 탭(view=notes) 모두** `GET /api/document` 를 사용합니다.
+    - `files` 탭: `kind=file`
+    - `notes` 탭: `kind=note`
   - 내부에서는 `DocumentRepository.listByOwner(userId)`로 전체 문서를 가져온 뒤,
     **폴더(`kind='folder'`) + note 계열이 아닌 문서(`mimeType`으로 판별)**만 필터링해서 반환합니다.
 
@@ -223,8 +225,13 @@ type DocumentFolderCreateRequest = {
 ```
 
 - `DocumentRepository.createFolderForOwner` 호출
-  - `parentPath + toLtreeLabel(name)`으로 `path` 구성
-  - 해당 경로의 폴더 문서가 이미 있으면 그대로 반환 (idempotent)
+  - `parentPath`를 `normalizeLtreePath`로 정규화한 뒤, `toLtreeLabel(name)`을 붙여 최종 `path` 구성
+  - `documents.userPathUnique`(부분 유니크 인덱스: `user_id + path, deleted_at IS NULL`)를 대상으로
+    `INSERT ... ON CONFLICT DO NOTHING` 을 수행해 **동일 경로 중복 INSERT를 예외 없이 무시**
+  - insert 결과가 없으면 `ensureFolderForOwner` 로 같은 경로의 기존 폴더를 조회해 반환 → **폴더 생성은 완전히 idempotent**
+  - 핵심 구현 요약:
+    - `insert(documents).values(...).onConflictDoNothing({ target: documents.userPathUnique })`
+    - 이후 `ensureFolderForOwner(userId, path)` 재조회
 
 ---
 
@@ -237,9 +244,10 @@ type DocumentFolderCreateRequest = {
   - `DocumentDTO`: 서버 Document 엔티티의 클라이언트 DTO
   - `DocumentMoveMutationVariables`: `{ documentId: string; parentPath: string }`
 - 주요 옵션
-  - `listFiles`: `GET /api/document?kind=file` → `DocumentDTO[]`
+  - `listFiles`: `GET /api/document?kind=file` → `DocumentDTO[]` (ArcManager `files` 탭에서 사용)
+  - `listNotes`: `GET /api/document?kind=note` → `DocumentDTO[]` (ArcManager `notes` 탭에서 사용)
   - `move`: `PATCH /api/document/[documentId]/move` → `DocumentDTO`
-  - `createFolder`: `POST /api/document/folder` → `DocumentDTO`
+  - `createFolder`: `POST /api/document/folder` → `DocumentDTO` (현재는 `files`/`notes` 탭에서 모두 사용)
 
 ```76:176:apps/main/src/share/libs/react-query/query-options/document.ts
 export const documentQueryOptions = {
@@ -424,7 +432,9 @@ export function useDocumentMove(): UseDocumentMoveReturn {
 
 - 탭 종류
   - `notes` / `files` / `chat`
-  - 현재 서버 연동은 `files` 탭만 사용 (노트/채팅은 향후 확장 포인트)
+  - `files` 탭: 파일/폴더 문서를 `GET /api/document?kind=file` 기반으로 조회
+  - `notes` 탭: 노트/폴더 문서를 `GET /api/document?kind=note`, `POST /api/document`, `POST /api/document/folder` 로 조회/생성
+  - `chat` 탭: UI 구조만 준비되어 있고, 아직 별도의 서버 도메인과는 연결되지 않음
 - 탭별 상태 (`ArcManagerTabViewState`)
   - `searchQuery`: 검색어 (현재 필터 미적용, UI만)
   - `currentPath`: 현재 탐색 중인 경로 (`''` = 루트)
@@ -443,9 +453,20 @@ export function useDocumentMove(): UseDocumentMoveReturn {
   - 이름 입력 → Enter/blur 시 `handleNoteCreateConfirm` 호출 → `createDocument` 실행
   - **Enter는 blur만 트리거**하여 이중 요청 방지 (Enter + blur 중복 호출 문제 해결)
 
-- **폴더 생성 (모든 탭)**
+- **폴더 생성 (files / notes 탭)**
   - 버튼 클릭 → `creatingFolder: true` → 인라인 폴더 행 렌더링
-  - 이름 입력 → Enter/blur 시 `handleFolderCreateConfirm` → `createFolder` 호출
+  - 이름 입력
+    - Enter: `e.preventDefault()` 후 `blur()`만 트리거 → 실제 생성 로직은 **blur 한 번만** 실행
+    - blur: `handleFolderCreateConfirm(tab)` 호출
+  - `handleFolderCreateConfirm` 내부에서
+    - 탭별 핸들러(`folderCreateHandlers[tab]`)를 통해
+      - `files` 탭: `createFolder({ parentPath, name })` 후 `refetchFiles()`
+      - `notes` 탭: `createFolder({ parentPath, name })` 후 `refetchNotes()`
+    - `folderCreatingRef` 로 탭별 **중복 실행(다중 blur 등)을 방지**
+
+- **폴더 생성 (chat 탭)**
+  - 동일한 인라인 UI는 제공하지만, 아직 서버 도메인이 없으므로 `createFolder`는 호출하지 않고
+    단순히 UI 상태만 초기화합니다.
 
 - **YouTube 생성 (files 탭)**
   - 버튼 클릭 → `creatingYoutube: true` → 인라인 YouTube 행 렌더링
@@ -648,16 +669,12 @@ onPlaceholderDrop: async ({ event }) => {
 
 ### 8.1 노트/채팅 탭까지 확장하고 싶을 때
 
-1. **서버 레이어**
-   - `document`에서는 `kind = 'folder' | 'document'`로 폴더/리프 구조만 표현하고, 실제 타입은 mimeType 기준으로 분기할지 여부를 결정
-   - 필요한 경우 `/api/note/...` 또는 `/api/arcyou/...`와 유사한 패턴으로 API 추가
-2. **React Query**
-   - `query-options`에 해당 도메인 전용 옵션 추가
-   - `useNoteList`, `useNoteMove` 등 훅 정의
-3. **ArcManager**
-   - `ArcManagerTabConfig`에 새 탭 추가 (예: `'notes'`)
-   - `tabStates`와 트리 데이터 생성 로직을 탭별로 분기
-   - DnD 정책도 도메인에 맞게 별도 핸들러를 두는 것을 권장
+- 노트 탭은 이미 `document` 도메인(`kind=note`)과 연동되어 있으므로,
+  추가 확장은 노트 에디터/콘텐츠 도메인에서 다룹니다.
+- 채팅 탭을 ArcManager와 연동하고 싶다면 다음 순서를 따릅니다:
+  1) `/api/arcyou/...` 등 채팅 전용 도메인 정의
+  2) React Query 옵션 추가
+  3) ArcManager 탭 구성/트리 매핑 확장
 
 ### 8.2 DnD 정책을 조정할 때 체크리스트
 
