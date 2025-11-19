@@ -187,7 +187,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     const repository = new DocumentRepository();
-    await repository.softDeleteDocumentForOwner({
+    await repository.deleteDocumentForOwner({
       documentId: idResult.data,
       userId,
     });

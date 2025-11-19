@@ -133,7 +133,7 @@ export class DocumentRepository {
     targetParentPath: string;
   }): Promise<Document> { … }
 
-  // 문서 삭제 (soft delete)
+  // 문서 삭제 (hard delete + FK cascade)
   async deleteDocumentForOwner(params: { documentId: string; userId: string }): Promise<void> { … }
 }
 ```
@@ -146,6 +146,7 @@ export class DocumentRepository {
   - 예: `"새 그림"` → `"sae-geurim"` → `sae_geurim` (ltree 라벨)
 - **폴더 보장**: 파일/노트 생성 시 부모 경로에 폴더 문서가 없으면 자동 생성
 - **구조/타입 분리**: DB `kind`는 `'folder' | 'document'`로 폴더/리프 구조만 표현하고, 실제 노트/드로우/PDF/YouTube 등의 동작은 모두 `mimeType` 기반으로 분기합니다.
+- **`deleteDocumentForOwner`**는 `documents` 테이블에서 해당 문서를 **실제 삭제(hard delete)** 하며, `document-drizzle.ts`의 FK 설정(`onDelete: 'cascade'`)에 의해 `document_content.document_id`, `document_relation.base_document_id/related_document_id`, `document_chunk.document_content_id`에 매달린 행도 함께 삭제됩니다.
 
 ---
 
@@ -331,7 +332,14 @@ export async function POST(request: NextRequest) {
 
 - `GET /api/document/[id]` → `DocumentDetailResponse`
 - `PATCH /api/document/[id]` → `updateDocumentMetaForOwner`
-- `DELETE /api/document/[id]` → `deleteDocumentForOwner`
+- **`DELETE /api/document/[id]`**
+  - `DocumentRepository.deleteDocumentForOwner` 호출
+  - 대상 `document` row를 hard delete 하고, FK cascade로 연관 `document_content / document_relation / document_chunk`를 함께 삭제
+  - 이후 해당 `documentId`에 대해
+    - `GET /api/document/[id]`
+    - `GET /api/document/[id]/content`
+    - `GET /api/document/[id]/download-url`
+    는 모두 `NOT_FOUND`(404)를 반환하는 것이 정상 동작
 
 > 구체 구현은 생략하지만, React Query `documentQueryOptions.detail`/`updateMeta`/`delete`가 이 라우트와 1:1로 매핑됩니다.
 
@@ -514,7 +522,12 @@ export function useDocumentDownloadUrl(
 
 - `useDocumentMove()` – 문서 이동 (ArcManager DnD와 옵티미스틱 업데이트 포함)
 - `useDocumentUpdate()` – 메타/콘텐츠 통합 업데이트
-- `useDocumentDelete()` – 문서 삭제
+- **`useDocumentDelete()`**
+  - 내부 동작:
+    1. `DELETE /api/document/[id]` 호출 (`documentQueryOptions.delete`)
+    2. **성공 시 `useArcWorkCloseTab()`으로 동일 `documentId`를 가진 ArcWork 탭(예: `arcdata-document`)을 먼저 닫음**
+    3. 그 다음에 `queryKeys.documents.*` 관련 쿼리(detail, content, listFiles, listNotes, listAll)를 순차적으로 invalidate
+  - 이렇게 해서 삭제 직후 ArcData 탭에서 `/content`를 계속 재요청하며 404를 반복하는 문제를 방지
 - `useDocumentFolderCreate()` – 폴더 생성
 - `useDocumentYoutubeCreate()` – YouTube 문서 생성
 - `useDocumentCreate()` – 노트 문서 생성 (kind='note')

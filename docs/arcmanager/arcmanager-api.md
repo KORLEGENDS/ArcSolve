@@ -479,10 +479,52 @@ export function useDocumentMove(): UseDocumentMoveReturn {
 - `ArcManagerTreeItem` = `ArcManagerListItem` + `children` (재귀)
 - `ArcManagerTree`
   - 각 행(row)을 렌더링하고, 폴더 확장/축소 및 DnD 이벤트를 처리
-  - `onFolderEnter`, `onItemDragStart`, `onItemDropOnRow`, `onItemDropOnEmpty`, `onPlaceholderDrop`를 props로 받음
+  - `onFolderEnter`, `onItemDragStart`, `onItemDropOnRow`, `onItemDropOnEmpty`, `onPlaceholderDrop`, `onItemContextMenu` 등을 props로 받음
 - `ArcManagerListItem`
   - 실제 버튼 UI (아이콘 + 이름 + 메뉴 아이콘)
   - `itemType === 'folder'`일 때 폴더 아이콘/열림/닫힘 상태 표시
+
+#### 6.4 컨텍스트 메뉴 (우클릭 / 옵션 버튼 공통)
+
+- Radix UI의 `ContextMenu`를 사용해 ArcManager 트리 행 전체에 **공통 컨텍스트 메뉴**를 제공합니다.
+- **트리 레벨**
+  - `ArcManagerTree`는 각 행의 `onContextMenu` 이벤트에서 상위로
+    - `onItemContextMenu({ item, event })`
+    를 호출해 “어떤 아이템에 대해 메뉴가 열렸는지”만 알려줍니다.
+  - 우측 옵션 버튼(세 점 아이콘) 클릭 시에도 동일한 타깃을 상위에 전달할 수 있도록 `onItemMenuClick(item)` 훅 포인트를 제공합니다.
+- **상위 레벨(ArcManager)**
+  - `ContextMenu` 루트를 ArcManager 내부에 한 번만 두고,
+    - `ContextMenuTrigger`로 트리 영역을 래핑
+    - `ContextMenuContent` 안에서 `contextMenuTarget`(선택된 `ArcManagerTreeItem`) 기준으로 공통 액션을 생성합니다.
+  - 공통 액션은 현재 다음과 같습니다.
+    - **열기(open)**: `itemType === 'item'` 인 경우, `useArcWorkEnsureOpenTab()`을 사용해 `arcdata-document` 탭을 엽니다.
+    - **삭제(delete)**
+      - `useDocumentDelete()`를 호출해:
+        1. 서버에서 문서를 hard delete(+ FK cascade) 하고,
+        2. **성공 시 ArcWork 레이아웃에서 동일 `documentId`를 가진 `arcdata-document` 탭을 먼저 닫은 다음,**
+        3. 문서 메타/콘텐츠/목록 관련 React Query 캐시를 invalidate 합니다.
+      - 컨텍스트 메뉴에서 어떤 노트 타입이든 삭제를 눌렀을 때, **탭이 먼저 닫힌 뒤, 백그라운드에서 리스트/캐시가 정리되는** 것이 의도된 동작입니다.
+
+```ts
+// 개략적인 액션 생성 함수
+function createCommonActionsForArcManagerItem(
+  item: ArcManagerTreeItem,
+  deps: { ensureOpenTab: (...args) => void; deleteDocument: (id: string) => Promise<void> },
+) {
+  const actions = [];
+  if (item.itemType === 'item') {
+    actions.push({ id: 'open', onSelect: () => deps.ensureOpenTab({ id: item.id, name: item.name, type: 'arcdata-document' }) });
+  }
+  actions.push({ id: 'delete', onSelect: () => deps.deleteDocument(item.id) });
+  return actions;
+}
+```
+
+- 이렇게 설계함으로써:
+  - **우클릭(행 전체)**과
+  - **옵션 버튼(우측 아이콘)**
+  모두에서 동일한 컨텍스트 메뉴 구성을 재사용할 수 있고,
+  삭제/열기 등 공통 동작은 ArcManager 내부의 한 함수에서만 관리됩니다.
 
 ---
 

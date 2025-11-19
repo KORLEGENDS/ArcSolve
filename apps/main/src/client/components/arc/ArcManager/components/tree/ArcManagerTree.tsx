@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties, type MouseEvent } from 'react';
 import { ArcManagerList, type ArcManagerListItem, type ItemType } from '../list';
 import s from './ArcManagerTree.module.css';
 
@@ -48,6 +48,25 @@ export interface ArcManagerTreeProps {
   onPlaceholderDrop?: (payload: {
     event: React.DragEvent<HTMLDivElement>;
   }) => void;
+
+  /**
+   * 행에서 컨텍스트 메뉴(우클릭)가 요청되었을 때 호출됩니다.
+   * - 실제 Radix ContextMenu는 상위 컴포넌트(ArcManager)에서 관리하고,
+   *   이 콜백은 "어떤 아이템이 대상인지"를 알려주는 용도로만 사용합니다.
+   */
+  onItemContextMenu?: (payload: {
+    item: ArcManagerTreeItem;
+    event: MouseEvent<HTMLDivElement>;
+  }) => void;
+
+  /**
+   * 각 행의 우측 옵션 버튼(메뉴 아이콘)을 클릭했을 때 호출됩니다.
+   * - 우클릭과 동일하게 컨텍스트 메뉴를 열기 위한 용도로 사용합니다.
+   */
+  onItemMenuClick?: (payload: {
+    item: ArcManagerTreeItem;
+    event: MouseEvent<HTMLDivElement>;
+  }) => void;
 }
 
 function getParentPath(path: string): string {
@@ -70,6 +89,8 @@ export function ArcManagerTree({
   onItemDropOnRow,
   onItemDropOnEmpty,
   onPlaceholderDrop,
+  onItemContextMenu,
+  onItemMenuClick,
 }: ArcManagerTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isPlaceholderDragOver, setIsPlaceholderDragOver] = useState(false);
@@ -120,6 +141,11 @@ export function ArcManagerTree({
               onFolderEnter(item.path);
             }
           : item.onDoubleClick,
+      onMenuClick: onItemMenuClick
+        ? (event) => {
+            onItemMenuClick({ item, event });
+          }
+        : item.onMenuClick,
     };
 
     const indentRem = level * 1.5;
@@ -147,6 +173,10 @@ export function ArcManagerTree({
           data-level={level}
           style={rowStyle}
           draggable
+          onContextMenu={(event) => {
+            // 행 단위 우클릭 정보를 상위로 전달하여 공통 컨텍스트 메뉴 타겟을 설정합니다.
+            onItemContextMenu?.({ item, event });
+          }}
           onDragStart={(event) => {
             onItemDragStart?.({ item, event });
           }}

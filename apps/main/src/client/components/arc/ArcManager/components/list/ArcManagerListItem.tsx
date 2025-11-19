@@ -22,7 +22,12 @@ export interface ArcManagerListItem {
   isExpanded?: boolean; // 폴더의 확장 상태 (열림/닫힘)
   menuIcon?: React.ReactNode;
   onClick?: () => void;
-  onMenuClick?: () => void;
+  /**
+   * 우측 옵션 버튼 클릭 시 호출됩니다.
+   * - React 표준 MouseEvent 핸들러 시그니처를 사용합니다.
+   * - bivariant callback 이므로 `() => void` 형태의 콜백도 그대로 사용할 수 있습니다.
+   */
+  onMenuClick?: React.MouseEventHandler<HTMLDivElement>;
   onIconClick?: () => void; // 아이콘 클릭 이벤트 (폴더 확장용)
   onDoubleClick?: () => void;
   /**
@@ -83,7 +88,7 @@ export function ArcManagerListItem(props: ArcManagerListItem) {
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onMenuClick?.();
+            onMenuClick?.(e);
           }}
           className="ml-auto p-1 rounded hover:bg-muted transition-colors cursor-pointer"
           role="button"
@@ -92,7 +97,8 @@ export function ArcManagerListItem(props: ArcManagerListItem) {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               e.stopPropagation();
-              onMenuClick?.();
+              // 키보드 접근성: Enter/Space 입력을 마우스 클릭과 동일하게 처리합니다.
+              (e.currentTarget as HTMLDivElement).click();
             }
           }}
         >

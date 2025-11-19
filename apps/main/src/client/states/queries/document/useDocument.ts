@@ -5,6 +5,7 @@
  * - 업로드 3단계(request/presigned/confirm)와 다운로드 URL 발급을 캡슐화
  */
 
+import { useArcWorkCloseTab } from '@/client/states/stores/arcwork-layout-store';
 import { queryKeys } from '@/share/libs/react-query/query-keys';
 import {
   documentQueryOptions,
@@ -20,11 +21,7 @@ import type {
   DocumentUploadRequestResponse,
 } from '@/share/schema/zod/document-upload-zod';
 import type { YoutubeDocumentCreateRequest } from '@/share/schema/zod/document-youtube-zod';
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 export interface UseDocumentUploadReturn {
@@ -474,10 +471,17 @@ export function useDocumentNotes(): UseDocumentFilesReturn {
 export function useDocumentDelete(): UseDocumentDeleteReturn {
   const queryClient = useQueryClient();
   const deleteMutation = useMutation(documentQueryOptions.delete);
+  const closeTab = useArcWorkCloseTab();
 
   const deleteDocument = useCallback(
     async (documentId: string) => {
       await deleteMutation.mutateAsync({ documentId });
+
+      // ArcWork 연계: 동일 id의 탭이 열려 있다면 가장 먼저 닫아 줍니다.
+      // - 탭을 우선 제거하여, 이후 쿼리 무효화 시 ArcData 탭에서 /content 재요청(404)이 반복되는 것을 방지합니다.
+      // - ArcWork에서는 탭 id를 documentId와 동일하게 사용합니다.
+      // - 탭이 없으면 closeTab은 false를 반환하므로 별도 처리가 필요하지 않습니다.
+      closeTab(documentId);
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -497,7 +501,7 @@ export function useDocumentDelete(): UseDocumentDeleteReturn {
         }),
       ]);
     },
-    [deleteMutation, queryClient],
+    [closeTab, deleteMutation, queryClient],
   );
 
   return {

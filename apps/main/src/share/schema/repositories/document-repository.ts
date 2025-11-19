@@ -642,27 +642,24 @@ export class DocumentRepository {
   }
 
   /**
-   * 문서를 소프트 삭제합니다.
-   * - 현재는 단일 문서만 deleted_at을 설정합니다.
-   * - subtree 삭제 등은 향후 필요 시 확장합니다.
+   * 문서를 완전히 삭제합니다.
+   *
+   * - 단일 document 행을 삭제하며,
+   *   `document-drizzle.ts`에 정의된 FK(onDelete: 'cascade')에 의해
+   *   연관된 `document_content`, `document_relation`, `document_chunk`도 함께 제거됩니다.
    */
-  async softDeleteDocumentForOwner(params: {
+  async deleteDocumentForOwner(params: {
     documentId: string;
     userId: string;
   }): Promise<void> {
     const { documentId, userId } = params;
 
     const [row] = await this.database
-      .update(documents)
-      .set({
-        deletedAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .delete(documents)
       .where(
         and(
           eq(documents.documentId, documentId),
           eq(documents.userId, userId),
-          isNull(documents.deletedAt),
         ),
       )
       .returning();

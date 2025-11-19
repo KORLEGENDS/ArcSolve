@@ -572,6 +572,12 @@ ArcData 문서 탭 역시 동일 패턴을 따릅니다.
 2. 해당 탭에서 ArcData 문서 뷰어 컴포넌트 렌더링
 3. 필요하면 탭 이름 변경 로직을 `useArcWorkTabNameUpdateAdapter`와 유사하게 도메인 rename API와 연결
 
+**문서 삭제 시**
+- ArcWork 자체는 삭제 후 탭 정리 로직을 가지지 않고,
+- ArcManager/ArcData에서 `useDocumentDelete()`를 통해
+  - 서버 문서 삭제 → ArcWork 탭 close(`useArcWorkCloseTab`) → document 관련 캐시 invalidate
+  순서로 처리하는 것을 권장합니다.
+
 ### 6.3. 새 탭 타입 추가 체크리스트
 
 새로운 탭 타입(예: PDF 뷰어, 요약 노트 뷰, 설정 패널)을 추가할 때:
