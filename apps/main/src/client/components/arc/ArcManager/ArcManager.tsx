@@ -270,17 +270,28 @@ export function ArcManager(): React.ReactElement {
 
   const folderCreateHandlers = React.useMemo<Record<ArcDataType, FolderCreateHandler | null>>(
     () => ({
-      // files 탭: DocumentRepository 기반 폴더 생성
+      // files 탭: DocumentRepository 기반 폴더 생성 후 파일 문서 목록 갱신
       files: async ({ parentPath, name }) => {
         await createFolder({ parentPath, name });
         await refetchFiles();
       },
-      // notes/chat 탭: 추후 전용 리포지토리/도메인에 연결 예정
-      notes: null,
+      // notes 탭: DocumentRepository 기반 폴더 생성 후 노트 문서 목록 갱신
+      notes: async ({ parentPath, name }) => {
+        await createFolder({ parentPath, name });
+        await refetchNotes();
+      },
+      // chat 탭: 아직 전용 도메인이 없으므로 폴더 생성은 비활성화 상태로 유지합니다.
       chat: null,
     }),
-    [createFolder, refetchFiles],
+    [createFolder, refetchFiles, refetchNotes],
   );
+
+  // 폴더 생성 중복 실행 방지를 위한 ref (탭별 1회만 동작)
+  const folderCreatingRef = React.useRef<Record<ArcDataType, boolean>>({
+    notes: false,
+    files: false,
+    chat: false,
+  });
 
   // 파일/폴더 문서 목록을 ArcManagerTreeItem[] 트리 구조로 변환
   // - itemType은 doc.kind를 기준으로 절대적으로 결정합니다.
@@ -437,6 +448,11 @@ export function ArcManager(): React.ReactElement {
 
   const handleFolderCreateConfirm = React.useCallback(
     async (tabValue: ArcDataType) => {
+      // 동일 탭에서 이미 생성 중이면 중복 실행을 방지합니다.
+      if (folderCreatingRef.current[tabValue]) {
+        return;
+      }
+
       const state = getTabState(tabValue);
       const name = state.newFolderName.trim();
       const parentPath = state.currentPath;
@@ -454,11 +470,15 @@ export function ArcManager(): React.ReactElement {
         return;
       }
 
+      folderCreatingRef.current[tabValue] = true;
+
       try {
         await handler({ parentPath, name });
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('폴더 생성 실패:', error);
       } finally {
+        folderCreatingRef.current[tabValue] = false;
         patchTabState(tabValue, { creatingFolder: false, newFolderName: '' });
       }
     },
@@ -687,9 +707,11 @@ export function ArcManager(): React.ReactElement {
                         onChange={(e) =>
                           patchTabState(tab.value, { newFolderName: e.target.value })
                         }
-                        onKeyDown={async (e) => {
+                        onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            await handleFolderCreateConfirm(tab.value);
+                            // Enter 입력 시 blur만 트리거하여 생성 로직은 onBlur 한 번만 실행되도록 합니다.
+                            e.preventDefault();
+                            e.currentTarget.blur();
                           } else if (e.key === 'Escape') {
                             patchTabState(tab.value, {
                               creatingFolder: false,

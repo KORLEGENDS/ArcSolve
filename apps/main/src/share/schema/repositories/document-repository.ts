@@ -195,43 +195,45 @@ export class DocumentRepository {
     const parentLtreePath = normalizeLtreePath(input.parentPath);
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
-    try {
-      const [row] = await this.database
-        .insert(documents)
-        .values({
-          userId: input.userId,
-          path,
-          name: input.name,
-          kind: 'folder',
-          uploadStatus: 'uploaded',
-          mimeType: null,
-          fileSize: null,
-          storageKey: null,
-        })
-        .returning();
-
-      if (!row) {
-        throw new Error('폴더 생성에 실패했습니다.');
-      }
-
-      return row;
-    } catch (error) {
-      if (isDatabaseError(error) && error.code === '23505') {
-        // user_id + path 유니크 제약 위반 → 이미 동일 경로의 폴더가 존재하는 경우,
-        // ensureFolderForOwner를 통해 기존 폴더를 반환합니다.
-    const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
-        if (folder) {
-          return folder;
-        }
-
-        throwApi('CONFLICT', '같은 경로에 이미 폴더가 존재합니다.', {
+    const [row] = await this.database
+      .insert(documents)
+      .values({
         userId: input.userId,
-        parentPath: input.parentPath,
+        path,
         name: input.name,
-      });
+        kind: 'folder',
+        uploadStatus: 'uploaded',
+        mimeType: null,
+        fileSize: null,
+        storageKey: null,
+      })
+      // 같은 userId + path 조합이 이미 존재하는 경우, 예외 대신 NO-OP 처리합니다.
+      // 부분 유니크 인덱스(document_user_id_path_deleted_null_idx)를 그대로 사용하기 위해
+      // 컬럼 목록이 아닌 인덱스(target: documents.userPathUnique)를 지정합니다.
+      // Drizzle 타입 정의에는 인덱스 메타데이터가 노출되지 않으므로 런타임 기준으로 캐스팅합니다.
+      .onConflictDoNothing({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        target: (documents as any).userPathUnique,
+      })
+      .returning();
+
+    if (row) {
+      return row;
     }
-      throw error;
+
+    // onConflictDoNothing으로 인해 행이 생성되지 않았다면,
+    // 동일 경로의 기존 폴더를 조회하여 존재하면 그대로 반환합니다.
+    const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
+    if (folder) {
+      return folder;
     }
+
+    // 여기까지 왔다면 동일 경로의 폴더가 존재하지 않는 비정상 상황이므로 CONFLICT 로 처리합니다.
+    throwApi('CONFLICT', '같은 경로에 이미 폴더가 존재합니다.', {
+      userId: input.userId,
+      parentPath: input.parentPath,
+      name: input.name,
+    });
   }
 
   /**

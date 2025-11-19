@@ -434,7 +434,26 @@ export function useDocumentMove(): UseDocumentMoveReturn {
 
 문서 목록(`DocumentDTO[]`)은 `fileTreeItems: ArcManagerTreeItem[]`으로 변환되어 트리 구조로 렌더링됩니다.
 
-### 6.2 Tree & List 컴포넌트
+#### 6.2 인라인 생성 패턴
+
+노트/폴더/YouTube 생성 시 **인라인 이름 입력 플레이스홀더**를 사용하여 사용자 경험을 개선합니다:
+
+- **노트 생성 (notes 탭)**
+  - 버튼 클릭 → `creatingNoteType: 'text' | 'draw'` 상태 설정 → 인라인 행 렌더링
+  - 이름 입력 → Enter/blur 시 `handleNoteCreateConfirm` 호출 → `createDocument` 실행
+  - **Enter는 blur만 트리거**하여 이중 요청 방지 (Enter + blur 중복 호출 문제 해결)
+
+- **폴더 생성 (모든 탭)**
+  - 버튼 클릭 → `creatingFolder: true` → 인라인 폴더 행 렌더링
+  - 이름 입력 → Enter/blur 시 `handleFolderCreateConfirm` → `createFolder` 호출
+
+- **YouTube 생성 (files 탭)**
+  - 버튼 클릭 → `creatingYoutube: true` → 인라인 YouTube 행 렌더링
+  - URL 입력 → Enter/blur 시 `handleYoutubeCreateConfirm` → `createYoutube` 호출
+
+모든 인라인 생성은 `ArcManagerListItemComponent`를 재사용하며, `nameNode`에 `<input>`을 전달하여 일관된 UX를 유지합니다.
+
+### 6.3 Tree & List 컴포넌트
 
 - `ArcManagerTreeItem` = `ArcManagerListItem` + `children` (재귀)
 - `ArcManagerTree`
