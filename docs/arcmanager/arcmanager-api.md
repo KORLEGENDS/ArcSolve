@@ -29,7 +29,8 @@ ArcManager는 ArcSolve 내에서 **문서(파일/폴더) 트리를 탐색하고 
 
 문서(파일/폴더)는 `document` 테이블에 저장되며, **경로(path)**는 PostgreSQL `ltree` 타입으로 관리합니다.
 
-- `kind`: `'file' | 'folder' | 'note'`
+- `kind`: `'folder' | 'document'` (폴더/리프 구조만 표현)
+- `mimeType`: 실제 타입 (노트/드로우/PDF/YouTube/기타 파일 등)을 구분
 - `path`: ltree 경로 (예: `project.sub_folder.file_pdf`)
 - `userId`: 사용자별 네임스페이스
 
@@ -83,16 +84,34 @@ export const documents = pgTable(
 - **핵심 정책**
   - 현재 구현에서는 ArcManager 파일 트리(view=files)만 지원합니다.
   - 내부에서는 `DocumentRepository.listByOwner(userId)`로 전체 문서를 가져온 뒤,
-    **파일 + 폴더만 필터링**해서 반환합니다.
+    **폴더(`kind='folder'`) + note 계열이 아닌 문서(`mimeType`으로 판별)**만 필터링해서 반환합니다.
 
-```23:38:apps/main/src/app/(backend)/api/document/route.ts
-    const repository = new DocumentRepository();
-    const allDocuments = await repository.listByOwner(userId);
+```ts
+// apps/main/src/app/(backend)/api/document/route.ts 중 GET 일부
+const allDocuments = await repository.listByOwner(userId);
 
-    // ArcManager 트리용 뷰: file + folder 문서만 반환합니다.
-    const documents = allDocuments.filter(
-      (doc) => doc.kind === 'file' || doc.kind === 'folder'
-    );
+const documents = allDocuments.filter((doc) => {
+  const mimeType = doc.mimeType ?? undefined;
+  const isFolder = doc.kind === 'folder';
+  const isNote =
+    typeof mimeType === 'string' &&
+    mimeType.startsWith('application/vnd.arc.note+');
+  const isFileLike =
+    typeof mimeType === 'string' &&
+    !mimeType.startsWith('application/vnd.arc.note+');
+
+  if (kindParam === null || kindParam === 'file') {
+    // ArcManager 파일 트리: fileLike + folder
+    return isFolder || isFileLike;
+  }
+
+  if (kindParam === 'note') {
+    // (향후) 노트 트리: note + folder
+    return isFolder || isNote;
+  }
+
+  return true;
+});
 ```
 
 - **응답 DTO**: `DocumentDTO[]`

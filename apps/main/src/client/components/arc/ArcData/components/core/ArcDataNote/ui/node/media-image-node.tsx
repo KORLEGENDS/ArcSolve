@@ -5,24 +5,49 @@ import type { TImageElement } from 'platejs';
 import type { PlateElementProps } from 'platejs/react';
 
 import { useDraggable } from '@platejs/dnd';
-import { Image, ImagePlugin, useMediaState } from '@platejs/media/react';
+import { ImagePlugin, useMediaState } from '@platejs/media/react';
 import { ResizableProvider, useResizableValue } from '@platejs/resizable';
 import { PlateElement, withHOC } from 'platejs/react';
 
 import { cn } from '@/share/share-utils/cn-utils';
 
 import { Caption, CaptionTextarea } from '../caption';
-import { MediaToolbar } from '../toolbar/media-toolbar';
 import {
   mediaResizeHandleVariants,
   Resizable,
   ResizeHandle,
 } from '../resize-handle';
+import { MediaToolbar } from '../toolbar/media-toolbar';
 
 export const ImageElement = withHOC(
   ResizableProvider,
   function ImageElement(props: PlateElementProps<TImageElement>) {
-    const { align = 'center', focused, readOnly, selected } = useMediaState();
+    const mediaState = useMediaState() as any;
+    const {
+      align = 'center',
+      focused,
+      readOnly,
+      selected,
+    } = mediaState as {
+      align?: 'left' | 'center' | 'right';
+      focused?: boolean;
+      readOnly?: boolean;
+      selected?: boolean;
+    };
+
+    // Plate 이미지 노드에 저장된 URL을 우선 사용하고,
+    // 필요시 mediaState의 unsafeUrl/url을 보조적으로 사용합니다.
+    const url =
+      (props.element as any).url ??
+      (props.element as any).unsafeUrl ??
+      (mediaState?.unsafeUrl as string | undefined) ??
+      (mediaState?.url as string | undefined);
+
+
+    if (!url) {
+      return null;
+    }
+
     const width = useResizableValue('width');
 
     const { isDragging, handleRef } = useDraggable({
@@ -44,7 +69,7 @@ export const ImageElement = withHOC(
                 className={mediaResizeHandleVariants({ direction: 'left' })}
                 options={{ direction: 'left' }}
               />
-              <Image
+              <img
                 ref={handleRef}
                 className={cn(
                   'block w-full max-w-full cursor-pointer object-cover px-0',
@@ -53,6 +78,7 @@ export const ImageElement = withHOC(
                   isDragging && 'opacity-50'
                 )}
                 alt={props.attributes.alt as string | undefined}
+                src={url}
               />
               <ResizeHandle
                 className={mediaResizeHandleVariants({

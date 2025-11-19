@@ -7,7 +7,7 @@ import { usePlateEditor } from 'platejs/react';
 
 import { BaseEditorKit } from '@/client/components/arc/ArcData/components/core/ArcDataNote/editor/editor-base-kit';
 
-import { EditorStatic } from './static/editor-static';
+import { EditorStatic } from '../ui/static/editor-static';
 
 export const AIChatEditor = React.memo(function AIChatEditor({
   content,

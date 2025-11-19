@@ -10,7 +10,7 @@
 - 경로: `path (ltree)` – 사용자 네임스페이스 내 트리 구조 (ASCII slug, transliteration 기반)
 - 콘텐츠: `document_content` – 버전 단위 JSON
 - 파일 메타/다운로드: `fileMeta + /api/document/[id]/download-url`
-- 노트 콘텐츠: Plate JSON (`noteContentSchema`)
+- 노트 콘텐츠: Plate/Draw JSON (`noteContentSchema` – `application/vnd.arc.note+plate` / `application/vnd.arc.note+draw`)
 
 ---
 
@@ -145,7 +145,7 @@ export class DocumentRepository {
   - `path`는 항상 **transliteration 기반 ASCII slug** 로만 구성합니다.  
   - 예: `"새 그림"` → `"sae-geurim"` → `sae_geurim` (ltree 라벨)
 - **폴더 보장**: 파일/노트 생성 시 부모 경로에 폴더 문서가 없으면 자동 생성
-- **노트/파일/폴더 공통 처리**: `kind`에 따라 분기하지만, 기본 CRUD는 하나의 Repository에서 처리
+- **구조/타입 분리**: DB `kind`는 `'folder' | 'document'`로 폴더/리프 구조만 표현하고, 실제 노트/드로우/PDF/YouTube 등의 동작은 모두 `mimeType` 기반으로 분기합니다.
 
 ---
 
@@ -173,10 +173,13 @@ export const documentUploadRequestSchema = z.object({
 });
 ```
 
-- **업로드 3단계**
-  - `/api/document/upload/request` – 업로드 프로세스 생성 (documentId, processId 발급)
-  - `/api/document/upload/presigned` – R2 업로드용 presigned URL 발급
-  - `/api/document/upload/confirm` – 업로드 완료 후 `uploadStatus` → `uploaded`로 변경
+- **업로드 3단계 (파일/노트 미디어 공통)**
+  - `/api/document/upload/request` – 업로드 프로세스 생성 (documentId, processId 발급, `documents.kind = 'document'`, `uploadStatus = 'pending'`)
+  - `/api/document/upload/presigned` – R2 업로드용 presigned URL 발급 (`uploadStatus = 'uploading'`)
+  - `/api/document/upload/confirm` – R2 객체 검증 후 `uploadStatus` → `uploaded`로 변경
+  - ArcManager의 파일 업로드뿐 아니라, **ArcDataNote 내 미디어(이미지/파일) 업로드도 이 파이프라인을 그대로 재사용**합니다.
+    - 노트에서 첨부한 이미지/파일 역시 `document` 테이블에 **파일 문서(kind='document')** 로 저장되며,
+    - Plate 노드 쪽에는 해당 파일 문서의 `download-url`(서명 URL)과 이름만 주입하여 렌더링합니다.
 
 - **다운로드**
 
@@ -219,23 +222,83 @@ export const documentCreateRequestSchema = z.discriminatedUnion('kind', [
 
 ### 5.1 문서 목록/생성 (`GET/POST /api/document`)
 
-```17:69:apps/main/src/app/(backend)/api/document/route.ts
+```8:90:apps/main/src/app/(backend)/api/document/route.ts
 export async function GET(request: NextRequest) {
-  // 인증 → userId
-  // kind 쿼리 파라미터: null/file/note/all
-  const allDocuments = await repository.listByOwner(userId);
-
-  const documents = allDocuments.filter((doc) => {
-    if (kindParam === null || kindParam === 'file') {
-      return doc.kind === 'file' || doc.kind === 'folder';
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return error('UNAUTHORIZED', '인증이 필요합니다.', { … });
     }
-    if (kindParam === 'note') {
-      return doc.kind === 'note' || doc.kind === 'folder';
-    }
-    return true; // 'all'
-  });
 
-  return ok({ documents: documents.map(doc => ({ … })) }, { … });
+    const userId = session.user.id;
+
+    const repository = new DocumentRepository();
+    const { searchParams } = new URL(request.url);
+    const kindParam = searchParams.get('kind');
+
+    // kind 파라미터:
+    // - null 또는 'file'   : file + folder 트리 (기존 ArcManager files 탭과 동일)
+    // - 'note'             : note + folder 트리 (향후 notes 탭에서 사용)
+    // - 'all'              : 모든 kind (note/file/folder)
+    if (
+      !(
+        kindParam === null ||
+        kindParam === 'file' ||
+        kindParam === 'note' ||
+        kindParam === 'all'
+      )
+    ) {
+      return error('BAD_REQUEST', '지원하지 않는 문서 종류입니다.', { … });
+    }
+
+    const allDocuments = await repository.listByOwner(userId);
+
+    const documents = allDocuments.filter((doc) => {
+      const mimeType = doc.mimeType ?? undefined;
+      const isFolder = doc.kind === 'folder';
+      const isNote =
+        typeof mimeType === 'string' &&
+        mimeType.startsWith('application/vnd.arc.note+');
+      const isFileLike =
+        typeof mimeType === 'string' &&
+        !mimeType.startsWith('application/vnd.arc.note+');
+
+      if (kindParam === null || kindParam === 'file') {
+        // 기존 동작: file + folder 문서만 반환
+        return isFolder || isFileLike;
+      }
+
+      if (kindParam === 'note') {
+        // 노트 뷰: note + folder 문서만 반환
+        return isFolder || isNote;
+      }
+
+      // kind = 'all' → 모든 kind 허용
+      return true;
+    });
+
+    return ok(
+      {
+        documents: documents.map((doc) => ({
+          documentId: doc.documentId,
+          userId: doc.userId,
+          path: doc.path,
+          // name은 항상 DB에 저장된 값을 그대로 사용합니다.
+          name: (doc as { name: string }).name,
+          kind: doc.kind,
+          uploadStatus: doc.uploadStatus,
+          mimeType: doc.mimeType ?? null,
+          fileSize: doc.fileSize ?? null,
+          storageKey: doc.storageKey ?? null,
+          createdAt: doc.createdAt.toISOString(),
+          updatedAt: doc.updatedAt.toISOString(),
+        })),
+      },
+      { … },
+    );
+  } catch (err) {
+    …
+  }
 }
 ```
 
@@ -285,26 +348,70 @@ export async function POST(request: NextRequest) {
 
 ### 5.5 다운로드 URL 발급 (`GET /api/document/[documentId]/download-url`)
 
-```17:81:apps/main/src/app/(backend)/api/document/[documentId]/download-url/route.ts
+```16:93:apps/main/src/app/(backend)/api/document/[documentId]/download-url/route.ts
 export async function GET(request: NextRequest, context: RouteContext) {
-  // 인증 → userId
-  const { documentId } = await context.params;
-  const idResult = uuidSchema.safeParse(documentId);
-  …
-  const document = await repository.findByIdForOwner(idResult.data, userId);
-  if (!document) … NOT_FOUND
-  if (document.kind !== 'file') … BAD_REQUEST
-  if (document.uploadStatus !== 'uploaded') … BAD_REQUEST
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return error('UNAUTHORIZED', '인증이 필요합니다.', { … });
+    }
 
-  const fileMeta = document.fileMeta as DocumentFileMeta | null;
-  const storageKey = fileMeta?.storageKey;
-  …
-  const { url, expiresAt } = await getCachedDownloadUrl(storageKey, {
-    filename,
-    mimeType: fileMeta?.mimeType ?? undefined,
-    inline,
-  });
-  return ok({ url, expiresAt }, …);
+    const userId = session.user.id;
+
+    const { documentId } = await context.params;
+    const idResult = uuidSchema.safeParse(documentId);
+    if (!idResult.success) {
+      return error('BAD_REQUEST', '유효하지 않은 문서 ID입니다.', { … });
+    }
+
+    const repository = new DocumentRepository();
+    const document = await repository.findByIdForOwner(idResult.data, userId);
+
+    if (!document) {
+      return error('NOT_FOUND', '문서를 찾을 수 없습니다.', { … });
+    }
+
+    // 폴더 문서는 다운로드 대상이 아닙니다.
+    if (document.kind === 'folder') {
+      return error('BAD_REQUEST', '폴더 문서는 다운로드할 수 없습니다.', { … });
+    }
+
+    if (document.uploadStatus !== 'uploaded') {
+      return error(
+        'BAD_REQUEST',
+        `업로드가 완료되지 않은 문서입니다: ${document.uploadStatus}`,
+        { … },
+      );
+    }
+
+    const storageKey = document.storageKey;
+    if (!storageKey) {
+      return error('INTERNAL', '파일 스토리지 키가 없습니다.', { … });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const inline = searchParams.get('inline') === '1';
+    const filename = searchParams.get('filename') ?? undefined;
+
+    const { url, expiresAt } = await getCachedDownloadUrl(storageKey, {
+      filename: filename ?? undefined,
+      mimeType: document.mimeType ?? undefined,
+      inline,
+    });
+
+    const payload = { url, expiresAt };
+    const parsed = documentDownloadUrlResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      return error('INTERNAL', '다운로드 URL 생성 결과 검증에 실패했습니다.', { … });
+    }
+
+    return ok(parsed.data, {
+      user: { id: userId, email: session.user.email || undefined },
+      message: '다운로드 URL을 발급했습니다.',
+    });
+  } catch (err) {
+    …
+  }
 }
 ```
 
@@ -382,6 +489,20 @@ export function useDocumentDownloadUrl(
 }
 ```
 
+- **노트 미디어 업로드 전용 훅 (`useUploadFile`)**
+  - 위치: `apps/main/src/client/components/arc/ArcData/hooks/note/use-upload-file.ts`
+  - `useDocumentUpload()`을 내부에서 사용하여, **노트 내 이미지/파일 업로드를 document 파일 업로드 파이프라인과 통합**합니다.
+    - 1) `requestUpload({ name, parentPath, fileSize, mimeType })`
+    - 2) `getPresignedUploadUrl({ processId })`로 R2 `uploadUrl` 발급
+    - 3) `fetch(uploadUrl, { method: 'PUT', body: file })` 로 실제 파일 업로드
+    - 4) `confirmUpload({ processId })` 로 `uploadStatus = 'uploaded'` 전환
+    - 5) `GET /api/document/[documentId]/download-url?inline=1&filename=...` 으로 렌더링용 서명 URL 획득
+  - 반환값:
+    - `uploadedFile: { documentId, name, size, type, url }`
+    - `uploadFile(file: File)` – 위 1~5 단계를 캡슐화한 업로드 트리거
+    - `isUploading`, `progress`, `uploadingFile` – UI 상태 표시용
+  - Plate 노트(`ArcDataNote`)에서는 이 훅을 통해 업로드된 파일 문서를 **노트 블록 내 미디어 노드**로 매핑합니다.
+
 ### 7.2 목록/상세/콘텐츠
 
 - `useDocumentFiles()` – 파일/폴더 목록 (ArcManager files 탭)
@@ -406,11 +527,15 @@ export function useDocumentDownloadUrl(
 
 - 파일 탭:
   - `useDocumentFiles()` → `DocumentDTO[]` → `ArcManagerTreeItem[]`로 변환 후 트리 렌더
+  - 내부적으로 `GET /api/document?kind=file`을 호출하며,
+    - `kind='folder'` 문서 + `mimeType`이 note 계열이 **아닌** 문서(`isFileLike`)만 포함합니다.
   - DnD → `useDocumentMove()`로 path 기반 subtree 이동
   - 폴더 생성/업로드/YouTube 생성 → 각 훅 호출 후 목록 refetch
 
-- 노트 탭:
+- 노트 탭(향후 확장 포인트):
   - `useDocumentNotes()` → note + folder 트리
+  - 서버에서는 `GET /api/document?kind=note`를 호출하며,
+    - `kind='folder'` 문서 + `mimeType`이 `application/vnd.arc.note+...` 인 문서만 포함합니다.
   - 노트 생성 버튼 → `useDocumentCreate()` (kind='note', `DEFAULT_NOTE_PARAGRAPH` 기본값)
   - DnD → ArcWork 탭에 `arcdata-document` 탭으로 노트 열기
 
@@ -418,8 +543,12 @@ export function useDocumentDownloadUrl(
 
 - `ArcData` 엔트리 컴포넌트:
   - `useDocumentDetail(documentId)`로 문서를 조회하고,
-  - `kind === 'file'` → PDF/Player 호스트
-  - `kind === 'note'` → 노트 호스트(`ArcDataNoteHost`)
+  - `kind === 'folder'` 인 문서는 ArcData에서 렌더링하지 않습니다.
+  - 나머지(`kind === 'document'`) 문서는 **`mimeType` 기준으로** 호스트를 선택합니다.
+    - `mimeType`이 `application/vnd.arc.note+plate` → Plate 노트 호스트(`ArcDataNoteHost`)
+    - `mimeType`이 `application/vnd.arc.note+draw` → 드로우 노트 호스트(`ArcDataDrawHost`)
+    - `application/pdf` → PDF 뷰어(`ArcDataPDFHost`)
+    - `video/*` / `audio/*` / `video/youtube` / YouTube URL → 플레이어 호스트(`ArcDataPlayerHost`)
 
 - `ArcDataPDFHost`:
   - `useDocumentDownloadUrl(documentId, { inline: true, enabled: true })`로 R2 서명 URL 발급

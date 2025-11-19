@@ -2,7 +2,8 @@
 
 ## 현재 상태
 
-ArcDataNote 컴포넌트 구조 정리 및 경로 수정이 완료되었습니다.
+ArcDataNote 컴포넌트 구조 정리 및 경로 수정이 완료되었고,  
+현재는 Document/mimeType 기반 ArcData 뷰어 구조와 연동된 상태입니다.
 
 ### 완료된 작업
 
@@ -31,6 +32,43 @@ ArcDataNote 컴포넌트 구조 정리 및 경로 수정이 완료되었습니�
    - Plate DnD의 관할 범위를 ArcDataNote 루트 컨테이너로 한정
    - ArcWork/ArcManager 탭 DnD와 Plate 내부 블록 DnD가 서로 간섭하지 않도록 분리
    - ArcManager → ArcDataNote 파일 첨부는 `ArcManagerDropZone` + Drop Sink 정책으로 처리
+
+5. **Document/mimeType 연동 (현재 기준)**
+   - Document 구조는 `kind`와 `mimeType`으로 분리되어 있습니다.
+     - `kind`: `'folder' | 'document'` – 폴더/리프 구조만 표현
+     - `mimeType`: `application/vnd.arc.note+plate`(텍스트 노트), `application/vnd.arc.note+draw`(드로우), `application/pdf`, `video/*` 등 실제 뷰 타입 결정
+   - ArcData 엔트리(`ArcData.tsx`)는 `document.kind === 'folder'` 인 경우를 제외하고, **`mimeType` 기준으로** 어떤 호스트를 렌더링할지 결정합니다.
+     - `mimeType`이 `application/vnd.arc.note+plate` → `ArcDataNoteHost` → `ArcDataNote`
+     - `mimeType`이 `application/vnd.arc.note+draw` → `ArcDataDrawHost` → `ArcDataDraw`(Excalidraw)
+   - 노트/드로우 콘텐츠는 공통 Zod 스키마(`noteContentSchema`)의 `EditorContent` 타입으로 관리합니다.
+     - 텍스트 노트: Plate JSON (슬레이트 기반)
+     - 드로우 노트: `{ type: 'draw'; elements; appState?; files? }`
+   - `/api/document/[documentId]/content`는 `documents.kind === 'document'` 이면서
+     `mimeType`이 `application/vnd.arc.note+...` 인 문서만 대상으로 하며,
+     - 현재 구현에서는 **ArcDataDrawHost만 이 엔드포인트를 사용해서 contents를 읽어 옵니다.**
+     - ArcDataDrawHost는 현 시점에서 **저장 로직 없이 읽기 전용**으로만 동작합니다. (onChange → 서버 저장 비활성화)
+     - ArcDataNoteHost는 아직 데모 Plate 에디터 래퍼 상태이며, 추후 동일 엔드포인트와 연동 예정입니다.
+
+6. **노트 내부 미디어 업로드/렌더링 (현재 구현)**
+
+- 이미지/파일 업로드는 `useUploadFile` 훅을 통해 **공통 Document 업로드 파이프라인**을 사용합니다.
+  - 서버 측 플로우: `useDocumentUpload.requestUpload` → `getPresignedUploadUrl` → R2 `PUT` 업로드 → `confirmUpload` → `GET /api/document/[id]/download-url`
+  - 최종 반환 타입:
+    `UploadedFile = { documentId, name, size, type, url }`
+    (`url`은 `/download-url`에서 받은 서명 URL)
+- Plate 측 컴포넌트 역할 분리:
+  - `ui/node/media-placeholder-node.tsx` (`PlaceholderElement`)
+    - 로컬 파일 선택/드롭 시 `useUploadFile.uploadFile(file)`을 호출해 업로드를 시작합니다.
+    - 업로드 완료 후 `setMediaNode + updateUploadHistory`를 사용해, **현재 placeholder 노드를 그대로 둔 채** `type`, `url`, `unsafeUrl`, `isUpload` 등을 실제 이미지 노드로 교체합니다.
+    - 이때 Plate 이미지 플러그인이 참조하는 `url`·`unsafeUrl` 모두를 `UploadedFile.url`로 채워 넣습니다.
+  - `ui/node/media-image-node.tsx` (`ImageElement`)
+    - URL 해석 우선순위:
+      `element.url` → `element.unsafeUrl` → `mediaState.unsafeUrl` → `mediaState.url`
+    - 최종적으로 URL이 없으면 `null`을 반환해, 빈 `<img>` 태그가 렌더링되지 않도록 처리합니다.
+- 현재 기준 정리:
+  - 노트 내부에서 **이미지 업로드 → placeholder 진행 상태 → 최종 이미지 노드 렌더링**까지는 동작합니다.
+  - 다만 ArcDataNote 전체 contents를 `/api/document/[documentId]/content`로 저장/복원하는 로직은 아직 데모 상태이며,
+    향후 ArcDataDraw와 동일한 content API로 통합할 예정입니다.
 
 ## 앞으로 해야 할 사항
 
@@ -83,6 +121,7 @@ pnpm add @ariakit/react html2canvas-pro pdf-lib react-lite-youtube-embed react-t
 
 2. **미디어 기능**
    - 이미지/비디오/오디오 업로드
+     - 이미지 업로드 시 placeholder 진행 상태 표시 후, 업로드 완료 시 실제 이미지 노드로 교체되는지 (URL이 `<img>`까지 제대로 전달되는지) 확인
    - YouTube 임베드
    - 트위터 임베드
 

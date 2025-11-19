@@ -61,7 +61,7 @@ import {
 } from '@/client/components/ui/popover';
 import { cn } from '@/share/share-utils/cn-utils';
 
-import { AIChatEditor } from './ai-chat-editor';
+import { AIChatEditor } from '../editor/ai-chat-editor';
 
 export function AIMenu() {
   const { api, editor } = useEditorPlugin(AIChatPlugin);

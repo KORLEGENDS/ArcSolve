@@ -100,7 +100,13 @@ export function MediaToolbarButton({
       if (!target?.files) return;
       const files = Array.from(target.files);
       if (!files.length) return;
-      editor.getTransforms(PlaceholderPlugin).insert.media(files);
+      // FileList 타입으로 변환하여 전달
+      const fileList = {
+        length: files.length,
+        item: (index: number) => files[index] || null,
+        [Symbol.iterator]: () => files[Symbol.iterator](),
+      } as FileList;
+      editor.getTransforms(PlaceholderPlugin).insert.media(fileList);
     };
     input.click();
   }, [currentConfig.accept, editor]);

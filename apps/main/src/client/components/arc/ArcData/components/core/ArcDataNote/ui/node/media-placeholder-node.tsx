@@ -5,6 +5,7 @@ import * as React from 'react';
 import type { TPlaceholderElement } from 'platejs';
 import type { PlateElementProps } from 'platejs/react';
 
+import { setMediaNode } from '@platejs/media';
 import {
   PlaceholderPlugin,
   PlaceholderProvider,
@@ -52,6 +53,7 @@ export const PlaceholderElement = withHOC(
   function PlaceholderElement(props: PlateElementProps<TPlaceholderElement>) {
     const { editor, element } = props;
 
+
     const { api } = useEditorPlugin(PlaceholderPlugin);
 
     const { isUploading, progress, uploadedFile, uploadFile, uploadingFile } =
@@ -78,23 +80,28 @@ export const PlaceholderElement = withHOC(
 
       const path = editor.api.findPath(element);
 
-      editor.tf.withoutSaving(() => {
-        editor.tf.removeNodes({ at: path });
 
+      editor.tf.withoutSaving(() => {
         const node = {
           children: [{ text: '' }],
           initialHeight: imageRef.current?.height,
           initialWidth: imageRef.current?.width,
-          isUpload: true,
+          // 업로드가 완료된 실제 미디어 노드이므로 isUpload 플래그는 제거/false 처리합니다.
+          isUpload: false,
           name: element.mediaType === KEYS.file ? uploadedFile.name : '',
           placeholderId: element.id as string,
-          type: element.mediaType!,
+          // placeholder → 실 이미지 노드로 교체
+          type: editor.getType(KEYS.img),
+          // Plate 이미지/미디어 플러그인이 사용하는 URL 필드들을 최대한 채워줍니다.
           url: uploadedFile.url,
+          unsafeUrl: uploadedFile.url,
         };
 
-        editor.tf.insertNodes(node, { at: path });
 
-        updateUploadHistory(editor, node);
+        // placeholder 노드를 그대로 두고, type/url 등만 이미지 노드로 교체
+        setMediaNode(editor as any, node as any, { at: path as any });
+
+        updateUploadHistory(editor as any, node as any);
       });
 
       api.placeholder.removeUploadingFile(element.id as string);
@@ -140,6 +147,7 @@ export const PlaceholderElement = withHOC(
       );
 
       if (!currentFiles) return;
+
 
       replaceCurrentPlaceholder(currentFiles as File);
 

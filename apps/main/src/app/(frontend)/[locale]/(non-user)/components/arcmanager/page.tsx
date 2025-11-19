@@ -16,6 +16,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '1',
       path: '/documents',
+      name: 'documents',
       itemType: 'folder',
       tags: ['문서', '중요'],
       createdAt: yesterday,
@@ -26,6 +27,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '2',
       path: '/documents/project-plan.pdf',
+      name: 'project-plan.pdf',
       itemType: 'item',
       tags: ['프로젝트', 'PDF'],
       createdAt: yesterday,
@@ -36,6 +38,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '3',
       path: '/images/photo.jpg',
+      name: 'photo.jpg',
       itemType: 'item',
       tags: ['이미지', '사진'],
       createdAt: yesterday,
@@ -46,6 +49,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '4',
       path: '/music/song.mp3',
+      name: 'song.mp3',
       itemType: 'item',
       tags: ['음악', 'MP3'],
       createdAt: yesterday,
@@ -56,6 +60,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '5',
       path: '/videos/movie.mp4',
+      name: 'movie.mp4',
       itemType: 'item',
       tags: ['비디오', '영화'],
       createdAt: yesterday,
@@ -66,6 +71,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '6',
       path: '/settings',
+      name: 'settings',
       itemType: 'folder',
       tags: ['시스템'],
       createdAt: yesterday,
@@ -76,6 +82,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '7',
       path: '/users/profile',
+      name: 'profile',
       itemType: 'folder',
       tags: ['사용자', '프로필'],
       createdAt: yesterday,
@@ -86,6 +93,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '8',
       path: '/downloads',
+      name: 'downloads',
       itemType: 'folder',
       tags: ['다운로드'],
       createdAt: yesterday,
@@ -100,6 +108,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '1',
       path: '/documents',
+      name: 'documents',
       itemType: 'folder',
       tags: ['문서', '중요'],
       createdAt: yesterday,
@@ -110,6 +119,7 @@ export default function ArcManagerDemoPage() {
         {
           id: '2',
           path: '/documents/project-plan.pdf',
+          name: 'project-plan.pdf',
           itemType: 'item',
           tags: ['프로젝트', 'PDF'],
           createdAt: yesterday,
@@ -120,6 +130,7 @@ export default function ArcManagerDemoPage() {
         {
           id: '9',
           path: '/documents/report.docx',
+          name: 'report.docx',
           itemType: 'item',
           tags: ['문서', '보고서'],
           createdAt: yesterday,
@@ -132,6 +143,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '10',
       path: '/images',
+      name: 'images',
       itemType: 'folder',
       tags: ['이미지'],
       createdAt: yesterday,
@@ -142,6 +154,7 @@ export default function ArcManagerDemoPage() {
         {
           id: '3',
           path: '/images/photo.jpg',
+          name: 'photo.jpg',
           itemType: 'item',
           tags: ['이미지', '사진'],
           createdAt: yesterday,
@@ -152,6 +165,7 @@ export default function ArcManagerDemoPage() {
         {
           id: '11',
           path: '/images/logo.png',
+          name: 'logo.png',
           itemType: 'item',
           tags: ['이미지', '로고'],
           createdAt: yesterday,
@@ -164,6 +178,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '12',
       path: '/media',
+      name: 'media',
       itemType: 'folder',
       tags: ['미디어'],
       createdAt: yesterday,
@@ -174,6 +189,7 @@ export default function ArcManagerDemoPage() {
         {
           id: '13',
           path: '/media/music',
+          name: 'music',
           itemType: 'folder',
           tags: ['음악'],
           createdAt: yesterday,
@@ -184,6 +200,7 @@ export default function ArcManagerDemoPage() {
             {
               id: '4',
               path: '/media/music/song.mp3',
+              name: 'song.mp3',
               itemType: 'item',
               tags: ['음악', 'MP3'],
               createdAt: yesterday,
@@ -196,6 +213,7 @@ export default function ArcManagerDemoPage() {
         {
           id: '14',
           path: '/media/videos',
+          name: 'videos',
           itemType: 'folder',
           tags: ['비디오'],
           createdAt: yesterday,
@@ -206,6 +224,7 @@ export default function ArcManagerDemoPage() {
             {
               id: '5',
               path: '/media/videos/movie.mp4',
+              name: 'movie.mp4',
               itemType: 'item',
               tags: ['비디오', '영화'],
               createdAt: yesterday,
@@ -220,6 +239,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '6',
       path: '/settings',
+      name: 'settings',
       itemType: 'folder',
       tags: ['시스템'],
       createdAt: yesterday,
@@ -230,6 +250,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '7',
       path: '/users/profile',
+      name: 'profile',
       itemType: 'folder',
       tags: ['사용자', '프로필'],
       createdAt: yesterday,
@@ -240,6 +261,7 @@ export default function ArcManagerDemoPage() {
     {
       id: '8',
       path: '/downloads',
+      name: 'downloads',
       itemType: 'folder',
       tags: ['다운로드'],
       createdAt: yesterday,
@@ -287,7 +309,7 @@ export default function ArcManagerDemoPage() {
             </CardHeader>
             <CardContent>
               <div className="h-[600px] border rounded-lg">
-                <ArcManager toolbar={<Input type="search" placeholder="검색..." />} />
+                <ArcManager />
               </div>
             </CardContent>
           </Card>
