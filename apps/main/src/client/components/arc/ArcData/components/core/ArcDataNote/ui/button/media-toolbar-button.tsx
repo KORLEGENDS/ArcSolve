@@ -109,7 +109,12 @@ export function MediaToolbarButton({
     (item: ArcManagerDropItem) => {
       // 1차 구현: 파일 문서에 대해 간단한 텍스트 블록으로 참조를 추가합니다.
       // 추후에는 arcdata-document 카드나 실제 미디어 embed로 확장할 수 있습니다.
-      if (item.kind !== 'file') return;
+      // 구조 kind는 'document'이면서, mimeType이 note 계열이 아닌 경우를 파일로 간주합니다.
+      const mime = item.mimeType ?? undefined;
+      const isNoteMime =
+        typeof mime === 'string' &&
+        mime.startsWith('application/vnd.arc.note+');
+      if (item.kind !== 'document' || isNoteMime) return;
 
       editor.tf.insertNodes({
         type: 'p',
@@ -118,7 +123,7 @@ export function MediaToolbarButton({
             text: `[파일] ${item.name}`,
           },
         ],
-  });
+      });
 
       setArcManagerDialogOpen(false);
     },
@@ -210,7 +215,8 @@ export function MediaToolbarButton({
             ArcManager 파일 트리에서 문서를 드래그해 이 영역에 드롭하면, 노트에 간단한 파일 참조가 추가됩니다.
           </AlertDialogDescription>
           <ArcManagerDropZone
-            allowedKinds={['file']}
+            // 구조상 문서(kind='document')만 허용하고, 실제 파일 여부는 mimeType으로 필터링합니다.
+            allowedKinds={['document']}
             onSelect={handleSelectFromArcManager}
           />
           <AlertDialogFooter>

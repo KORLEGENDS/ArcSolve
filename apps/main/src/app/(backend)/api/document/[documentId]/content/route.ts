@@ -48,6 +48,26 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const { document, content } = result;
 
+    // 폴더 문서는 콘텐츠 버전 API 대상이 아닙니다.
+    if (document.kind === 'folder') {
+      return error('BAD_REQUEST', '폴더 문서에 대해서는 콘텐츠 조회를 지원하지 않습니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+        details: { documentId: document.documentId, kind: document.kind },
+      });
+    }
+
+    // 노트 계열 MIME 타입이 아닌 경우에도 콘텐츠 버전 API를 사용하지 않습니다.
+    const mimeType = document.mimeType ?? undefined;
+    const isNoteMime =
+      typeof mimeType === 'string' &&
+      mimeType.startsWith('application/vnd.arc.note+');
+    if (!isNoteMime) {
+      return error('BAD_REQUEST', '노트 MIME 타입 문서에 대해서만 콘텐츠 조회를 지원합니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+        details: { documentId: document.documentId, kind: document.kind, mimeType },
+      });
+    }
+
     const payload = {
       documentId: document.documentId,
       contentId: content?.documentContentId ?? null,
@@ -122,6 +142,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const repository = new DocumentRepository();
+
+    // 대상 문서를 먼저 조회하고, 구조(kind) 및 MIME 타입을 검사합니다.
+    const existing = await repository.findByIdForOwner(idResult.data, userId);
+    if (!existing) {
+      return error('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+      });
+    }
+
+    if (existing.kind === 'folder') {
+      return error('BAD_REQUEST', '폴더 문서에 대해서는 콘텐츠 저장을 지원하지 않습니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+        details: { documentId: existing.documentId, kind: existing.kind },
+      });
+    }
+
+    const mimeType = existing.mimeType ?? undefined;
+    const isNoteMime =
+      typeof mimeType === 'string' &&
+      mimeType.startsWith('application/vnd.arc.note+');
+    if (!isNoteMime) {
+      return error('BAD_REQUEST', '노트 MIME 타입 문서에 대해서만 콘텐츠 저장을 지원합니다.', {
+        user: { id: userId, email: session.user.email || undefined },
+        details: { documentId: existing.documentId, kind: existing.kind, mimeType },
+      });
+    }
+
     const result = await repository.appendContentVersionForOwner({
       documentId: idResult.data,
       userId,

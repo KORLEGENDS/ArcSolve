@@ -16,8 +16,8 @@ export interface ArcDataProps {
 /**
  * ArcData 엔트리 컴포넌트
  * - documentId만 입력으로 받아, 어떤 호스트 컴포넌트로 렌더링할지만 결정합니다.
- * - document의 kind / mimeType / storageKey를 기반으로
- *   PDF / Player / Note / Draw 등 적절한 호스트 컴포넌트를 선택합니다.
+ * - 구조(kind)는 'folder' | 'document'로만 사용하고,
+ *   실제 타입(NOTE/DRAW/PDF/PLAYER 등)은 mimeType / storageKey 기반으로 분기합니다.
  */
 export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null {
   const {
@@ -30,19 +30,8 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
     return null;
   }
 
-  if (document.kind === 'note') {
-    // mimeType으로 노트 타입 구분
-    const mimeType = document.mimeType;
-    const isDraw = mimeType === 'application/vnd.arc.note+draw';
-    
-    if (isDraw) {
-      return <ArcDataDrawHost documentId={documentId} />;
-    }
-    
-    return <ArcDataNoteHost documentId={documentId} />;
-  }
-
-  if (document.kind !== 'file') {
+  // 폴더는 ArcData에서 직접 렌더링하지 않습니다.
+  if (document.kind === 'folder') {
     return null;
   }
 
@@ -69,6 +58,20 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
 
   const isPlayer = isVideo || isAudio || isYoutubeMime || isYoutubeUrl;
 
+  // 노트 MIME 타입 (Plate / Draw)
+  const isNoteMime =
+    typeof mimeType === 'string' &&
+    mimeType.startsWith('application/vnd.arc.note+');
+  const isDrawNote =
+    mimeType === 'application/vnd.arc.note+draw';
+
+  if (isNoteMime) {
+    if (isDrawNote) {
+      return <ArcDataDrawHost documentId={documentId} />;
+    }
+    return <ArcDataNoteHost documentId={documentId} />;
+  }
+
   if (isPDF) {
     return <ArcDataPDFHost documentId={documentId} />;
   }
@@ -83,7 +86,7 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
     );
   }
 
-  // TODO: 이미지 / 노트 등 다른 타입 호스트는 추후 확장
+  // TODO: 이미지 / 기타 MIME 타입은 추후 확장
   return null;
 }
 

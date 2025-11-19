@@ -5,8 +5,9 @@
 
 핵심 키워드:
 
-- 문서 종류: `kind = 'file' | 'note' | 'folder'`
-- 경로: `path (ltree)` – 사용자 네임스페이스 내 트리 구조
+- 문서 구조 종류: `kind = 'folder' | 'document'` (폴더/리프 구조만 표현)
+- 콘텐츠 타입: `mimeType` – note/draw/pdf/youtube 등 실제 비즈니스 타입은 전부 mimeType으로 구분
+- 경로: `path (ltree)` – 사용자 네임스페이스 내 트리 구조 (ASCII slug, transliteration 기반)
 - 콘텐츠: `document_content` – 버전 단위 JSON
 - 파일 메타/다운로드: `fileMeta + /api/document/[id]/download-url`
 - 노트 콘텐츠: Plate JSON (`noteContentSchema`)
@@ -27,8 +28,8 @@ export const documents = pgTable(
     userId: uuid('user_id').notNull(),
     name: text('name'),
     path: ltree('path').notNull(),
-    kind: documentKindEnum('kind').notNull(),              // 'note' | 'file' | 'folder'
-    fileMeta: jsonb('file_meta'),                          // 파일 문서 전용 메타
+    kind: documentKindEnum('kind').notNull(),              // 'folder' | 'document' (폴더/리프 구조 정보)
+    fileMeta: jsonb('file_meta'),                          // 파일/외부 리소스 등 문서 전용 메타
     uploadStatus: documentUploadStatusEnum('upload_status')
       .default('uploaded')
       .notNull(),                                          // pending/uploading/uploaded/failed
@@ -139,7 +140,10 @@ export class DocumentRepository {
 
 핵심 포인트:
 
-- **경로 정책**: `toLtreeLabel` / `normalizeLtreePath`로 ltree에 안전한 path를 생성
+- **경로 정책**: `toLtreeLabel` / `normalizeLtreePath`로 ltree에 안전한 path를 생성  
+  - UI에 표시되는 이름은 `Document.name`(UTF-8 전체 범위)에서 관리하고,  
+  - `path`는 항상 **transliteration 기반 ASCII slug** 로만 구성합니다.  
+  - 예: `"새 그림"` → `"sae-geurim"` → `sae_geurim` (ltree 라벨)
 - **폴더 보장**: 파일/노트 생성 시 부모 경로에 폴더 문서가 없으면 자동 생성
 - **노트/파일/폴더 공통 처리**: `kind`에 따라 분기하지만, 기본 CRUD는 하나의 Repository에서 처리
 
@@ -206,7 +210,8 @@ export const documentCreateRequestSchema = z.discriminatedUnion('kind', [
 ]);
 ```
 
-현재 `POST /api/document`는 `kind = 'note'`만 지원하며, 향후 `folder`/`external` 등으로 확장 가능하도록 설계되어 있습니다.
+현재 `POST /api/document`는 **노트 생성용 kind='note' 디스크리미네이터만** 지원하며, DB의 `documents.kind` 값은 항상 `'document'`로 저장됩니다.  
+폴더 생성은 `/api/document/folder`, 파일/외부 리소스 생성은 각 전용 엔드포인트(mimeType 기반)로 분리되어 있습니다.
 
 ---
 
@@ -269,6 +274,8 @@ export async function POST(request: NextRequest) {
 
 ### 5.3 문서 콘텐츠 버전 (`/api/document/[documentId]/content`)
 
+- **노트 계열 MIME 타입 문서 전용** 엔드포인트입니다.  
+  (`documents.kind === 'document'` 이면서 `mimeType`이 `application/vnd.arc.note+...` 인 경우에만 허용)
 - `GET` – 최신 버전 조회
 - `POST` – 새 버전 추가 (`appendContentVersionForOwner`)
 

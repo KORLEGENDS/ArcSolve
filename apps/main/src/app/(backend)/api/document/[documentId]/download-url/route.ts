@@ -44,8 +44,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    if (document.kind !== 'file') {
-      return error('BAD_REQUEST', '파일 문서가 아니므로 다운로드할 수 없습니다.', {
+    // 폴더 문서는 다운로드 대상이 아닙니다.
+    if (document.kind === 'folder') {
+      return error('BAD_REQUEST', '폴더 문서는 다운로드할 수 없습니다.', {
         user: { id: userId, email: session.user.email || undefined },
       });
     }

@@ -2,10 +2,7 @@
 
 import * as React from 'react';
 
-import {
-  useDocumentContent,
-  useDocumentUpdate,
-} from '@/client/states/queries/document/useDocument';
+import { useDocumentContent } from '@/client/states/queries/document/useDocument';
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';
 
 import ArcDataDraw from '../components/core/ArcDataDraw/ArcDataDraw';
@@ -26,48 +23,8 @@ export function ArcDataDrawHost({
   documentId,
 }: ArcDataDrawHostProps): React.ReactElement | null {
   const { data, isLoading, isError } = useDocumentContent(documentId);
-  const { updateDocument, isUpdating } = useDocumentUpdate();
 
   const contents = (data as { contents?: EditorContent | null } | undefined)?.contents ?? null;
-
-  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestContentRef = React.useRef<EditorContent | null>(contents);
-
-  React.useEffect(() => {
-    latestContentRef.current = contents;
-  }, [contents]);
-
-  const handleChange = React.useCallback(
-    (next: EditorContent) => {
-      latestContentRef.current = next;
-
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
-
-      // 간단 디바운스 저장 (500ms)
-      saveTimerRef.current = setTimeout(async () => {
-        const payload = latestContentRef.current;
-        if (!payload) return;
-
-        await updateDocument({
-          mode: 'content',
-          documentId,
-          contents: payload,
-        });
-      }, 500);
-    },
-    [documentId, updateDocument],
-  );
-
-  React.useEffect(
-    () => () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
-    },
-    [],
-  );
 
   if (isError || isLoading) {
     return null;
@@ -78,7 +35,9 @@ export function ArcDataDrawHost({
       ? contents
       : null;
 
-  return <ArcDataDraw value={drawContent as EditorContent | null} onChange={handleChange} />;
+  // 현재 시점에서는 저장 로직을 분리하여, draw 콘텐츠는 읽기 전용으로만 렌더링합니다.
+  // onChange 콜백을 전달하지 않으므로 Excalidraw 변경 사항은 서버에 전송되지 않습니다.
+  return <ArcDataDraw value={drawContent as EditorContent | null} />;
 }
 
 export default ArcDataDrawHost;

@@ -61,6 +61,8 @@ export const documents = pgTable(
 ### 2.2 경로 규칙 (ltree)
 
 - 각 segment는 `toLtreeLabel`로 정규화
+  - 원본 이름(`Document.name`)은 UTF-8 전체 범위를 허용하고,
+  - `toLtreeLabel`은 이를 **transliteration 기반 ASCII slug**(예: `"새 그림"` → `sae_geurim`)로 변환합니다.
   - 허용 문자: `a-z`, `0-9`, `_`
   - 첫 글자가 영문자가 아니면 `n_` prefix
 - 부모/자식 관계는 `'.'`로 연결된 prefix 관계로 나타냅니다.
@@ -609,7 +611,7 @@ onPlaceholderDrop: async ({ event }) => {
 ### 8.1 노트/채팅 탭까지 확장하고 싶을 때
 
 1. **서버 레이어**
-   - `document`에서 `kind = 'note'`를 사용할지, 별도 테이블/레포지토리를 둘지 결정
+   - `document`에서는 `kind = 'folder' | 'document'`로 폴더/리프 구조만 표현하고, 실제 타입은 mimeType 기준으로 분기할지 여부를 결정
    - 필요한 경우 `/api/note/...` 또는 `/api/arcyou/...`와 유사한 패턴으로 API 추가
 2. **React Query**
    - `query-options`에 해당 도메인 전용 옵션 추가

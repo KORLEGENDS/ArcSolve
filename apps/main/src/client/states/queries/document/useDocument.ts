@@ -166,7 +166,8 @@ export function useDocumentUpload(): UseDocumentUploadReturn {
 
 /**
  * 문서 생성 훅
- * - 현재는 kind = 'note'만 지원하며, 추후 folder/external 등으로 확장할 수 있습니다.
+ * - 현재는 "노트(document.kind = 'document', note 계열 mimeType)"만 생성합니다.
+ * - API 요청 스키마의 kind 필드는 디스크리미네이터로서 항상 'note'이며, DB의 kind('folder' | 'document')와는 별개입니다.
  */
 export function useDocumentCreate(): UseDocumentCreateReturn {
   const queryClient = useQueryClient();
@@ -176,7 +177,7 @@ export function useDocumentCreate(): UseDocumentCreateReturn {
     async (input) => {
       const { kind, name, parentPath, contents } = input;
 
-      // kind에 따라 payload를 분기합니다. 현재는 'note'만 지원합니다.
+      // kind에 따라 payload를 분기합니다. 현재는 'note' (노트 생성용 엔드포인트)만 지원합니다.
       if (kind === 'note') {
         const created = await createMutation.mutateAsync({
           kind: 'note',

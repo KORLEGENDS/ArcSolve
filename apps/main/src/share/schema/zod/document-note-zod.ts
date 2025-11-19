@@ -112,8 +112,8 @@ export type DocumentContentResponse = z.infer<typeof documentContentResponseSche
 
 /**
  * Document 생성 요청 스키마
- * - kind에 따라 서로 다른 payload를 허용합니다.
- * - 현재는 노트(kind = 'note')만 지원하고, 추후 folder/external 등으로 확장 가능합니다.
+ * - kind 필드는 API 레벨 디스크리미네이터로, 현재는 노트 생성용 'note'만 허용합니다.
+ * - DB의 documents.kind('folder' | 'document')와는 별개의 개념이며, 실제 문서 타입은 mimeType으로 구분합니다.
  */
 const documentNoteCreateRequestSchema = z.object({
   kind: z.literal('note'),

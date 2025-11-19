@@ -1,13 +1,20 @@
 'use client';
 
-import { Excalidraw, THEME } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 import { useTheme } from 'next-themes';
+import dynamic from 'next/dynamic';
 import * as React from 'react';
 
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';
 
 import styles from './ArcDataDraw.module.css';
+
+const Excalidraw = dynamic<any>(
+  () => import('@excalidraw/excalidraw').then((mod: any) => mod.Excalidraw),
+  {
+    ssr: false,
+  },
+);
 
 type DrawContent = {
   type: 'draw';
@@ -35,22 +42,22 @@ export interface ArcDataDrawProps {
  */
 export function ArcDataDraw({ value, onChange }: ArcDataDrawProps): React.ReactElement {
   const { resolvedTheme } = useTheme();
-  const excalidrawTheme = resolvedTheme === 'dark' ? THEME.DARK : THEME.LIGHT;
+  const excalidrawTheme: 'dark' | 'light' =
+    resolvedTheme === 'dark' ? 'dark' : 'light';
 
   const initialData = React.useMemo(() => {
     if (isDrawContent(value)) {
       return {
+        // 기존 저장된 appState/files 구조는 Excalidraw 내부 expectations와
+        // 버전 차이가 있을 수 있으므로, 안정적으로 렌더링하기 위해
+        // 우선 elements 정보만 전달합니다.
         elements: value.elements ?? [],
-        appState: value.appState ?? {},
-        files: value.files ?? {},
       };
     }
 
     // 기본: 빈 씬
     return {
       elements: [],
-      appState: {},
-      files: {},
     };
   }, [value]);
 
@@ -84,6 +91,9 @@ export function ArcDataDraw({ value, onChange }: ArcDataDrawProps): React.ReactE
               changeViewBackgroundColor: false,
               export: false,
               loadScene: false,
+            },
+            tools: {
+              image: true,
             },
             welcomeScreen: false,
           }}

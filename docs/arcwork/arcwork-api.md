@@ -116,7 +116,7 @@ ArcWork 문서 시스템은 다음 네 가지 테이블을 중심으로 동작�
 ### 2.5. 한 사이클 예시 (생성 → 버전 → RAG → 그래프)
 
 1. **새 노트 생성**
-   - `document` insert: `user_id`, `path (ltree)`, `kind = 'note'`
+   - `document` insert: `user_id`, `path (ltree)`, `kind = 'document'`
    - `latest_content_id`는 아직 `null`
 2. **내용 작성/수정**
    - `document_content` insert: `document_id`, `user_id`, `contents`, `version = n`

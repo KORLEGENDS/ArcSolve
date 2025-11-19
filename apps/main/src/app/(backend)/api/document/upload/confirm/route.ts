@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
           documentId: updated.documentId,
           userId: updated.userId,
           path: updated.path,
-          name: (updated as { name?: string | null }).name ?? process.name,
+          name: (updated as { name: string }).name,
           kind: updated.kind,
           uploadStatus: updated.uploadStatus,
           mimeType: updated.mimeType ?? null,

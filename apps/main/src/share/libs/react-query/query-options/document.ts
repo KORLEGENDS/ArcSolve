@@ -43,7 +43,7 @@ export type DocumentUploadStatus =
   | 'uploaded'
   | 'upload_failed';
 
-export type DocumentKind = 'note' | 'file' | 'folder';
+export type DocumentKind = 'folder' | 'document';
 
 export type DocumentDTO = {
   documentId: string;

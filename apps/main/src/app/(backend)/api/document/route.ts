@@ -1,18 +1,9 @@
 import { ApiException, throwApi } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
 import { DocumentRepository } from '@/share/schema/repositories/document-repository';
-import {
-  documentCreateRequestSchema,
-  type DocumentCreateRequest,
-} from '@/share/schema/zod/document-note-zod';
+import { documentCreateRequestSchema, type DocumentCreateRequest } from '@/share/schema/zod/document-note-zod';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
-
-function getFallbackNameFromPath(path: unknown): string {
-  if (typeof path !== 'string') return 'unnamed';
-  const parts = path.split('.').filter(Boolean);
-  return parts[parts.length - 1] || 'unnamed';
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,14 +43,23 @@ export async function GET(request: NextRequest) {
     const allDocuments = await repository.listByOwner(userId);
 
     const documents = allDocuments.filter((doc) => {
+      const mimeType = doc.mimeType ?? undefined;
+      const isFolder = doc.kind === 'folder';
+      const isNote =
+        typeof mimeType === 'string' &&
+        mimeType.startsWith('application/vnd.arc.note+');
+      const isFileLike =
+        typeof mimeType === 'string' &&
+        !mimeType.startsWith('application/vnd.arc.note+');
+
       if (kindParam === null || kindParam === 'file') {
         // 기존 동작: file + folder 문서만 반환
-        return doc.kind === 'file' || doc.kind === 'folder';
+        return isFolder || isFileLike;
       }
 
       if (kindParam === 'note') {
         // 노트 뷰: note + folder 문서만 반환
-        return doc.kind === 'note' || doc.kind === 'folder';
+        return isFolder || isNote;
       }
 
       // kind = 'all' → 모든 kind 허용
@@ -68,18 +68,12 @@ export async function GET(request: NextRequest) {
 
     return ok(
       {
-        documents: documents.map((doc) => {
-          const rawName = (doc as { name?: unknown }).name;
-          const name =
-            typeof rawName === 'string' && rawName.trim().length > 0
-              ? rawName
-              : getFallbackNameFromPath(doc.path as unknown as string);
-
-          return {
+        documents: documents.map((doc) => ({
           documentId: doc.documentId,
           userId: doc.userId,
           path: doc.path,
-            name,
+          // name은 항상 DB에 저장된 값을 그대로 사용합니다.
+          name: (doc as { name: string }).name,
           kind: doc.kind,
           uploadStatus: doc.uploadStatus,
           mimeType: doc.mimeType ?? null,
@@ -87,13 +81,12 @@ export async function GET(request: NextRequest) {
           storageKey: doc.storageKey ?? null,
           createdAt: doc.createdAt.toISOString(),
           updatedAt: doc.updatedAt.toISOString(),
-          };
-        }),
+        })),
       },
       {
         user: { id: userId, email: session.user.email || undefined },
         message: '문서 목록을 성공적으로 조회했습니다.',
-      }
+      },
     );
   } catch (err) {
     console.error('[GET /api/document] Error:', err);
@@ -161,7 +154,7 @@ export async function POST(request: NextRequest) {
           documentId: created.documentId,
           userId: created.userId,
           path: created.path as unknown as string,
-          name: (created as { name?: string | null }).name ?? 'unnamed',
+          name: (created as { name: string }).name,
           kind: created.kind,
           uploadStatus: created.uploadStatus,
           mimeType: created.mimeType ?? null,

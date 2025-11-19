@@ -152,9 +152,9 @@ export function ArcManager(): React.ReactElement {
   const filesTabState = tabStates.files;
   const { fileInputRef, handleUploadClick, handleFileChange } = useFileUpload(filesTabState.currentPath);
 
-  // 4. 파일 문서 목록 조회 (kind = 'file')
+  // 4. 파일 문서 목록 조회 (mimeType 기준 파일형 문서)
   const { data: fileDocuments, refetch: refetchFiles } = useDocumentFiles();
-  // 노트 문서 목록 조회 (kind = 'note')
+  // 노트 문서 목록 조회 (mimeType 기준 노트형 문서)
   const { data: noteDocuments, refetch: refetchNotes } = useDocumentNotes();
 
   const fileNameMap = React.useMemo(() => {
@@ -198,6 +198,10 @@ export function ArcManager(): React.ReactElement {
     (params: {
       item: ArcManagerTreeItem;
       event: React.DragEvent<HTMLDivElement>;
+      /**
+       * 드래그 소스 탭 논리 타입(파일 탭/노트 탭)
+       * - 구조 kind('folder' | 'document')와는 별개입니다.
+       */
       kind: 'file' | 'note';
     }) => {
       const { item, event, kind } = params;
@@ -223,6 +227,8 @@ export function ArcManager(): React.ReactElement {
       let docMeta: DocumentDTO | undefined;
       if (kind === 'file') {
         docMeta = fileDocumentMap.get(item.id);
+      } else if (kind === 'note') {
+        docMeta = noteDocuments?.find((d) => d.documentId === item.id);
       }
 
       const payload = {
@@ -232,7 +238,10 @@ export function ArcManager(): React.ReactElement {
         documentId: item.id,
         path: item.path,
         name: (item as { name?: string }).name ?? item.path,
-        kind: (docMeta?.kind as 'file' | 'note' | 'folder') ?? kind,
+        // 구조 kind: 폴더 여부만 서버 kind를 그대로 사용하고, 나머지는 'document'로 취급합니다.
+        kind: (docMeta?.kind ?? (item.itemType === 'folder' ? 'folder' : 'document')) as
+          | 'folder'
+          | 'document',
         itemType: item.itemType,
         mimeType: docMeta?.mimeType ?? null,
       };
@@ -244,7 +253,7 @@ export function ArcManager(): React.ReactElement {
         // ignore
       }
     },
-    [fileDocumentMap],
+    [fileDocumentMap, noteDocuments],
   );
 
   type FolderCreateHandler = (params: { parentPath: string; name: string }) => Promise<void>;

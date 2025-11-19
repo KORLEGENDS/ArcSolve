@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           documentId: created.documentId,
           userId: created.userId,
           path: created.path,
-          name: (created as { name?: string | null }).name ?? finalName,
+          name: (created as { name: string }).name,
           kind: created.kind,
           uploadStatus: created.uploadStatus,
           mimeType: created.mimeType ?? null,

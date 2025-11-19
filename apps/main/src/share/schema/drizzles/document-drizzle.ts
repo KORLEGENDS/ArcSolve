@@ -21,11 +21,15 @@ const ltree = customType<{ data: string }>({
   },
 });
 
-export const documentKindEnum = pgEnum('document_kind', [
-  'note',
-  'file',
-  'folder',
-]);
+/**
+ * document.kind
+ *
+ * - 'folder'   : 폴더 노드 (트리 구조 전용)
+ * - 'document' : 실제 콘텐츠/파일/노트 등을 담는 리프 노드
+ *
+ * 실제 동작(노트/드로우/PDF/YouTube 등)은 모두 mimeType 기반으로 분기합니다.
+ */
+export const documentKindEnum = pgEnum('document_kind', ['folder', 'document']);
 
 export const documentRelationTypeEnum = pgEnum('document_relation_type', [
   'reference',

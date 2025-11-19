@@ -5,7 +5,7 @@
 .editor {
   position: relative;
   height: 100%;
-  display: grid;
+  display: flex;
   grid-template-rows: auto 1fr auto; /* top toolbar / canvas / bottom toolbar */
   overflow: hidden; /* prevent outer scroll */
 }

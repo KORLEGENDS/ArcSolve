@@ -1,10 +1,13 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import React from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-import { PlateEditor } from './editor/plate-editor';
+const PlateEditor = dynamic(() => import('./editor/plate-editor').then((mod) => mod.PlateEditor), {
+  ssr: false,
+});
 
 /**
  * ArcDataNote 코어 컴포넌트

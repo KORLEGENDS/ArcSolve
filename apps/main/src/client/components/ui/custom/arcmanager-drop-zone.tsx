@@ -7,14 +7,18 @@ export type ArcManagerDragData = {
   documentId: string;
   path: string;
   name: string;
-  kind: 'file' | 'note' | 'folder';
+  /**
+   * 구조 kind: 'folder' | 'document'
+   * 실제 콘텐츠 타입은 mimeType 기반으로 판단합니다.
+   */
+  kind: 'folder' | 'document';
   itemType: 'folder' | 'item';
   mimeType?: string | null;
 };
 
 export type ArcManagerDropItem = {
   documentId: string;
-  kind: 'file' | 'note' | 'folder';
+  kind: 'folder' | 'document';
   name: string;
   path: string;
   mimeType?: string | null;
@@ -22,7 +26,7 @@ export type ArcManagerDropItem = {
 
 export interface ArcManagerDropZoneProps {
   onSelect: (item: ArcManagerDropItem) => void;
-  allowedKinds?: Array<'file' | 'note' | 'folder'>;
+  allowedKinds?: Array<'folder' | 'document'>;
   className?: string;
   label?: React.ReactNode;
 }
@@ -41,7 +45,7 @@ function parseArcManagerDragData(dt: DataTransfer | null): ArcManagerDragData | 
       documentId: parsed.documentId,
       path: parsed.path,
       name: parsed.name,
-      kind: parsed.kind ?? 'file',
+      kind: parsed.kind ?? 'document',
       itemType: parsed.itemType ?? 'item',
       mimeType: parsed.mimeType ?? null,
     };

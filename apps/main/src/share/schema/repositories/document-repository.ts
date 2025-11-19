@@ -8,7 +8,7 @@ import type {
 import { documentContents, documents } from '@/share/schema/drizzles';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
-import slugify from 'slugify';
+import { slugify as transliterationSlugify } from 'transliteration';
 import type { DB } from './base-repository';
 
 /**
@@ -39,29 +39,13 @@ function isDatabaseError(error: unknown): error is DatabaseError {
   );
 }
 
-/**
- * ltree 라벨 한 개를 안전한 ASCII slug로 정규화합니다.
- *
- * 정책
- * - UI에 표시되는 이름은 Document.name(UTF-8 전체 범위)에서 관리하고,
- * - path는 ltree 전용 slug 경로로만 사용합니다.
- *
- * 규칙
- * - slugify를 사용해 다국어를 가능한 한 ASCII로 변환합니다.
- * - 허용 문자: a-z, 0-9, _
- * - 첫 글자가 문자가 아닌 경우 n_ prefix 부여
- * - slugify/정규화 이후에도 비어 있으면 'unnamed'를 사용합니다.
- */
 function toLtreeLabel(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return 'unnamed';
 
-  // 1) slugify로 1차 ASCII 슬러그 생성
-  let slug = slugify(trimmed, {
-    lower: true,
-    strict: true,
-    locale: 'ko',
-  });
+  // 1) transliteration 기반 slug 생성 (다국어 → ASCII 라틴 문자)
+  //    예: "새 그림" → "sae-geurim"
+  let slug = transliterationSlugify(trimmed, { lowercase: true });
 
   // 2) ltree 규칙에 맞게 후처리 (하이픈 -> 언더스코어 등)
   slug = slug.replace(/-/g, '_');
@@ -70,7 +54,7 @@ function toLtreeLabel(name: string): string {
   slug = slug.replace(/_{2,}/g, '_');
 
   if (!slug) {
-    // slugify가 아무 것도 만들지 못한 극단적인 경우
+    // transliteration 이후에도 아무 것도 남지 않는 극단적인 경우
     return 'unnamed';
   }
 
@@ -275,7 +259,7 @@ export class DocumentRepository {
           userId: input.userId,
           path,
           name: input.name,
-          kind: 'file',
+          kind: 'document',
           mimeType: input.mimeType,
           fileSize: input.fileSize,
           storageKey: input.storageKey,
@@ -324,7 +308,7 @@ export class DocumentRepository {
           userId: input.userId,
           path,
           name: input.name,
-          kind: 'file',
+          kind: 'document',
           mimeType: input.mimeType,
           fileSize: null,
           storageKey: input.storageKey,
@@ -353,9 +337,10 @@ export class DocumentRepository {
   /**
    * 노트 문서를 생성하고 초기 콘텐츠 버전을 함께 생성합니다.
    *
-   * - kind = 'note'
+   * - documents.kind = 'document' (리프 문서, 실제 타입은 mimeType으로 구분)
    * - uploadStatus = 'uploaded'
-   * - mimeType / fileSize / storageKey = null
+   * - fileSize / storageKey = null
+   * - mimeType = note 용 MIME (`application/vnd.arc.note+plate` | `application/vnd.arc.note+draw` 등)
    * - document_content.version = 1
    * - documents.latestContentId = 생성된 content 행을 가리키도록 설정
    */
@@ -381,7 +366,7 @@ export class DocumentRepository {
           userId: input.userId,
           path,
           name: input.name,
-          kind: 'note',
+          kind: 'document',
           uploadStatus: 'uploaded',
           mimeType: noteMimeType,
           fileSize: null,
@@ -609,8 +594,21 @@ export class DocumentRepository {
         updatedAt: new Date(),
       };
 
-      // 노트 문서의 경우, 콘텐츠 타입 변화(Slate ↔ Draw)에 따라 mimeType도 동기화합니다.
-      if (doc.kind === 'note') {
+      // 구조 상 폴더(kind='folder')는 콘텐츠를 가지지 않으므로 방어적으로 차단합니다.
+      if (doc.kind === 'folder') {
+        throwApi('BAD_REQUEST', '폴더 문서에는 콘텐츠 버전을 추가할 수 없습니다.', {
+          documentId,
+          userId,
+        });
+      }
+
+      // 노트 계열 문서의 경우, 콘텐츠 타입 변화(Slate ↔ Draw)에 따라 mimeType도 동기화합니다.
+      // (application/vnd.arc.note+plate | application/vnd.arc.note+draw 등)
+      const currentMime = doc.mimeType ?? undefined;
+      const isNoteMime =
+        typeof currentMime === 'string' &&
+        currentMime.startsWith('application/vnd.arc.note+');
+      if (isNoteMime) {
         updates.mimeType = inferNoteMimeTypeFromContents(params.contents);
         updates.fileSize = null;
         updates.storageKey = null;
