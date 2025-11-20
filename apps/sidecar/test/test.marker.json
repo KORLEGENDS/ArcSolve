@@ -1,0 +1,587 @@
+{
+  "children": [
+    {
+      "id": "/page/0/Page/164",
+      "block_type": "Page",
+      "html": "<content-ref src='/page/0/PageHeader/0'></content-ref><content-ref src='/page/0/SectionHeader/1'></content-ref><content-ref src='/page/0/SectionHeader/2'></content-ref><content-ref src='/page/0/SectionHeader/3'></content-ref><content-ref src='/page/0/Text/4'></content-ref><content-ref src='/page/0/SectionHeader/5'></content-ref><content-ref src='/page/0/Text/6'></content-ref><content-ref src='/page/0/Text/7'></content-ref><content-ref src='/page/0/Text/8'></content-ref><content-ref src='/page/0/Text/9'></content-ref><content-ref src='/page/0/Text/10'></content-ref><content-ref src='/page/0/Footnote/11'></content-ref>",
+      "polygon": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          612.0,
+          0.0
+        ],
+        [
+          612.0,
+          792.0
+        ],
+        [
+          0.0,
+          792.0
+        ]
+      ],
+      "bbox": [
+        0.0,
+        0.0,
+        612.0,
+        792.0
+      ],
+      "children": [
+        {
+          "id": "/page/0/PageHeader/0",
+          "block_type": "PageHeader",
+          "html": "",
+          "polygon": [
+            [
+              15.837890625,
+              213.46875
+            ],
+            [
+              35.13999938964844,
+              213.46875
+            ],
+            [
+              35.13999938964844,
+              554.2599945068359
+            ],
+            [
+              15.837890625,
+              554.2599945068359
+            ]
+          ],
+          "bbox": [
+            15.837890625,
+            213.46875,
+            35.13999938964844,
+            554.2599945068359
+          ],
+          "children": null,
+          "section_hierarchy": {},
+          "images": {}
+        },
+        {
+          "id": "/page/0/SectionHeader/1",
+          "block_type": "SectionHeader",
+          "html": "<h2>GPT-4 Technical Report</h2>",
+          "polygon": [
+            [
+              216.72999572753906,
+              99.7734375
+            ],
+            [
+              395.27093505859375,
+              99.7734375
+            ],
+            [
+              395.27093505859375,
+              117.55926513671875
+            ],
+            [
+              216.72999572753906,
+              117.55926513671875
+            ]
+          ],
+          "bbox": [
+            216.72999572753906,
+            99.7734375,
+            395.27093505859375,
+            117.55926513671875
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/1"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/SectionHeader/2",
+          "block_type": "SectionHeader",
+          "html": "<h2>OpenAI→</h2>",
+          "polygon": [
+            [
+              287.173828125,
+              159.71484375
+            ],
+            [
+              327.23968505859375,
+              159.71484375
+            ],
+            [
+              327.23968505859375,
+              171.41827392578125
+            ],
+            [
+              287.173828125,
+              171.41827392578125
+            ]
+          ],
+          "bbox": [
+            287.173828125,
+            159.71484375,
+            327.23968505859375,
+            171.41827392578125
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/2"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/SectionHeader/3",
+          "block_type": "SectionHeader",
+          "html": "<h2>Abstract</h2>",
+          "polygon": [
+            [
+              282.09375,
+              201.09375
+            ],
+            [
+              328.2432861328125,
+              201.09375
+            ],
+            [
+              328.2432861328125,
+              213.12255859375
+            ],
+            [
+              282.09375,
+              213.12255859375
+            ]
+          ],
+          "bbox": [
+            282.09375,
+            201.09375,
+            328.2432861328125,
+            213.12255859375
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/3"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Text/4",
+          "block_type": "Text",
+          "html": "<p block-type=\"Text\"><span id=\"page-0-4\"></span><span id=\"page-0-3\"></span><span id=\"page-0-2\"></span><span id=\"page-0-1\"></span><span id=\"page-0-0\"></span>We report the development of GPT-4, a large-scale, multimodal model which can accept image and text inputs and produce text outputs. While less capable than humans in many real-world scenarios, GPT-4 exhibits human-level performance on various professional and academic benchmarks, including passing a simulated bar exam with a score around the top 10% of test takers. GPT-4 is a Transformerbased model pre-trained to predict the next token in a document. The post-training alignment process results in improved performance on measures of factuality and adherence to desired behavior. A core component of this project was developing infrastructure and optimization methods that behave predictably across a wide range of scales. This allowed us to accurately predict some aspects of GPT-4's performance based on models trained with no more than 1/1,000th the compute of GPT-4.</p>",
+          "polygon": [
+            [
+              142.2421875,
+              225.409423828125
+            ],
+            [
+              469.7837829589844,
+              225.409423828125
+            ],
+            [
+              469.7837829589844,
+              355.4102478027344
+            ],
+            [
+              142.2421875,
+              355.4102478027344
+            ]
+          ],
+          "bbox": [
+            142.2421875,
+            225.409423828125,
+            469.7837829589844,
+            355.4102478027344
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/3"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/SectionHeader/5",
+          "block_type": "SectionHeader",
+          "html": "<h2><span id=\"page-0-5\"></span>1 Introduction</h2>",
+          "polygon": [
+            [
+              108.0,
+              376.27734375
+            ],
+            [
+              190.8136749267578,
+              376.27734375
+            ],
+            [
+              190.8136749267578,
+              388.8955383300781
+            ],
+            [
+              108.0,
+              388.8955383300781
+            ]
+          ],
+          "bbox": [
+            108.0,
+            376.27734375,
+            190.8136749267578,
+            388.8955383300781
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Text/6",
+          "block_type": "Text",
+          "html": "<p block-type=\"Text\">This technical report presents GPT-4, a large multimodal model capable of processing image and text inputs and producing text outputs. Such models are an important area of study as they have the potential to be used in a wide range of applications, such as dialogue systems, text summarization, and machine translation. As such, they have been the subject of substantial interest and progress in recent years <a href=\"#page-0-0\">[1–</a><a href=\"#page-0-1\">34]</a>.</p>",
+          "polygon": [
+            [
+              106.3828125,
+              399.8671875
+            ],
+            [
+              505.6171875,
+              399.8671875
+            ],
+            [
+              505.6171875,
+              454.6502380371094
+            ],
+            [
+              106.3828125,
+              454.6502380371094
+            ]
+          ],
+          "bbox": [
+            106.3828125,
+            399.8671875,
+            505.6171875,
+            454.6502380371094
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Text/7",
+          "block_type": "Text",
+          "html": "<p block-type=\"Text\">One of the main goals of developing such models is to improve their ability to understand and generate natural language text, particularly in more complex and nuanced scenarios. To test its capabilities in such scenarios, GPT-4 was evaluated on a variety of exams originally designed for humans. In these evaluations it performs quite well and often outscores the vast majority of human test takers. For example, on a simulated bar exam, GPT-4 achieves a score that falls in the top 10% of test takers. This contrasts with GPT-3.5, which scores in the bottom 10%.</p>",
+          "polygon": [
+            [
+              107.578125,
+              460.1953125
+            ],
+            [
+              505.74249267578125,
+              460.1953125
+            ],
+            [
+              505.74249267578125,
+              525.584228515625
+            ],
+            [
+              107.578125,
+              525.584228515625
+            ]
+          ],
+          "bbox": [
+            107.578125,
+            460.1953125,
+            505.74249267578125,
+            525.584228515625
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Text/8",
+          "block_type": "Text",
+          "html": "<p block-type=\"Text\">On a suite of traditional NLP benchmarks, GPT-4 outperforms both previous large language models and most state-of-the-art systems (which often have benchmark-specific training or hand-engineering). On the MMLU benchmark <a href=\"#page-0-2\">[35,</a> <a href=\"#page-0-3\">36]</a>, an English-language suite of multiple-choice questions covering 57 subjects, GPT-4 not only outperforms existing models by a considerable margin in English, but also demonstrates strong performance in other languages. On translated variants of MMLU, GPT-4 surpasses the English-language state-of-the-art in 24 of 26 languages considered. We discuss these model capability results, as well as model safety improvements and results, in more detail in later sections.</p>",
+          "polygon": [
+            [
+              107.578125,
+              532.048828125
+            ],
+            [
+              505.73931884765625,
+              532.048828125
+            ],
+            [
+              505.73931884765625,
+              618.3362274169922
+            ],
+            [
+              107.578125,
+              618.3362274169922
+            ]
+          ],
+          "bbox": [
+            107.578125,
+            532.048828125,
+            505.73931884765625,
+            618.3362274169922
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Text/9",
+          "block_type": "Text",
+          "html": "<p block-type=\"Text\">This report also discusses a key challenge of the project, developing deep learning infrastructure and optimization methods that behave predictably across a wide range of scales. This allowed us to make predictions about the expected performance of GPT-4 (based on small runs trained in similar ways) that were tested against the final run to increase confidence in our training.</p>",
+          "polygon": [
+            [
+              106.3828125,
+              624.8466644287109
+            ],
+            [
+              505.6171875,
+              624.8466644287109
+            ],
+            [
+              505.6171875,
+              667.86328125
+            ],
+            [
+              106.3828125,
+              667.86328125
+            ]
+          ],
+          "bbox": [
+            106.3828125,
+            624.8466644287109,
+            505.6171875,
+            667.86328125
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Text/10",
+          "block_type": "Text",
+          "html": "<p block-type=\"Text\">Despite its capabilities, GPT-4 has similar limitations to earlier GPT models <a href=\"#page-0-0\">[1,</a> <a href=\"#page-0-4\">37,</a> <a href=\"#page-0-5\">38]</a>: it is not fully reliable (e.g. can suffer from \"hallucinations\"), has a limited context window, and does not learn</p>",
+          "polygon": [
+            [
+              106.3828125,
+              673.6640625
+            ],
+            [
+              504.3506164550781,
+              673.6640625
+            ],
+            [
+              504.3506164550781,
+              694.7966918945312
+            ],
+            [
+              106.3828125,
+              694.7966918945312
+            ]
+          ],
+          "bbox": [
+            106.3828125,
+            673.6640625,
+            504.3506164550781,
+            694.7966918945312
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        },
+        {
+          "id": "/page/0/Footnote/11",
+          "block_type": "Footnote",
+          "html": "<p><sup>→</sup>Please cite this work as \"OpenAI (2023)\". Full authorship contribution statements appear at the end of the document. Correspondence regarding this technical report can be sent to <a href=\"gpt4-report@openai.com\">gpt4-report@openai.com</a></p>",
+          "polygon": [
+            [
+              107.578125,
+              701.89453125
+            ],
+            [
+              504.421875,
+              701.89453125
+            ],
+            [
+              504.421875,
+              722.4017639160156
+            ],
+            [
+              107.578125,
+              722.4017639160156
+            ]
+          ],
+          "bbox": [
+            107.578125,
+            701.89453125,
+            504.421875,
+            722.4017639160156
+          ],
+          "children": null,
+          "section_hierarchy": {
+            "2": "/page/0/SectionHeader/5"
+          },
+          "images": {}
+        }
+      ],
+      "section_hierarchy": {
+        "2": "/page/0/SectionHeader/5"
+      },
+      "images": null
+    }
+  ],
+  "block_type": "Document",
+  "metadata": {
+    "table_of_contents": [
+      {
+        "title": "GPT-4 Technical Report",
+        "heading_level": null,
+        "page_id": 0,
+        "polygon": [
+          [
+            216.72999572753906,
+            99.7734375
+          ],
+          [
+            395.27093505859375,
+            99.7734375
+          ],
+          [
+            395.27093505859375,
+            117.55926513671875
+          ],
+          [
+            216.72999572753906,
+            117.55926513671875
+          ]
+        ]
+      },
+      {
+        "title": "OpenAI→",
+        "heading_level": null,
+        "page_id": 0,
+        "polygon": [
+          [
+            287.173828125,
+            159.71484375
+          ],
+          [
+            327.23968505859375,
+            159.71484375
+          ],
+          [
+            327.23968505859375,
+            171.41827392578125
+          ],
+          [
+            287.173828125,
+            171.41827392578125
+          ]
+        ]
+      },
+      {
+        "title": "Abstract",
+        "heading_level": null,
+        "page_id": 0,
+        "polygon": [
+          [
+            282.09375,
+            201.09375
+          ],
+          [
+            328.2432861328125,
+            201.09375
+          ],
+          [
+            328.2432861328125,
+            213.12255859375
+          ],
+          [
+            282.09375,
+            213.12255859375
+          ]
+        ]
+      },
+      {
+        "title": "1 Introduction",
+        "heading_level": null,
+        "page_id": 0,
+        "polygon": [
+          [
+            108.0,
+            376.27734375
+          ],
+          [
+            190.8136749267578,
+            376.27734375
+          ],
+          [
+            190.8136749267578,
+            388.8955383300781
+          ],
+          [
+            108.0,
+            388.8955383300781
+          ]
+        ]
+      }
+    ],
+    "page_stats": [
+      {
+        "page_id": 0,
+        "text_extraction_method": "pdftext",
+        "block_counts": [
+          [
+            "Span",
+            103
+          ],
+          [
+            "Line",
+            44
+          ],
+          [
+            "Text",
+            6
+          ],
+          [
+            "Reference",
+            6
+          ],
+          [
+            "SectionHeader",
+            4
+          ],
+          [
+            "PageHeader",
+            1
+          ],
+          [
+            "Footnote",
+            1
+          ]
+        ],
+        "block_metadata": {
+          "llm_request_count": 0,
+          "llm_error_count": 0,
+          "llm_tokens_used": 0,
+          "previous_text": "",
+          "previous_type": "",
+          "previous_order": 0
+        }
+      }
+    ],
+    "debug_data_path": "debug_data/test"
+  }
+}

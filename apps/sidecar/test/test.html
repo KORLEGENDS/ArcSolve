@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>ArcYou HTML Demo</title>
+  </head>
+  <body>
+    <header>
+      <h1>ArcYou HTML Demo 문서</h1>
+      <p>이 파일은 Marker + ArcYou 전처리 파이프라인의 HTML 처리 데모용 문서입니다.</p>
+    </header>
+
+    <main>
+      <section>
+        <h2>1. 목표</h2>
+        <p>
+          ArcYou는 사용자가 업로드한 다양한 형식의 문서를
+          <strong>마크다운 + 레이아웃 + 임베딩</strong> 구조로 변환하여
+          개인 지식 베이스로 저장하는 것을 목표로 합니다.
+        </p>
+      </section>
+
+      <section>
+        <h2>2. 지원 포맷 (데모 기준)</h2>
+        <ul>
+          <li>PDF (예: <code>test.pdf</code>)</li>
+          <li>이미지 (예: <code>test.png</code>)</li>
+          <li>HTML (현재 문서)</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3. RAG 관점에서의 활용</h2>
+        <p>
+          전처리된 마크다운은 LangChain 기반 RAG 에이전트에서
+          <em>DocumentChunk</em> 단위로 검색 및 재조합되어,
+          사용자의 질문에 대한 맞춤형 답변을 생성하는 데 사용됩니다.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>ArcYou Demo &copy; 2025</p>
+    </footer>
+  </body>
+</html>
+
+
+

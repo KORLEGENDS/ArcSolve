@@ -1,56 +1,26 @@
-# Core Framework
-fastapi
-uvicorn[standard]
-pydantic
+# SQLAlchemy and PostgreSQL
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
 
-# Database
-psycopg[binary]
-redis
+# pgvector support for PostgreSQL
+pgvector>=0.3.0
 
-# HTTP Clients
-httpx
-requests
+# Optional: async support (if using async SQLAlchemy)
+# asyncpg>=0.29.0
 
-# Observability
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-exporter-otlp-proto-grpc
+# Marker document parser (PDF / 이미지 / Office / HTML 등)
+marker-pdf
 
-# Cloud Storage
-boto3
+# HTML → PDF 변환 (Marker HTMLProvider 의존성)
+WeasyPrint>=62.0
 
-# LangChain & AI
-langchain
+# Chunking
 langchain-text-splitters
-langgraph
-langgraph-checkpoint-postgres
-sentence-transformers
-numpy
 tiktoken
 
+# Embedding
+sentence-transformers
 
-
-
-# Utilities
-python-dotenv
-
-# Development
-pytest
-pytest-asyncio
-black
-mypy
-ruff
-
-
-# parse
-marker-pdf==1.10.1
-transformers==4.57.0
-
-# Speech-to-text (로컬 엔진 제거됨)
-# (faster-whisper/ctranslate2/librosa/soundfile 제거)
-yt-dlp                   # 유튜브 오디오 다운로드
-youtube-transcript-api   # 유튜브 자막 JSON API
-
-
-# Fireworks Build SDK
-fireworks-ai
+# API (FastAPI 사이드카 서버)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
