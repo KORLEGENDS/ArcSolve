@@ -128,6 +128,23 @@ services:
       redis:
         condition: service_healthy
 
+  # --- Document Outbox Worker (문서 전처리용 잡 소비자) ---
+  outbox-worker-document:
+    build:
+      context: ..
+      dockerfile: apps/outbox-worker/Dockerfile
+    container_name: arcsolve-outbox-worker-document-dev
+    restart: unless-stopped
+    command: ["node", "dist/worker-document.js"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      SIDECAR_BASE_URL: ${SIDECAR_BASE_URL}
+      TZ: Asia/Seoul
+    depends_on:
+      pgbouncer:
+        condition: service_started
+
 volumes:
   arcsolve_postgres_data_dev: {}
   arcsolve_redis_data_dev: {}

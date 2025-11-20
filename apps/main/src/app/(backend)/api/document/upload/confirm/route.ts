@@ -1,17 +1,19 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
 import { BUCKET, r2Client } from '@/server/database/r2/client-r2';
+import { db } from '@/server/database/postgresql/client-postgresql';
 import {
-    getUploadProcess,
-    updateProcessStatus,
+  getUploadProcess,
+  updateProcessStatus,
 } from '@/server/database/r2/upload-process-r2';
 import {
   DocumentRepository,
   mapDocumentToDTO,
 } from '@/share/schema/repositories/document-repository';
+import { outbox } from '@/share/schema/drizzles';
 import {
-    documentUploadConfirmRequestSchema,
-    type DocumentUploadConfirmRequest,
+  documentUploadConfirmRequestSchema,
+  type DocumentUploadConfirmRequest,
 } from '@/share/schema/zod/document-upload-zod';
 import { auth } from '@auth';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
@@ -154,7 +156,28 @@ export async function POST(request: NextRequest) {
       storageKey: process.storageKey,
     });
 
+    // 업로드 프로세스 상태를 'uploaded' 로 전환
     await updateProcessStatus(process.processId, 'uploaded');
+
+    // 업로드가 정상 완료되었으므로, 전처리 파이프라인을 위한 job을 Outbox에 적재하고
+    // 문서의 processingStatus를 'pending' 으로 설정합니다.
+    await Promise.all([
+      repository.updateProcessingStatusForOwner({
+        documentId: document.documentId,
+        userId,
+        processingStatus: 'pending',
+      }),
+      db.insert(outbox).values({
+        type: 'document.preprocess.v1',
+        roomId: updated.documentId,
+        payload: {
+          kind: 'document.preprocess.v1',
+          documentId: updated.documentId,
+          userId,
+        },
+        // status / attempts / nextAttemptAt 는 outbox 스키마 기본값 사용
+      }),
+    ]);
 
     return ok(
       {
@@ -163,7 +186,7 @@ export async function POST(request: NextRequest) {
       {
         user: { id: userId, email: session.user.email || undefined },
         message: '파일 업로드가 완료되었습니다.',
-      }
+      },
     );
   } catch (err) {
     console.error('[POST /api/document/upload/confirm] Error:', err);

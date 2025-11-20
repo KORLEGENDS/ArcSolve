@@ -10,7 +10,7 @@
     "noEmit": false,
     "esModuleInterop": true
   },
-  "include": ["worker.ts", "worker-utils.ts"]
+  "include": ["worker.ts", "worker-utils.ts", "worker-arcyou-chat.ts", "worker-document.ts"]
 }
 
 

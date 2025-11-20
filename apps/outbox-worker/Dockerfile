@@ -7,6 +7,8 @@ COPY apps/main/tsconfig.json ./tsconfig.base.json
 COPY apps/outbox-worker/tsconfig.json ./tsconfig.json
 COPY apps/outbox-worker/worker.ts ./worker.ts
 COPY apps/outbox-worker/worker-utils.ts ./worker-utils.ts
+COPY apps/outbox-worker/worker-arcyou-chat.ts ./worker-arcyou-chat.ts
+COPY apps/outbox-worker/worker-document.ts ./worker-document.ts
 
 # tsconfig.json의 extends 경로 수정 (Docker 빌드 컨텍스트에 맞게)
 RUN sed -i 's|"extends": "../main/tsconfig.json"|"extends": "./tsconfig.base.json"|' tsconfig.json

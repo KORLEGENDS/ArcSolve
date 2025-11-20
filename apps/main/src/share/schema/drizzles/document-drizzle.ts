@@ -45,6 +45,13 @@ export const documentUploadStatusEnum = pgEnum('document_upload_status', [
   'upload_failed',
 ]);
 
+export const documentProcessingStatusEnum = pgEnum('document_processing_status', [
+  'pending',
+  'processing',
+  'processed',
+  'failed',
+]);
+
 export const documents = pgTable(
   'document',
   {
@@ -93,6 +100,15 @@ export const documents = pgTable(
     // 업로드 상태 (note/folder 등 비파일 문서는 기본적으로 'uploaded' 상태로 간주)
     uploadStatus: documentUploadStatusEnum('upload_status')
       .default('uploaded')
+      .notNull(),
+
+    /**
+     * 전처리(파싱/임베딩 등) 상태
+     * - 파일 업로드 이후, 백엔드 전처리 파이프라인의 진행 상태를 나타냅니다.
+     * - note/folder 등 비파일 문서는 생성 시점에 'processed' 로 간주할 수 있습니다.
+     */
+    processingStatus: documentProcessingStatusEnum('processing_status')
+      .default('pending')
       .notNull(),
 
     // points to the latest content version (nullable for empty documents)
@@ -235,6 +251,9 @@ export type NewDocument = typeof documents.$inferInsert;
 
 export type DocumentUploadStatus =
   (typeof documentUploadStatusEnum.enumValues)[number];
+
+export type DocumentProcessingStatus =
+  (typeof documentProcessingStatusEnum.enumValues)[number];
 
 export type DocumentContent = typeof documentContents.$inferSelect;
 export type NewDocumentContent = typeof documentContents.$inferInsert;

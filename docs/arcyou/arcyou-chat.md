@@ -54,6 +54,11 @@
       - `op:'rooms', event:'room.updated'`
       이벤트 전송
 
+Outbox 테이블은 채팅/문서가 공유하지만,
+- `worker-arcyou-chat` 는 `type NOT LIKE 'document.%'` 만 소비 (채팅 이벤트 전용),
+- `worker-document` 는 `type LIKE 'document.%'` 만 소비 (문서 전처리 전용)
+- 채팅 시나리오는 기존과 동일하게 Redis Pub/Sub → uws-gateway → WS 로 흘러간다는 점을 재확인.
+
 - Outbox 워커 (`apps/outbox-worker/worker.ts`)
   - `pending` → `in_progress` → 발행 성공 시 `published`, 실패 시 지수 백오프 재시도
   - `PUBSUB_MODE`에 따라 채널 `chat:message` 또는 `conv:{roomId}`

@@ -64,8 +64,15 @@ export async function claimBatch<T extends PgTableWithColumns<any>>(
   maxBatch: number,
   lockSeconds: number,
   workerId: string,
+  options?: {
+    includeTypePrefix?: string;
+    excludeTypePrefix?: string;
+  },
 ): Promise<OutboxRow[]> {
   // 하나의 트랜잭션에서 pending & due를 잠금 후 in_progress로 마킹
+
+  const includePrefix = options?.includeTypePrefix;
+  const excludePrefix = options?.excludeTypePrefix;
 
   return await db.transaction(async (tx) => {
     // FOR UPDATE SKIP LOCKED 를 쓸 수 있게 raw
@@ -77,6 +84,8 @@ export async function claimBatch<T extends PgTableWithColumns<any>>(
         FROM outbox
         WHERE status = 'pending'
           AND next_attempt_at <= NOW()
+          ${includePrefix ? sql`AND type LIKE ${includePrefix + '%'}` : sql``}
+          ${excludePrefix ? sql`AND type NOT LIKE ${excludePrefix + '%'}` : sql``}
         ORDER BY id ASC
         LIMIT ${sql.raw(String(maxBatch))}
         FOR UPDATE SKIP LOCKED

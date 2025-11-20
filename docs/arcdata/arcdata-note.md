@@ -53,6 +53,7 @@ ArcDataNote 컴포넌트 구조 정리 및 경로 수정이 완료되었고,
 
 - 이미지/파일 업로드는 `useUploadFile` 훅을 통해 **공통 Document 업로드 파이프라인**을 사용합니다.
   - 서버 측 플로우: `useDocumentUpload.requestUpload` → `getPresignedUploadUrl` → R2 `PUT` 업로드 → `confirmUpload` → `GET /api/document/[id]/download-url`
+  - 업로드 confirm 이후, 서버에서 자동으로 전처리 파이프라인을 태워 `processingStatus`를 업데이트한다. 현재 UI는 이 상태를 직접 보여주지 않지만, API 응답에는 포함되어 있다.
   - 최종 반환 타입:
     `UploadedFile = { documentId, name, size, type, url }`
     (`url`은 `/download-url`에서 받은 서명 URL)

@@ -31,7 +31,7 @@
 
 문서의 정체성과 계층 구조, 최신 콘텐츠 포인터를 관리합니다.
 
-```48:85:apps/main/src/share/schema/drizzles/document-drizzle.ts
+```55:124:apps/main/src/share/schema/drizzles/document-drizzle.ts
 export const documents = pgTable(
   'document',
   {
@@ -77,10 +77,23 @@ export const documents = pgTable(
      */
     storageKey: text('storage_key'),
 
+    // 업로드 상태 (note/folder 등 비파일 문서는 기본적으로 'uploaded' 상태로 간주)
     uploadStatus: documentUploadStatusEnum('upload_status')
       .default('uploaded')
       .notNull(),
+
+    /**
+     * 전처리(파싱/임베딩 등) 상태
+     * - 파일 업로드 이후, 백엔드 전처리 파이프라인의 진행 상태를 나타냅니다.
+     * - note/folder 등 비파일 문서는 생성 시점에 'processed' 로 간주할 수 있습니다.
+     */
+    processingStatus: documentProcessingStatusEnum('processing_status')
+      .default('pending')
+      .notNull(),
+
+    // points to the latest content version (nullable for empty documents)
     latestContentId: uuid('latest_content_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -90,13 +103,22 @@ export const documents = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => ({
+    // per-user unique path for non-deleted documents
     userPathUnique: uniqueIndex('document_user_id_path_deleted_null_idx')
       .on(table.userId, table.path)
       .where(sql`deleted_at IS NULL`),
+
+    // subtree queries on path (ltree)
     pathGistIdx: index('document_path_gist_idx').using('gist', table.path),
   })
 );
 ```
+
+#### 업로드 상태 vs 전처리 상태
+
+- `uploadStatus`: 파일이 스토리지에 올라갔는지 여부 (`pending/uploading/uploaded/upload_failed`)
+- `processingStatus`: 전처리(파싱/임베딩) 상태 (`pending/processing/processed/failed`)
+- note/folder/외부 리소스는 생성 시점에 바로 `processed` 로 간주하는 정책.
 
 ### 2.2 `document_content` 테이블
 
@@ -196,6 +218,10 @@ export class DocumentRepository {
 
 서버와 클라이언트가 공유하는 문서 메타 데이터 구조입니다.
 
+`DocumentRepository` 설명에 한 줄 추가:
+
+`updateProcessingStatusForOwner` 를 통해 전처리 상태를 업데이트하며, 파일 업로드 완료 후 Outbox 잡 생성과 함께 `pending` 으로 진입한다.
+
 ```ts
 export type DocumentDTO = {
   documentId: string;
@@ -209,6 +235,7 @@ export type DocumentDTO = {
   name: string;
   kind: 'folder' | 'document';
   uploadStatus: 'pending' | 'uploading' | 'uploaded' | 'upload_failed';
+  processingStatus: 'pending' | 'processing' | 'processed' | 'failed';
   /**
    * MIME 타입
    * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
@@ -272,7 +299,7 @@ export const documentUploadRequestSchema = z.object({
 - **업로드 3단계 (파일/노트 미디어 공통)**
   - `/api/document/upload/request` – 업로드 프로세스 생성 (documentId, processId 발급, `documents.kind = 'document'`, `uploadStatus = 'pending'`)
   - `/api/document/upload/presigned` – R2 업로드용 presigned URL 발급 (`uploadStatus = 'uploading'`)
-  - `/api/document/upload/confirm` – R2 객체 검증 후 `uploadStatus` → `uploaded`로 변경
+  - `/api/document/upload/confirm` – 업로드 검증 + `uploadStatus='uploaded'` + 전처리 잡(Outbox) 적재 + `processingStatus='pending'` 세팅
   - ArcManager의 파일 업로드뿐 아니라, **ArcDataNote 내 미디어(이미지/파일) 업로드도 이 파이프라인을 그대로 재사용**합니다.
     - 노트에서 첨부한 이미지/파일 역시 `document` 테이블에 **파일 문서(kind='document')** 로 저장되며,
     - Plate 노드 쪽에는 해당 파일 문서의 `download-url`(서명 URL)과 이름만 주입하여 렌더링합니다.
@@ -626,6 +653,16 @@ export function useDocumentDownloadUrl(
 - `useDocumentFolderCreate()` – 폴더 생성
 - `useDocumentYoutubeCreate()` – YouTube 문서 생성
 - `useDocumentCreate()` – 노트 문서 생성 (kind='note')
+
+---
+
+## 5.x 전처리 파이프라인 개요
+
+파일 업로드 완료 후, 백엔드에서 자동으로 실행되는 전처리(파싱/임베딩 등) 파이프라인입니다.
+
+- **순서**: 업로드 완료 → Outbox(`document.preprocess.v1`) → `worker-document` → 사이드카 → `processingStatus` `'processed'/'failed'`
+- **재시도 없음**: 실패 시 `failed/dead` 로 남기고 재시도하지 않음 (MVP 정책)
+- **사이드카 역할**: 파일 다운로드, 파싱/임베딩 수행, 성공/실패만 응답
 
 ---
 

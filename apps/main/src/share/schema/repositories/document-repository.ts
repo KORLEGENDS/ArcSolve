@@ -3,6 +3,7 @@ import { db as defaultDb } from '@/server/database/postgresql/client-postgresql'
 import type {
   Document,
   DocumentContent,
+  DocumentProcessingStatus,
   DocumentUploadStatus,
 } from '@/share/schema/drizzles';
 import { documentContents, documents } from '@/share/schema/drizzles';
@@ -94,6 +95,7 @@ export type DocumentDTO = {
   name: string;
   kind: Document['kind'];
   uploadStatus: DocumentUploadStatus;
+  processingStatus: DocumentProcessingStatus;
   mimeType: string | null;
   fileSize: number | null;
   storageKey: string | null;
@@ -111,6 +113,7 @@ export function mapDocumentToDTO(doc: Document): DocumentDTO {
     name: (doc as { name: string }).name,
     kind: doc.kind,
     uploadStatus: doc.uploadStatus,
+    processingStatus: doc.processingStatus,
     mimeType: doc.mimeType ?? null,
     fileSize: doc.fileSize ?? null,
     storageKey: doc.storageKey ?? null,
@@ -192,6 +195,7 @@ export class DocumentRepository {
           name: lastSegment,
           kind: 'folder',
           uploadStatus: 'uploaded',
+          processingStatus: 'processed',
           mimeType: null,
           fileSize: null,
           storageKey: null,
@@ -239,6 +243,7 @@ export class DocumentRepository {
         name: input.name,
         kind: 'folder',
         uploadStatus: 'uploaded',
+        processingStatus: 'processed',
         mimeType: null,
         fileSize: null,
         storageKey: null,
@@ -302,6 +307,7 @@ export class DocumentRepository {
           fileSize: input.fileSize,
           storageKey: input.storageKey,
           uploadStatus: 'pending',
+          processingStatus: 'pending',
         })
         .returning();
 
@@ -351,6 +357,7 @@ export class DocumentRepository {
           fileSize: null,
           storageKey: input.storageKey,
           uploadStatus: 'uploaded',
+          processingStatus: 'processed',
         })
         .returning();
 
@@ -406,6 +413,7 @@ export class DocumentRepository {
           name: input.name,
           kind: 'document',
           uploadStatus: 'uploaded',
+          processingStatus: 'processed',
           mimeType: noteMimeType,
           fileSize: null,
           storageKey: null,
@@ -734,6 +742,39 @@ export class DocumentRepository {
       .update(documents)
       .set(updates)
       .where(and(eq(documents.documentId, params.documentId), eq(documents.userId, params.userId)))
+      .returning();
+
+    if (!row) {
+      throwApi('NOT_FOUND', '문서를 찾을 수 없습니다.', {
+        documentId: params.documentId,
+        userId: params.userId,
+      });
+    }
+
+    return row;
+  }
+
+  /**
+   * 문서 전처리(파싱/임베딩 등) 상태를 업데이트합니다.
+   */
+  async updateProcessingStatusForOwner(params: {
+    documentId: string;
+    userId: string;
+    processingStatus: DocumentProcessingStatus;
+  }): Promise<Document> {
+    const [row] = await this.database
+      .update(documents)
+      .set({
+        processingStatus: params.processingStatus,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(documents.documentId, params.documentId),
+          eq(documents.userId, params.userId),
+          isNull(documents.deletedAt),
+        ),
+      )
       .returning();
 
     if (!row) {

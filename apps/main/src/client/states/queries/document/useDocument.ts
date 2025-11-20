@@ -10,6 +10,7 @@ import { queryKeys } from '@/share/libs/react-query/query-keys';
 import {
   documentQueryOptions,
   type DocumentDTO,
+  type DocumentContentDTO,
   type DocumentMoveMutationVariables,
 } from '@/share/libs/react-query/query-options';
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';

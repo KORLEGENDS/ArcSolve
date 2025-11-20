@@ -56,6 +56,9 @@ ArcWork 문서 시스템은 다음 네 가지 테이블을 중심으로 동작�
   - `upload_status (document_upload_status)`: 업로드 상태
     - `pending | uploading | uploaded | upload_failed`
     - `note/folder` 등 비파일 문서는 기본적으로 `uploaded`로 간주
+  - `processing_status (document_processing_status)`: 전처리(파싱/임베딩 등) 상태
+    - `pending | processing | processed | failed`
+    - 파일 업로드 후 전처리 파이프라인의 진행 상태를 나타냄, note/folder 등 비파일 문서는 생성 시점에 'processed'로 간주
   - `latest_content_id (uuid | null)`: FK → `document_content.document_content_id`
   - `created_at / updated_at / deleted_at`
 - **제약/인덱스**
@@ -564,6 +567,7 @@ export type DocumentDTO = {
   name: string;
   kind: 'folder' | 'document';
   uploadStatus: 'pending' | 'uploading' | 'uploaded' | 'upload_failed';
+  processingStatus: 'pending' | 'processing' | 'processed' | 'failed';
   mimeType: string | null;
   fileSize: number | null;
   storageKey: string | null;
@@ -571,6 +575,8 @@ export type DocumentDTO = {
   updatedAt: string;
 };
 ```
+
+클라이언트는 업로드 후 이 `processingStatus` 값을 사용해 '분석 중/완료/실패' 상태를 구분할 수 있다.
 
 - 문서 이동:
   - API: `PATCH /api/document/{documentId}/move`
@@ -596,6 +602,10 @@ export type DocumentDTO = {
 1. ArcWork factory에 `component === 'arcdata-document'` 분기 추가
 2. 해당 탭에서 ArcData 문서 뷰어 컴포넌트 렌더링
 3. 필요하면 탭 이름 변경 로직을 `useArcWorkTabNameUpdateAdapter`와 유사하게 도메인 rename API와 연결
+
+**문서 전처리 상태 처리:**
+- MVP 기준으로는 단순히 상태만 표현하고, 실제 제약/토스트는 추후 확장
+- `processingStatus !== 'processed'`인 문서의 경우 사용자에게 '분석 중' 또는 '분석 실패' 상태를 표시할 수 있음
 
 **문서 삭제 시**
 - ArcWork 자체는 삭제 후 탭 정리 로직을 가지지 않고,
