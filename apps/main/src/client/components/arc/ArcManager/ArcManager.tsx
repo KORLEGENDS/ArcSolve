@@ -1,7 +1,11 @@
 'use client';
 
 import { ArcManagerListItem as ArcManagerListItemComponent } from '@/client/components/arc/ArcManager/components/list/ArcManagerListItem';
-import { ArcManagerTree, type ArcManagerTreeItem } from '@/client/components/arc/ArcManager/components/tree';
+import {
+  ArcManagerTree,
+  type ArcManagerTreeItem,
+  type ArcManagerTreeProps,
+} from '@/client/components/arc/ArcManager/components/tree';
 import { useFileUpload } from '@/client/components/arc/ArcManager/hooks/useFileUpload';
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/client/components/ui/collapsible';
@@ -129,6 +133,37 @@ function buildBreadcrumbItems(
 function getParentPath(path: string): string {
   const parts = path.split('.').filter(Boolean);
   return parts.slice(0, -1).join('.');
+}
+
+type ArcManagerDragSourcePayload = {
+  source?: string;
+  id: string;
+  path: string;
+  itemType: 'folder' | 'item';
+};
+
+function parseArcManagerDragSource(
+  event: React.DragEvent<Element>,
+): ArcManagerDragSourcePayload | null {
+  const dt = event.dataTransfer;
+  if (!dt) return null;
+  const raw = dt.getData('application/x-arcmanager-item');
+  if (!raw) return null;
+
+  try {
+    const payload = JSON.parse(raw) as ArcManagerDragSourcePayload;
+    if (payload.source !== 'arcmanager') {
+      return null;
+    }
+
+    if (!payload.id || !payload.path) {
+      return null;
+    }
+
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 export function ArcManager(): React.ReactElement {
@@ -646,6 +681,71 @@ export function ArcManager(): React.ReactElement {
             return [];
           })();
 
+          const dragKind: 'file' | 'note' | null = isFileTab ? 'file' : isNotesTab ? 'note' : null;
+
+          const treeInteractionProps: Partial<ArcManagerTreeProps> = dragKind
+            ? {
+                onFolderEnter: (path: string) =>
+                  patchTabState(tab.value, { currentPath: path, isCollapsed: false }),
+                onItemDragStart: ({ item, event }) => {
+                  handleArcManagerItemDragStart({
+                    item,
+                    event,
+                    kind: dragKind,
+                  });
+                },
+                onItemDropOnRow: async ({ target, event }) => {
+                  try {
+                    const source = parseArcManagerDragSource(event);
+                    if (!source) return;
+
+                    const parentPath =
+                      target.itemType === 'item' ? getParentPath(target.path) : target.path;
+
+                    // 이동 전/후 부모 경로가 동일하면 서버 호출을 생략합니다.
+                    const sourceParentPath = getParentPath(source.path);
+                    if (parentPath === sourceParentPath) return;
+
+                    await move({ documentId: source.id, parentPath });
+                  } catch (err) {
+                    console.error('문서 이동 실패 (행 드롭):', err);
+                  }
+                },
+                onItemDropOnEmpty: async ({ event }) => {
+                  try {
+                    const source = parseArcManagerDragSource(event);
+                    if (!source) return;
+
+                    // 빈 영역 드롭은 현재 디렉토리로 이동합니다.
+                    const parentPath = currentPath;
+
+                    const sourceParentPath = getParentPath(source.path);
+                    if (parentPath === sourceParentPath) return;
+
+                    await move({ documentId: source.id, parentPath });
+                  } catch (err) {
+                    console.error('문서 이동 실패 (빈 영역 드롭):', err);
+                  }
+                },
+                onPlaceholderDrop: async ({ event }) => {
+                  try {
+                    const source = parseArcManagerDragSource(event);
+                    if (!source) return;
+
+                    // 플레이스홀더 드롭은 "현재 디렉토리의 최상위 위치"로 이동합니다.
+                    const parentPath = currentPath;
+
+                    const sourceParentPath = getParentPath(source.path);
+                    if (parentPath === sourceParentPath) return;
+
+                    await move({ documentId: source.id, parentPath });
+                  } catch (err) {
+                    console.error('문서 이동 실패 (플레이스홀더 드롭):', err);
+                  }
+                },
+              }
+            : {};
+
       return (
         <TabsContent key={tab.value} value={tab.value} className="flex-1 min-h-0 flex flex-col">
           <div className="px-2 py-2">
@@ -942,115 +1042,9 @@ export function ArcManager(): React.ReactElement {
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
                     <div>
-                      <ArcManagerTree
-                        items={treeItems}
-                        {...(isFileTab && {
-                          onFolderEnter: (path: string) =>
-                            patchTabState('files', { currentPath: path, isCollapsed: false }),
-                          onItemDragStart: ({ item, event }) => {
-                            handleArcManagerItemDragStart({
-                              item,
-                              event,
-                              kind: 'file',
-                            });
-                          },
-                          onItemDropOnRow: async ({ target, event }) => {
-                            try {
-                              const dt = event.dataTransfer;
-                              if (!dt) return;
-                              const raw = dt.getData('application/x-arcmanager-item');
-                              if (!raw) return;
-                              const source = JSON.parse(raw) as {
-                                source?: string;
-                                id: string;
-                                path: string;
-                                itemType: 'folder' | 'item';
-                              };
-                              if (source.source !== 'arcmanager') return;
-
-                              // 타겟이 파일이면 그 파일이 속한 폴더가 목적지,
-                              // 타겟이 폴더면 해당 폴더가 목적지입니다.
-                              let parentPath = '';
-                              if (target.itemType === 'item') {
-                                parentPath = getParentPath(target.path);
-                              } else {
-                                parentPath = target.path;
-                              }
-
-                              // 이동 전/후 부모 경로가 동일하면 서버 호출을 생략합니다.
-                              const sourceParentPath = getParentPath(source.path);
-                              if (parentPath === sourceParentPath) return;
-
-                              await move({ documentId: source.id, parentPath });
-                            } catch (err) {
-                              console.error('문서 이동 실패 (행 드롭):', err);
-                            }
-                          },
-                          onItemDropOnEmpty: async ({ event }) => {
-                            try {
-                              const dt = event.dataTransfer;
-                              if (!dt) return;
-                              const raw = dt.getData('application/x-arcmanager-item');
-                              if (!raw) return;
-                              const source = JSON.parse(raw) as {
-                                source?: string;
-                                id: string;
-                                path: string;
-                                itemType: 'folder' | 'item';
-                              };
-                              if (source.source !== 'arcmanager') return;
-
-                              // 빈 영역 드롭은 현재 디렉토리로 이동합니다.
-                              const parentPath = currentPath;
-
-                              // 이동 전/후 부모 경로가 동일하면 서버 호출을 생략합니다.
-                              const sourceParentPath = getParentPath(source.path);
-                              if (parentPath === sourceParentPath) return;
-
-                              await move({ documentId: source.id, parentPath });
-                            } catch (err) {
-                              console.error('문서 이동 실패 (빈 영역 드롭):', err);
-                            }
-                          },
-                          onPlaceholderDrop: async ({ event }) => {
-                            try {
-                              const dt = event.dataTransfer;
-                              if (!dt) return;
-                              const raw = dt.getData('application/x-arcmanager-item');
-                              if (!raw) return;
-                              const source = JSON.parse(raw) as {
-                                source?: string;
-                                id: string;
-                                path: string;
-                                itemType: 'folder' | 'item';
-                              };
-                              if (source.source !== 'arcmanager') return;
-
-                              // 플레이스홀더 드롭은 "현재 디렉토리의 최상위 위치"로 이동합니다.
-                              // 즉, 현재 디렉토리 바로 아래 레벨로 올립니다.
-                              const parentPath = currentPath;
-
-                              // 이동 전/후 부모 경로가 동일하면 서버 호출을 생략합니다.
-                              const sourceParentPath = getParentPath(source.path);
-                              if (parentPath === sourceParentPath) return;
-
-                              await move({ documentId: source.id, parentPath });
-                            } catch (err) {
-                              console.error('문서 이동 실패 (플레이스홀더 드롭):', err);
-                            }
-                          },
-                        })}
-                        {...(isNotesTab && {
-                          onFolderEnter: (path: string) =>
-                            patchTabState('notes', { currentPath: path, isCollapsed: false }),
-                          onItemDragStart: ({ item, event }) => {
-                            handleArcManagerItemDragStart({
-                              item,
-                              event,
-                              kind: 'note',
-                            });
-                          },
-                        })}
+                <ArcManagerTree
+                  items={treeItems}
+                        {...treeInteractionProps}
                         onItemContextMenu={({ item }) => {
                           setContextMenuTarget(item);
                         }}

@@ -105,6 +105,11 @@ export interface UseDocumentMoveReturn {
   moveError: unknown;
 }
 
+type DocumentsListQueryKey =
+  | ReturnType<typeof queryKeys.documents.listFiles>
+  | ReturnType<typeof queryKeys.documents.listNotes>
+  | ReturnType<typeof queryKeys.documents.listAll>;
+
 export interface UseDocumentFolderCreateReturn {
   createFolder: (input: { name: string; parentPath: string }) => Promise<DocumentDTO>;
   isCreating: boolean;
@@ -269,34 +274,43 @@ function applyDocumentMoveOptimistic(
  */
 export function useDocumentMove(): UseDocumentMoveReturn {
   const queryClient = useQueryClient();
+  const listQueryKeys: DocumentsListQueryKey[] = [
+    queryKeys.documents.listFiles(),
+    queryKeys.documents.listNotes(),
+    queryKeys.documents.listAll(),
+  ];
 
   const moveMutation = useMutation({
     mutationFn: documentQueryOptions.move.mutationFn,
     async onMutate(variables: DocumentMoveMutationVariables) {
-      const key = queryKeys.documents.listFiles();
+      const snapshots: Array<{ key: DocumentsListQueryKey; previous?: DocumentDTO[] }> = [];
 
-      // 관련 쿼리의 진행 중 refetch를 취소합니다.
-      await queryClient.cancelQueries({ queryKey: key });
+      // 각 문서 리스트 쿼리에 대해 refetch를 취소하고, 옵티미스틱 상태를 적용합니다.
+      for (const key of listQueryKeys) {
+        await queryClient.cancelQueries({ queryKey: key });
 
-      const previous = queryClient.getQueryData<DocumentDTO[]>(key);
-      if (!previous) {
-        return { previous: undefined as DocumentDTO[] | undefined };
+        const previous = queryClient.getQueryData<DocumentDTO[]>(key);
+        snapshots.push({ key, previous });
+
+        if (!previous) continue;
+        const updated = applyDocumentMoveOptimistic(previous, variables);
+        queryClient.setQueryData<DocumentDTO[]>(key, updated);
       }
 
-      const updated = applyDocumentMoveOptimistic(previous, variables);
-      queryClient.setQueryData<DocumentDTO[]>(key, updated);
-
-      return { previous };
+      return { snapshots };
     },
     onError(_error, _variables, context) {
-      const key = queryKeys.documents.listFiles();
-      if (context?.previous) {
-        queryClient.setQueryData<DocumentDTO[]>(key, context.previous);
+      if (!context?.snapshots) return;
+
+      for (const { key, previous } of context.snapshots) {
+        if (!previous) continue;
+        queryClient.setQueryData<DocumentDTO[]>(key, previous);
       }
     },
     onSettled() {
-      const key = queryKeys.documents.listFiles();
-      void queryClient.invalidateQueries({ queryKey: key });
+      for (const key of listQueryKeys) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
     },
   });
 

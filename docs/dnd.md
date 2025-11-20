@@ -33,6 +33,10 @@ ArcWork(flexlayout 기반)는 두 가지 방식으로 외부 DnD를 처리할 �
 
 ArcManager에서 아이템을 드래그할 때는 다음 두 가지 payload를 설정한다.
 
+ArcManager 트리에서는 드래그 소스가 어느 탭(파일/노트)이든 동일한 payload를 설정하며,
+ArcManager 상위 컴포넌트에서 공통 드랍 핸들러(`onItemDropOnRow` 등)를 통해 폴더 이동을 처리한다.
+이로써 파일 탭과 노트 탭 모두에서 동일한 DnD 동작이 보장된다.
+
 - **ArcWork 탭용 payload**
 
 ```ts
@@ -87,10 +91,13 @@ ArcWork 탭 생성은 **항상 external drag(`onExternalDrag`) 경로에서만 �
   3. 찾았으면:  
      → **ArcWork 탭 생성/이동 로직을 실행하지 않고**, `undefined`를 반환한다.  
      → 이 경우 드롭은 해당 컴포넌트의 `onDrop` 핸들러에서 처리된다.
-  4. 찾지 못했으면:  
+  4. 찾지 못했으면:
      → 기존대로 `application/x-arcwork-tab` payload를 읽어 탭을 생성/이동한다.
 
 이로써 **전역 플래그 없이도 특정 컴포넌트가 ArcWork 탭 생성보다 드롭 처리를 우선할 수 있다.**
+
+참고: ArcManager 내부 드랍(폴더 이동 등)은 `application/x-arcmanager-item` MIME만 검사하므로,
+Drop Sink 정책과 무관하게 언제나 작동하며, ArcWork 탭 생성과 동시에 발생할 수 있다.
 
 ---
 
@@ -168,6 +175,9 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     - `onDrop`에서 `application/x-arcmanager-item`를 직접 처리한다.
     - 이 경우 ArcWork는 탭을 생성/이동하지 않는다.
 
-이 정책을 기준으로, 새로운 DnD 기능(예: 다른 도메인 탭에서 ArcManager 아이템을 받아서 렌더링하는 기능)을 설계할 때도  
+이 정책을 기준으로, 새로운 DnD 기능(예: 다른 도메인 탭에서 ArcManager 아이템을 받아서 렌더링하는 기능)을 설계할 때도
 **“기본은 탭 생성, 필요 시 Drop Sink로 로컬 우선 처리”**라는 패턴을 일관되게 적용한다.
+
+이동 완료 후 React Query 캐시(listFiles/listNotes/listAll)가 동시에 옵티미스틱하게 갱신되므로,
+ArcManager 트리가 즉시 반영된다.
 

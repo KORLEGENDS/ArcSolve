@@ -299,7 +299,8 @@ export const documentQueryOptions = {
   - ArcManager 파일 탭이 사용하는 파일/폴더 목록
 - `useDocumentMove`
   - `documentQueryOptions.move` 기반
-  - **옵티미스틱 업데이트 + 부분 캐시 갱신을 포함**
+  - **옵티미스틱 업데이트 + 전체 캐시 갱신을 포함**
+  - `listFiles`, `listNotes`, `listAll` 키에 대해 동시에 옵티미스틱 적용/롤백/invalidate를 수행하므로, 파일/노트 탭 모두에서 이동 즉시 UI 반영
 - `useDocumentFolderCreate`
   - 새 폴더 생성용 mutation
 
@@ -525,6 +526,7 @@ function createCommonActionsForArcManagerItem(
   - **옵션 버튼(우측 아이콘)**
   모두에서 동일한 컨텍스트 메뉴 구성을 재사용할 수 있고,
   삭제/열기 등 공통 동작은 ArcManager 내부의 한 함수에서만 관리됩니다.
+  - 노트 탭에서도 동일한 핸들러가 작동하며, ArcWork 탭 닫기 및 캐시 정리가 일관적으로 동작합니다.
 
 ---
 
