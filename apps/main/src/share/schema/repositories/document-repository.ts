@@ -83,6 +83,42 @@ function normalizeLtreePath(rawPath: string): string {
   return labels.join('.');
 }
 
+/**
+ * 서버에서 외부로 노출하는 공통 Document DTO
+ * - 클라이언트의 DocumentDTO(JSON 구조)와 동일한 형태를 가집니다.
+ */
+export type DocumentDTO = {
+  documentId: string;
+  userId: string;
+  path: string;
+  name: string;
+  kind: Document['kind'];
+  uploadStatus: DocumentUploadStatus;
+  mimeType: string | null;
+  fileSize: number | null;
+  storageKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function mapDocumentToDTO(doc: Document): DocumentDTO {
+  return {
+    documentId: doc.documentId,
+    userId: doc.userId,
+    // Drizzle ltree 타입은 런타임에서 문자열로 직렬화됩니다.
+    path: doc.path as unknown as string,
+    // name 필드는 Drizzle 타입에 포함되지 않아 캐스팅을 통해 접근합니다.
+    name: (doc as { name: string }).name,
+    kind: doc.kind,
+    uploadStatus: doc.uploadStatus,
+    mimeType: doc.mimeType ?? null,
+    fileSize: doc.fileSize ?? null,
+    storageKey: doc.storageKey ?? null,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+  };
+}
+
 export type CreatePendingFileInput = {
   documentId: string;
   userId: string;

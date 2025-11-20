@@ -24,7 +24,7 @@ export function ArcDataDrawHost({
 }: ArcDataDrawHostProps): React.ReactElement | null {
   const { data, isLoading, isError } = useDocumentContent(documentId);
 
-  const contents = (data as { contents?: EditorContent | null } | undefined)?.contents ?? null;
+  const contents = data?.contents ?? null;
 
   if (isError || isLoading) {
     return null;

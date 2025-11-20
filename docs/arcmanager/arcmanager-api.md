@@ -34,15 +34,20 @@ ArcManager는 ArcSolve 내에서 **문서(파일/폴더) 트리를 탐색하고 
 - `path`: ltree 경로 (예: `project.sub_folder.file_pdf`)
 - `userId`: 사용자별 네임스페이스
 
-```43:88:apps/main/src/share/schema/drizzles/document-drizzle.ts
+```48:85:apps/main/src/share/schema/drizzles/document-drizzle.ts
 export const documents = pgTable(
   'document',
   {
-    documentId: uuid('document_id').primaryKey().notNull().defaultRandom(),
+    documentId: uuid('document_id')
+      .primaryKey()
+      .notNull()
+      .defaultRandom(),
     userId: uuid('user_id').notNull(),
     path: ltree('path').notNull(),
     kind: documentKindEnum('kind').notNull(),
-    fileMeta: jsonb('file_meta'),
+    mimeType: text('mime_type'),
+    fileSize: bigint('file_size', { mode: 'number' }),
+    storageKey: text('storage_key'),
     uploadStatus: documentUploadStatusEnum('upload_status')
       .default('uploaded')
       .notNull(),
@@ -594,9 +599,9 @@ const handleArcManagerItemDragStart = React.useCallback(
       documentId: item.id,
     path: item.path,
       name: (item as { name?: string }).name ?? item.path,
-      kind: (docMeta?.kind as 'file' | 'note' | 'folder') ?? kind,
+      kind: (docMeta?.kind as 'folder' | 'document') ?? kind,
     itemType: item.itemType,
-      mimeType: docMeta?.fileMeta?.mimeType ?? null,
+      mimeType: docMeta?.mimeType ?? null,
   };
 
     try {

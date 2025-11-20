@@ -1,6 +1,9 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+  DocumentRepository,
+  mapDocumentToDTO,
+} from '@/share/schema/repositories/document-repository';
 import type { DocumentFolderCreateRequest } from '@/share/schema/zod/document-upload-zod';
 import { documentFolderCreateRequestSchema } from '@/share/schema/zod/document-upload-zod';
 import { auth } from '@auth';
@@ -40,19 +43,7 @@ export async function POST(request: NextRequest) {
 
     return ok(
       {
-        document: {
-          documentId: folder.documentId,
-          userId: folder.userId,
-          path: folder.path as unknown as string,
-          name: (folder as { name: string }).name,
-          kind: folder.kind,
-          uploadStatus: folder.uploadStatus,
-          mimeType: folder.mimeType ?? null,
-          fileSize: folder.fileSize ?? null,
-          storageKey: folder.storageKey ?? null,
-          createdAt: folder.createdAt.toISOString(),
-          updatedAt: folder.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(folder),
       },
       {
         user: { id: userId, email: session.user.email || undefined },

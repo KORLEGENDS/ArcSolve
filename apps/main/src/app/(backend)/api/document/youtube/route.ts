@@ -1,6 +1,9 @@
 import { ApiException, throwApi } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+  DocumentRepository,
+  mapDocumentToDTO,
+} from '@/share/schema/repositories/document-repository';
 import {
   type YoutubeDocumentCreateRequest,
   youtubeDocumentCreateRequestSchema,
@@ -54,19 +57,7 @@ export async function POST(request: NextRequest) {
 
     return ok(
       {
-        document: {
-          documentId: created.documentId,
-          userId: created.userId,
-          path: created.path,
-          name: (created as { name: string }).name,
-          kind: created.kind,
-          uploadStatus: created.uploadStatus,
-          mimeType: created.mimeType ?? null,
-          fileSize: created.fileSize ?? null,
-          storageKey: created.storageKey ?? null,
-          createdAt: created.createdAt.toISOString(),
-          updatedAt: created.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(created),
       },
       {
         user: {

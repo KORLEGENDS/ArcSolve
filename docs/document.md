@@ -9,8 +9,19 @@
 - 콘텐츠 타입: `mimeType` – note/draw/pdf/youtube 등 실제 비즈니스 타입은 전부 mimeType으로 구분
 - 경로: `path (ltree)` – 사용자 네임스페이스 내 트리 구조 (ASCII slug, transliteration 기반)
 - 콘텐츠: `document_content` – 버전 단위 JSON
-- 파일 메타/다운로드: `fileMeta + /api/document/[id]/download-url`
+- 파일 메타/다운로드: `mimeType/fileSize/storageKey + /api/document/[id]/download-url`
 - 노트 콘텐츠: Plate/Draw JSON (`noteContentSchema` – `application/vnd.arc.note+plate` / `application/vnd.arc.note+draw`)
+
+**"kind" 개념 레벨 구분:**
+
+- **DB 스키마 레벨**: `documents.kind = 'folder' | 'document'`
+  - 폴더 vs 리프(파일/노트 등) 구조만 담당
+  - 실제 타입(노트/드로우/PDF/YouTube)은 `mimeType`으로 구분
+- **API 뷰 필터 레벨**: `GET /api/document?kind=file|note|all`
+  - ArcWork/ArcManager의 "파일 탭 / 노트 탭 / 전체"를 위한 UX 필터
+  - `kind=file`: 폴더 + note가 아닌 리프 (file-like)
+  - `kind=note`: 폴더 + note 리프 (note-like)
+  - `kind=all`: 전체 문서
 
 ---
 
@@ -20,22 +31,62 @@
 
 문서의 정체성과 계층 구조, 최신 콘텐츠 포인터를 관리합니다.
 
-```43:85:apps/main/src/share/schema/drizzles/document-drizzle.ts
+```48:85:apps/main/src/share/schema/drizzles/document-drizzle.ts
 export const documents = pgTable(
   'document',
   {
-    documentId: uuid('document_id').primaryKey().notNull().defaultRandom(),
+    documentId: uuid('document_id')
+      .primaryKey()
+      .notNull()
+      .defaultRandom(),
+
+    // owner (tenant 기준)
     userId: uuid('user_id').notNull(),
+
+    /**
+     * 표시용 문서 이름
+     * - path는 ltree용 slug 경로이므로, 실제 UI에서는 항상 name을 사용합니다.
+     * - name은 UTF-8 전체 범위를 허용하며, 한글/이모지 등도 그대로 저장합니다.
+     */
     name: text('name'),
+
+    // hierarchical path within the user's namespace
     path: ltree('path').notNull(),
-    kind: documentKindEnum('kind').notNull(),              // 'folder' | 'document' (폴더/리프 구조 정보)
-    fileMeta: jsonb('file_meta'),                          // 파일/외부 리소스 등 문서 전용 메타
+
+    kind: documentKindEnum('kind').notNull(),
+
+    /**
+     * MIME 타입
+     * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
+     * - note 문서: 노트 타입 구분 (예: 'application/vnd.arc.note+plate', 'application/vnd.arc.note+draw')
+     * - folder 문서: null
+     */
+    mimeType: text('mime_type'),
+
+    /**
+     * 파일 크기 (bytes)
+     * - file 문서: 실제 파일 크기
+     * - note/folder 문서: null
+     */
+    fileSize: bigint('file_size', { mode: 'number' }),
+
+    /**
+     * 스토리지 키 또는 외부 URL
+     * - file 문서: R2 스토리지 키 또는 외부 URL (예: YouTube URL)
+     * - note/folder 문서: null
+     */
+    storageKey: text('storage_key'),
+
     uploadStatus: documentUploadStatusEnum('upload_status')
       .default('uploaded')
-      .notNull(),                                          // pending/uploading/uploaded/failed
-    latestContentId: uuid('latest_content_id'),            // 최신 document_content FK
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+      .notNull(),
+    latestContentId: uuid('latest_content_id'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => ({
@@ -135,18 +186,62 @@ export class DocumentRepository {
 
   // 문서 삭제 (hard delete + FK cascade)
   async deleteDocumentForOwner(params: { documentId: string; userId: string }): Promise<void> { … }
+
+  // 서버 공통 DTO 매퍼
+  mapDocumentToDTO(doc: Document): DocumentDTO { … }
 }
 ```
 
-핵심 포인트:
+### 3.1 서버/클라 공통 DocumentDTO
 
-- **경로 정책**: `toLtreeLabel` / `normalizeLtreePath`로 ltree에 안전한 path를 생성  
-  - UI에 표시되는 이름은 `Document.name`(UTF-8 전체 범위)에서 관리하고,  
-  - `path`는 항상 **transliteration 기반 ASCII slug** 로만 구성합니다.  
-  - 예: `"새 그림"` → `"sae-geurim"` → `sae_geurim` (ltree 라벨)
-- **폴더 보장**: 파일/노트 생성 시 부모 경로에 폴더 문서가 없으면 자동 생성
-- **구조/타입 분리**: DB `kind`는 `'folder' | 'document'`로 폴더/리프 구조만 표현하고, 실제 노트/드로우/PDF/YouTube 등의 동작은 모두 `mimeType` 기반으로 분기합니다.
-- **`deleteDocumentForOwner`**는 `documents` 테이블에서 해당 문서를 **실제 삭제(hard delete)** 하며, `document-drizzle.ts`의 FK 설정(`onDelete: 'cascade'`)에 의해 `document_content.document_id`, `document_relation.base_document_id/related_document_id`, `document_chunk.document_content_id`에 매달린 행도 함께 삭제됩니다.
+서버와 클라이언트가 공유하는 문서 메타 데이터 구조입니다.
+
+```ts
+export type DocumentDTO = {
+  documentId: string;
+  userId: string;
+  path: string;
+  /**
+   * 표시용 문서 이름
+   * - 서버에서 항상 non-empty 문자열로 채워주며,
+   *   기존 데이터의 경우 path에서 파생된 fallback 이름이 사용될 수 있습니다.
+   */
+  name: string;
+  kind: 'folder' | 'document';
+  uploadStatus: 'pending' | 'uploading' | 'uploaded' | 'upload_failed';
+  /**
+   * MIME 타입
+   * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
+   * - note 문서: 노트 타입 구분 (예: 'application/vnd.arc.note+plate', 'application/vnd.arc.note+draw')
+   * - folder 문서: null
+   */
+  mimeType: string | null;
+  /**
+   * 파일 크기 (bytes)
+   * - file 문서: 실제 파일 크기
+   * - note/folder 문서: null
+   */
+  fileSize: number | null;
+  /**
+   * 스토리지 키 또는 외부 URL
+   * - file 문서: R2 스토리지 키 또는 외부 URL (예: YouTube URL)
+   * - note/folder 문서: null
+   */
+  storageKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+```
+
+**특징:**
+- 서버 `mapDocumentToDTO()`가 **모든 `/api/document*` 응답을 이 구조로 정규화**
+- 클라이언트 `documentQueryOptions`가 이 DTO를 기반으로 타입 안전성 보장
+- `Date` 객체는 ISO 문자열로 변환하여 전송
+- 폴더 문서는 `mimeType/fileSize/storageKey = null`
+
+---
+
+## 4. Zod 스키마 & API 모델
 
 ---
 

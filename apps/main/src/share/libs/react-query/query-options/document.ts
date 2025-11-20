@@ -3,6 +3,24 @@
  */
 
 import { TIMEOUT } from '@/share/configs/constants/time-constants';
+import type {
+  DocumentContentResponse,
+  DocumentCreateRequest,
+  DocumentMetaUpdateRequest,
+} from '@/share/schema/zod/document-note-zod';
+import {
+  documentContentResponseSchema,
+  documentContentUpdateRequestSchema,
+  documentCreateRequestSchema,
+  documentMetaUpdateRequestSchema,
+} from '@/share/schema/zod/document-note-zod';
+import type {
+  DocumentDownloadUrlResponse,
+  DocumentUploadConfirmRequest,
+  DocumentUploadPresignRequest,
+  DocumentUploadRequest,
+  DocumentUploadRequestResponse,
+} from '@/share/schema/zod/document-upload-zod';
 import {
   documentDownloadUrlResponseSchema,
   documentFolderCreateRequestSchema,
@@ -12,27 +30,9 @@ import {
   documentUploadRequestSchema,
 } from '@/share/schema/zod/document-upload-zod';
 import {
-  documentContentResponseSchema,
-  documentContentUpdateRequestSchema,
-  documentCreateRequestSchema,
-  documentMetaUpdateRequestSchema,
-} from '@/share/schema/zod/document-note-zod';
-import {
   type YoutubeDocumentCreateRequest,
   youtubeDocumentCreateRequestSchema,
 } from '@/share/schema/zod/document-youtube-zod';
-import type {
-  DocumentDownloadUrlResponse,
-  DocumentUploadConfirmRequest,
-  DocumentUploadPresignRequest,
-  DocumentUploadRequest,
-  DocumentUploadRequestResponse,
-} from '@/share/schema/zod/document-upload-zod';
-import type {
-  DocumentContentResponse,
-  DocumentCreateRequest,
-  DocumentMetaUpdateRequest,
-} from '@/share/schema/zod/document-note-zod';
 import { queryOptions } from '@tanstack/react-query';
 import { createApiMutation, createApiQueryOptions } from '../query-builder';
 import { queryKeys } from '../query-keys';
@@ -115,6 +115,25 @@ export type DocumentContentDTO = DocumentContentResponse;
 export type DocumentDetailResponse = {
   document: DocumentDTO;
 };
+
+const createDocumentListQueryOptions = (params: {
+  kind: 'file' | 'note' | 'all';
+  queryKey:
+    | ReturnType<typeof queryKeys.documents.listFiles>
+    | ReturnType<typeof queryKeys.documents.listNotes>
+    | ReturnType<typeof queryKeys.documents.listAll>;
+}) =>
+  queryOptions({
+    queryKey: params.queryKey,
+    ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
+      `/api/document?kind=${params.kind}`,
+      (data) => data.documents,
+      {
+        staleTime: TIMEOUT.CACHE.SHORT,
+        gcTime: TIMEOUT.CACHE.MEDIUM,
+      },
+    ),
+  });
 
 export const documentQueryOptions = {
   uploadRequest: createApiMutation<
@@ -223,48 +242,27 @@ export const documentQueryOptions = {
    * 현재 사용자 기준 file 문서 목록 조회
    */
   listFiles: () =>
-    queryOptions({
+    createDocumentListQueryOptions({
+      kind: 'file',
       queryKey: queryKeys.documents.listFiles(),
-      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
-        '/api/document?kind=file',
-        (data) => data.documents,
-        {
-          staleTime: TIMEOUT.CACHE.SHORT,
-          gcTime: TIMEOUT.CACHE.MEDIUM,
-        }
-      ),
     }),
 
   /**
    * 현재 사용자 기준 note 문서 목록 조회
    */
   listNotes: () =>
-    queryOptions({
+    createDocumentListQueryOptions({
+      kind: 'note',
       queryKey: queryKeys.documents.listNotes(),
-      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
-        '/api/document?kind=note',
-        (data) => data.documents,
-        {
-          staleTime: TIMEOUT.CACHE.SHORT,
-          gcTime: TIMEOUT.CACHE.MEDIUM,
-        },
-      ),
     }),
 
   /**
    * 현재 사용자 기준 모든 kind 문서 목록 조회
    */
   listAll: () =>
-    queryOptions({
+    createDocumentListQueryOptions({
+      kind: 'all',
       queryKey: queryKeys.documents.listAll(),
-      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
-        '/api/document?kind=all',
-        (data) => data.documents,
-        {
-          staleTime: TIMEOUT.CACHE.SHORT,
-          gcTime: TIMEOUT.CACHE.MEDIUM,
-        },
-      ),
     }),
 
   /**

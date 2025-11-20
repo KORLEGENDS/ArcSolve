@@ -1,6 +1,9 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+  DocumentRepository,
+  mapDocumentToDTO,
+} from '@/share/schema/repositories/document-repository';
 import type { DocumentMoveRequest } from '@/share/schema/zod/document-upload-zod';
 import { documentMoveRequestSchema } from '@/share/schema/zod/document-upload-zod';
 import { uuidSchema } from '@/share/schema/zod/base-zod';
@@ -56,19 +59,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return ok(
       {
-        document: {
-          documentId: moved.documentId,
-          userId: moved.userId,
-          path: moved.path as unknown as string,
-          name: (moved as { name: string }).name,
-          kind: moved.kind,
-          uploadStatus: moved.uploadStatus,
-          mimeType: moved.mimeType ?? null,
-          fileSize: moved.fileSize ?? null,
-          storageKey: moved.storageKey ?? null,
-          createdAt: moved.createdAt.toISOString(),
-          updatedAt: moved.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(moved),
       },
       {
         user: { id: userId, email: session.user.email || undefined },

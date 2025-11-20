@@ -5,7 +5,10 @@ import {
     getUploadProcess,
     updateProcessStatus,
 } from '@/server/database/r2/upload-process-r2';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+  DocumentRepository,
+  mapDocumentToDTO,
+} from '@/share/schema/repositories/document-repository';
 import {
     documentUploadConfirmRequestSchema,
     type DocumentUploadConfirmRequest,
@@ -155,19 +158,7 @@ export async function POST(request: NextRequest) {
 
     return ok(
       {
-        document: {
-          documentId: updated.documentId,
-          userId: updated.userId,
-          path: updated.path,
-          name: (updated as { name: string }).name,
-          kind: updated.kind,
-          uploadStatus: updated.uploadStatus,
-          mimeType: updated.mimeType ?? null,
-          fileSize: updated.fileSize ?? null,
-          storageKey: updated.storageKey ?? null,
-          createdAt: updated.createdAt.toISOString(),
-          updatedAt: updated.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(updated),
       },
       {
         user: { id: userId, email: session.user.email || undefined },

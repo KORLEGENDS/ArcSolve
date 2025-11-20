@@ -1,6 +1,9 @@
 import { ApiException, throwApi } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+  DocumentRepository,
+  mapDocumentToDTO,
+} from '@/share/schema/repositories/document-repository';
 import { documentCreateRequestSchema, type DocumentCreateRequest } from '@/share/schema/zod/document-note-zod';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
@@ -68,20 +71,7 @@ export async function GET(request: NextRequest) {
 
     return ok(
       {
-        documents: documents.map((doc) => ({
-          documentId: doc.documentId,
-          userId: doc.userId,
-          path: doc.path,
-          // name은 항상 DB에 저장된 값을 그대로 사용합니다.
-          name: (doc as { name: string }).name,
-          kind: doc.kind,
-          uploadStatus: doc.uploadStatus,
-          mimeType: doc.mimeType ?? null,
-          fileSize: doc.fileSize ?? null,
-          storageKey: doc.storageKey ?? null,
-          createdAt: doc.createdAt.toISOString(),
-          updatedAt: doc.updatedAt.toISOString(),
-        })),
+        documents: documents.map((doc) => mapDocumentToDTO(doc)),
       },
       {
         user: { id: userId, email: session.user.email || undefined },
@@ -150,19 +140,7 @@ export async function POST(request: NextRequest) {
 
     return ok(
       {
-        document: {
-          documentId: created.documentId,
-          userId: created.userId,
-          path: created.path as unknown as string,
-          name: (created as { name: string }).name,
-          kind: created.kind,
-          uploadStatus: created.uploadStatus,
-          mimeType: created.mimeType ?? null,
-          fileSize: created.fileSize ?? null,
-          storageKey: created.storageKey ?? null,
-          createdAt: created.createdAt.toISOString(),
-          updatedAt: created.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(created),
       },
       {
         user: {

@@ -42,9 +42,17 @@ ArcWork 문서 시스템은 다음 네 가지 테이블을 중심으로 동작�
   - `document_id (uuid, PK)`
   - `user_id (uuid)`: 문서 owner (tenant 기준)
   - `path (ltree)`: 유저 네임스페이스 내 계층 경로
-  - `kind (document_kind)`: `note | file | folder`
-  - `file_meta (jsonb | null)`: 파일 문서(`kind = 'file'`)에 대한 메타데이터
-    - 예: `{ mimeType: 'application/pdf', fileSize: 12345, storageKey: 'users/{userId}/documents/{documentId}' }`
+  - `kind (document_kind)`: `'folder' | 'document'` (폴더/리프 구조만 표현)
+  - `mimeType (text | null)`: 실제 비즈니스 타입 (노트/드로우/PDF/YouTube 등)
+    - file 문서: `'application/pdf'`, `'video/youtube'` 등 실제 파일 MIME
+    - note 문서: `'application/vnd.arc.note+plate'`, `'application/vnd.arc.note+draw'`
+    - folder 문서: `null`
+  - `fileSize (bigint | null)`: 파일 크기 (bytes)
+    - file 문서: 실제 파일 크기
+    - note/folder 문서: `null`
+  - `storageKey (text | null)`: 스토리지 키 또는 외부 URL
+    - file 문서: R2 키 또는 YouTube URL 등
+    - note/folder 문서: `null`
   - `upload_status (document_upload_status)`: 업로드 상태
     - `pending | uploading | uploaded | upload_failed`
     - `note/folder` 등 비파일 문서는 기본적으로 `uploaded`로 간주
@@ -541,11 +549,28 @@ ArcData 문서 탭 역시 동일 패턴을 따릅니다.
 
 - 문서 목록/트리 데이터:
   - API: `GET /api/document?kind=file`
-    - 응답: `{ documents: { documentId, userId, path, kind, uploadStatus, fileMeta, createdAt, updatedAt }[] }`
+    - 응답: `{ documents: DocumentDTO[] }` (서버 `mapDocumentToDTO`로 정규화된 형태)
   - React Query 옵션: `documentQueryOptions.listFiles()`
   - 훅: `useDocumentFiles()` (`apps/main/src/client/states/queries/document/useDocument.ts`)
     - 반환: `DocumentDTO[]`와 로딩/에러 상태
   - UI 예시: `ArcManager`의 files 탭에서 `useDocumentFiles()` → `path` 기반으로 `ArcManagerTreeItem[]` 트리 변환 후 렌더링
+
+**DocumentDTO 구조:**
+```ts
+export type DocumentDTO = {
+  documentId: string;
+  userId: string;
+  path: string;
+  name: string;
+  kind: 'folder' | 'document';
+  uploadStatus: 'pending' | 'uploading' | 'uploaded' | 'upload_failed';
+  mimeType: string | null;
+  fileSize: number | null;
+  storageKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+```
 
 - 문서 이동:
   - API: `PATCH /api/document/{documentId}/move`

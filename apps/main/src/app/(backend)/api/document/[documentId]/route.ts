@@ -1,6 +1,9 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import {
+  DocumentRepository,
+  mapDocumentToDTO,
+} from '@/share/schema/repositories/document-repository';
 import { documentMetaUpdateRequestSchema } from '@/share/schema/zod/document-note-zod';
 import { uuidSchema } from '@/share/schema/zod/base-zod';
 import { auth } from '@auth';
@@ -45,19 +48,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     return ok(
       {
-        document: {
-          documentId: document.documentId,
-          userId: document.userId,
-          path: document.path as unknown as string,
-          name: (document as { name: string }).name,
-          kind: document.kind,
-          uploadStatus: document.uploadStatus,
-          mimeType: document.mimeType ?? null,
-          fileSize: document.fileSize ?? null,
-          storageKey: document.storageKey ?? null,
-          createdAt: document.createdAt.toISOString(),
-          updatedAt: document.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(document),
       },
       {
         user: { id: userId, email: session.user.email || undefined },
@@ -125,19 +116,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return ok(
       {
-        document: {
-          documentId: updated.documentId,
-          userId: updated.userId,
-          path: updated.path as unknown as string,
-          name: (updated as { name: string }).name,
-          kind: updated.kind,
-          uploadStatus: updated.uploadStatus,
-          mimeType: updated.mimeType ?? null,
-          fileSize: updated.fileSize ?? null,
-          storageKey: updated.storageKey ?? null,
-          createdAt: updated.createdAt.toISOString(),
-          updatedAt: updated.updatedAt.toISOString(),
-        },
+        document: mapDocumentToDTO(updated),
       },
       {
         user: { id: userId, email: session.user.email || undefined },

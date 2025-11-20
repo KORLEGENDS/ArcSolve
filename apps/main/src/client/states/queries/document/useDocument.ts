@@ -69,7 +69,7 @@ export interface UseDocumentDetailReturn {
 }
 
 export interface UseDocumentContentReturn {
-  data: unknown;
+  data: DocumentContentDTO | undefined;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
@@ -431,53 +431,44 @@ export function useDocumentYoutubeCreate(): UseDocumentYoutubeCreateReturn {
   };
 }
 
+function createDocumentListHook(
+  getOptions: () => ReturnType<typeof documentQueryOptions.listFiles>,
+) {
+  return function useDocumentList(): UseDocumentFilesReturn {
+    const query = useQuery(getOptions());
+
+    const refetch = useCallback(
+      async () => {
+        const res = await query.refetch();
+        if (res.data) return res.data;
+        throw res.error ?? new Error('문서 목록을 불러오지 못했습니다.');
+      },
+      [query],
+    );
+
+    return {
+      data: query.data,
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+      refetch,
+    };
+  };
+}
+
 /**
  * 현재 사용자 기준 file 문서 목록 조회 훅
  */
-export function useDocumentFiles(): UseDocumentFilesReturn {
-  const query = useQuery(documentQueryOptions.listFiles());
-
-  const refetch = useCallback(
-    async () => {
-      const res = await query.refetch();
-      if (res.data) return res.data;
-      throw res.error ?? new Error('문서 목록을 불러오지 못했습니다.');
-    },
-    [query]
-  );
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    refetch,
-  };
-}
+export const useDocumentFiles = createDocumentListHook(
+  documentQueryOptions.listFiles,
+);
 
 /**
  * 현재 사용자 기준 note 문서 목록 조회 훅
  */
-export function useDocumentNotes(): UseDocumentFilesReturn {
-  const query = useQuery(documentQueryOptions.listNotes());
-
-  const refetch = useCallback(
-    async () => {
-      const res = await query.refetch();
-      if (res.data) return res.data;
-      throw res.error ?? new Error('문서 목록을 불러오지 못했습니다.');
-    },
-    [query],
-  );
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    refetch,
-  };
-}
+export const useDocumentNotes = createDocumentListHook(
+  documentQueryOptions.listNotes,
+);
 
 /**
  * 문서 삭제 훅

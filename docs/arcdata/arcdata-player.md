@@ -52,9 +52,9 @@ Player 관련 주요 구성요소는 다음과 같습니다.
 
 즉, **YouTube 문서는 DB에 다음과 같이 저장됩니다.**
 
-- `kind = 'file'`
-- `fileMeta.mimeType = 'video/youtube'`
-- `fileMeta.storageKey = 'https://www.youtube.com/watch?v=...'`
+- `kind = 'document'`
+- `mimeType = 'video/youtube'`
+- `storageKey = 'https://www.youtube.com/watch?v=...'`
 
 이러한 문서는 ArcData 엔트리에서 Player 대상으로 분류되어 `ArcDataPlayerHost`로 라우팅됩니다.
 
@@ -68,10 +68,10 @@ const { data: documents } = useDocumentFiles();
 
 // 2. 대상 문서 선택
 const document = documents.find((d) => d.documentId === documentId);
-if (!document || document.kind !== 'file') return null;
+if (!document || document.kind !== 'document') return null;
 
-const mimeType = document.fileMeta?.mimeType ?? null;
-const storageKey = document.fileMeta?.storageKey ?? null;
+const mimeType = document.mimeType ?? null;
+const storageKey = document.storageKey ?? null;
 
 // 3. 타입 판별
 const isPDF = mimeType === 'application/pdf';
