@@ -136,6 +136,8 @@ services:
     container_name: arcsolve-outbox-worker-document-dev
     restart: unless-stopped
     command: ["node", "dist/worker-document.js"]
+    env_file:
+      - .env.docker
     environment:
       NODE_ENV: development
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}

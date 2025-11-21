@@ -24,6 +24,9 @@ sentence-transformers
 # Cloudflare R2(S3 호환) 클라이언트
 boto3
 
+# HTTP 클라이언트 (Datalab Marker API 호출용)
+requests
+
 # API (FastAPI 사이드카 서버)
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0

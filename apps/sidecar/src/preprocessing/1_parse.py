@@ -20,10 +20,13 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import requests
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.renderers.json import JSONRenderer  # type: ignore
@@ -359,25 +362,112 @@ def parse_document_step(file_path: str) -> Dict[str, Any]:
             "pageCount": page_count,
         }
 
-    # --- Marker 파이프라인 실행 ---
-    document = _build_document_once(str(path))
-    json_doc = _render_json(document)
-    full_markdown = _render_markdown(document)
-    cleaned_markdown = _clean_markdown_remove_raw_html(full_markdown)
-    minimal_layout = _build_layout_from_json(json_doc)
-    metrics = _calculate_metrics(cleaned_markdown, minimal_layout)
+    def _parse_with_local_marker() -> Dict[str, Any]:
+        """기존 로컬 Marker 파이프라인 그대로 사용."""
+        document = _build_document_once(str(path))
+        json_doc = _render_json(document)
+        full_markdown = _render_markdown(document)
+        cleaned_markdown = _clean_markdown_remove_raw_html(full_markdown)
+        minimal_layout = _build_layout_from_json(json_doc)
+        metrics_local = _calculate_metrics(cleaned_markdown, minimal_layout)
 
-    mime_type, _ = mimetypes.guess_type(path.name)
+        mime_type, _ = mimetypes.guess_type(path.name)
 
-    return {
-        "pdf_path": str(path),
-        "file_name": path.name,
-        "file_size": path.stat().st_size,
-        "mime_type": mime_type,
-        "markdown": cleaned_markdown or "",
-        "layout": minimal_layout or {},
-        "metrics": metrics or {},
-    }
+        return {
+            "pdf_path": str(path),
+            "file_name": path.name,
+            "file_size": path.stat().st_size,
+            "mime_type": mime_type,
+            "markdown": cleaned_markdown or "",
+            "layout": minimal_layout or {},
+            "metrics": metrics_local or {},
+        }
+
+    def _parse_with_remote_marker() -> Dict[str, Any]:
+        """Datalab Marker API를 사용하여 json + markdown 을 한 번에 수신합니다."""
+        api_key = os.getenv("MARKER_REMOTE_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("MARKER_REMOTE_API_KEY가 설정되지 않았습니다.")
+
+        url = "https://www.datalab.to/api/v1/marker"
+        headers = {"X-Api-Key": api_key}
+
+        with path.open("rb") as f:
+            files = {
+                "file": (path.name, f, "application/pdf"),
+            }
+            data = {
+                "output_format": "markdown,json",
+                "use_llm": str(False).lower(),
+                "strip_existing_ocr": str(False).lower(),
+                "format_lines": str(False).lower(),
+                "mode": "fast",
+            }
+            init_resp = requests.post(url, headers=headers, files=files, data=data, timeout=30)
+            init_resp.raise_for_status()
+            init_json = init_resp.json()
+
+        check_url = str(init_json.get("request_check_url") or "").strip()
+        if not check_url:
+            raise RuntimeError("Marker API request_check_url 을 획득하지 못했습니다.")
+
+        deadline = time.time() + 180
+        last_payload: Dict[str, Any] = {}
+        while time.time() < deadline:
+            poll = requests.get(check_url, headers=headers, timeout=15)
+            poll.raise_for_status()
+            payload = poll.json()
+            last_payload = payload if isinstance(payload, dict) else {}
+            if str(last_payload.get("status")) == "complete":
+                break
+            time.sleep(2)
+
+        if str(last_payload.get("status")) != "complete":
+            raise RuntimeError("Marker API 처리 지연 또는 실패(status != complete)")
+
+        markdown_val = last_payload.get("markdown")
+        json_val = last_payload.get("json")
+
+        markdown_out = markdown_val if isinstance(markdown_val, str) else ""
+
+        json_doc: Dict[str, Any] = {}
+        if isinstance(json_val, dict):
+            json_doc = json_val
+        elif isinstance(json_val, list):
+            json_doc = {"children": json_val}
+        elif isinstance(json_val, str) and json_val.strip():
+            try:
+                parsed = json.loads(json_val)
+                if isinstance(parsed, dict):
+                    json_doc = parsed
+                elif isinstance(parsed, list):
+                    json_doc = {"children": parsed}
+            except Exception:
+                json_doc = {}
+
+        cleaned_markdown = _clean_markdown_remove_raw_html(markdown_out)
+        minimal_layout = _build_layout_from_json(json_doc)
+        metrics_remote = _calculate_metrics(cleaned_markdown, minimal_layout)
+
+        mime_type, _ = mimetypes.guess_type(path.name)
+
+        return {
+            "pdf_path": str(path),
+            "file_name": path.name,
+            "file_size": path.stat().st_size,
+            "mime_type": mime_type,
+            "markdown": cleaned_markdown or "",
+            "layout": minimal_layout or {},
+            "metrics": metrics_remote or {},
+        }
+
+    enabled = os.getenv("MARKER_REMOTE_ENABLED", "").lower() == "true"
+    api_key_set = bool(os.getenv("MARKER_REMOTE_API_KEY", "").strip())
+
+    if enabled and api_key_set:
+        return _parse_with_remote_marker()
+
+    return _parse_with_local_marker()
 
 
 def parse_pdf_step(pdf_path: str) -> Dict[str, Any]:

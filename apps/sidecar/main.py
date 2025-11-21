@@ -234,9 +234,11 @@ def parse_document(
         # 예: 지원하지 않는 파일 형식 등 사용자 입력 문제
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - FastAPI에서 공통 에러로 처리
+        import traceback
+        error_detail = f"파일 전처리 파이프라인 처리에 실패했습니다: {str(exc)}\n{traceback.format_exc()}"
         raise HTTPException(
             status_code=500,
-            detail="파일 전처리 파이프라인 처리에 실패했습니다.",
+            detail=error_detail,
         ) from exc
     finally:
         # 임시 파일/디렉터리 정리 (실패하더라도 무시)

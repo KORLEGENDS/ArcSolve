@@ -5,23 +5,13 @@ This module defines the database schema for documents, document contents,
 document relations, and document chunks with vector embeddings.
 """
 
-import enum
 import uuid
 from datetime import datetime
 from typing import Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import (
-    BigInteger,
-    Enum,
-    ForeignKey,
-    Index,
-    Integer,
-    Text,
-    func,
-    text,
-)
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
+from sqlalchemy import BigInteger, ForeignKey, Index, Integer, Text, func, text
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID, ENUM as PGEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
@@ -60,39 +50,40 @@ class Ltree(TypeDecorator):
         return "ltree"
 
 
-# Enum types
-class DocumentKind(str, enum.Enum):
-    """Document kind enumeration."""
+# PostgreSQL enum 타입 정의 (Drizzle 스키마와 1:1 매핑)
+document_kind_enum = PGEnum(
+    "folder",
+    "document",
+    name="document_kind",
+    create_type=False,
+)
 
-    FOLDER = "folder"
-    DOCUMENT = "document"
+document_relation_type_enum = PGEnum(
+    "reference",
+    "summary",
+    "translation",
+    "duplicate",
+    name="document_relation_type",
+    create_type=False,
+)
 
+document_upload_status_enum = PGEnum(
+    "pending",
+    "uploading",
+    "uploaded",
+    "upload_failed",
+    name="document_upload_status",
+    create_type=False,
+)
 
-class DocumentRelationType(str, enum.Enum):
-    """Document relation type enumeration."""
-
-    REFERENCE = "reference"
-    SUMMARY = "summary"
-    TRANSLATION = "translation"
-    DUPLICATE = "duplicate"
-
-
-class DocumentUploadStatus(str, enum.Enum):
-    """Document upload status enumeration."""
-
-    PENDING = "pending"
-    UPLOADING = "uploading"
-    UPLOADED = "uploaded"
-    UPLOAD_FAILED = "upload_failed"
-
-
-class DocumentProcessingStatus(str, enum.Enum):
-    """Document processing status enumeration."""
-
-    PENDING = "pending"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-    FAILED = "failed"
+document_processing_status_enum = PGEnum(
+    "pending",
+    "processing",
+    "processed",
+    "failed",
+    name="document_processing_status",
+    create_type=False,
+)
 
 
 # Table definitions
@@ -125,8 +116,9 @@ class Document(Base):
     # hierarchical path within the user's namespace
     path: Mapped[str] = mapped_column(Ltree, nullable=False)
 
-    kind: Mapped[DocumentKind] = mapped_column(
-        Enum(DocumentKind, name="document_kind", native_enum=True),
+    # Drizzle: documentKindEnum('document_kind', ['folder', 'document'])
+    kind: Mapped[str] = mapped_column(
+        document_kind_enum,
         nullable=False,
     )
 
@@ -156,10 +148,10 @@ class Document(Base):
     storage_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # 업로드 상태 (note/folder 등 비파일 문서는 기본적으로 'uploaded' 상태로 간주)
-    upload_status: Mapped[DocumentUploadStatus] = mapped_column(
-        Enum(DocumentUploadStatus, name="document_upload_status", native_enum=True),
+    # Drizzle: documentUploadStatusEnum('document_upload_status', [...])
+    upload_status: Mapped[str] = mapped_column(
+        document_upload_status_enum,
         nullable=False,
-        default=DocumentUploadStatus.UPLOADED,
     )
 
     """
@@ -167,10 +159,10 @@ class Document(Base):
     - 파일 업로드 이후, 백엔드 전처리 파이프라인의 진행 상태를 나타냅니다.
     - note/folder 등 비파일 문서는 생성 시점에 'processed' 로 간주할 수 있습니다.
     """
-    processing_status: Mapped[DocumentProcessingStatus] = mapped_column(
-        Enum(DocumentProcessingStatus, name="document_processing_status", native_enum=True),
+    # Drizzle: documentProcessingStatusEnum('document_processing_status', [...])
+    processing_status: Mapped[str] = mapped_column(
+        document_processing_status_enum,
         nullable=False,
-        default=DocumentProcessingStatus.PENDING,
     )
 
     # points to the latest content version (nullable for empty documents)
@@ -329,8 +321,9 @@ class DocumentRelation(Base):
         index=True,
     )
 
-    relation_type: Mapped[DocumentRelationType] = mapped_column(
-        Enum(DocumentRelationType, name="document_relation_type", native_enum=True),
+    # Drizzle: documentRelationTypeEnum('document_relation_type', [...])
+    relation_type: Mapped[str] = mapped_column(
+        document_relation_type_enum,
         nullable=False,
     )
 

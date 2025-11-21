@@ -658,11 +658,16 @@ export function useDocumentDownloadUrl(
 
 ## 5.x 전처리 파이프라인 개요
 
-파일 업로드 완료 후, 백엔드에서 자동으로 실행되는 전처리(파싱/임베딩 등) 파이프라인입니다.
+파일 업로드 이후 실행되는 전처리(파싱/임베딩 등) 파이프라인의 전체 흐름은  
+별도 문서인 `docs/document-preprocessing.md` 에서 상세히 다룹니다.
 
-- **순서**: 업로드 완료 → Outbox(`document.preprocess.v1`) → `worker-document` → 사이드카 → `processingStatus` `'processed'/'failed'`
-- **재시도 없음**: 실패 시 `failed/dead` 로 남기고 재시도하지 않음 (MVP 정책)
-- **사이드카 역할**: 파일 다운로드, 파싱/임베딩 수행, 성공/실패만 응답
+여기서는 개요만 정리합니다.
+
+- **순서(요약)**: 업로드 완료 → Outbox(`document.preprocess.v1`) → `outbox-worker-document` → 사이드카 → `processingStatus` `'processed'/'failed'`
+- **책임 분리**
+  - 메인 서버: 업로드 요청/검증, Outbox 잡 생성, 상태 플래그(`uploadStatus/processingStatus`) 관리
+  - Outbox 워커: 잡 소비, 사이드카 호출, 처리 성공/실패에 따른 `processingStatus` 업데이트
+  - 사이드카: R2에서 파일 다운로드, 파싱/청킹/임베딩/저장 수행
 
 ---
 
