@@ -84,14 +84,13 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[GET /api/arcyou/relation] Error:', err);
-    return error(
-      'INTERNAL',
-      '친구 관계 조회 중 오류가 발생했습니다.',
-      {
-        details: err instanceof Error ? { message: err.message } : undefined,
-      }
-    );
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[GET /api/arcyou/relation] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    return error('INTERNAL', '친구 관계 조회 중 오류가 발생했습니다.');
   }
 }
 
@@ -144,7 +143,12 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[POST /api/arcyou/relation] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/arcyou/relation] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     // ApiException 처리
     if (err instanceof ApiException) {
@@ -159,13 +163,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return error(
-      'INTERNAL',
-      '친구 요청 전송 중 오류가 발생했습니다.',
-      {
-        details: err instanceof Error ? { message: err.message } : undefined,
-      }
-    );
+    return error('INTERNAL', '친구 요청 전송 중 오류가 발생했습니다.');
   }
 }
 
@@ -273,7 +271,12 @@ export async function PATCH(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[PATCH /api/arcyou/relation] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[PATCH /api/arcyou/relation] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     // ApiException 처리
     if (err instanceof ApiException) {
@@ -288,13 +291,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    return error(
-      'INTERNAL',
-      '친구 요청 처리 중 오류가 발생했습니다.',
-      {
-        details: err instanceof Error ? { message: err.message } : undefined,
-      }
-    );
+    return error('INTERNAL', '친구 요청 처리 중 오류가 발생했습니다.');
   }
 }
 
@@ -347,7 +344,12 @@ export async function DELETE(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[DELETE /api/arcyou/relation] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[DELETE /api/arcyou/relation] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     // ApiException 처리
     if (err instanceof ApiException) {
@@ -362,13 +364,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    return error(
-      'INTERNAL',
-      '친구 관계 삭제 중 오류가 발생했습니다.',
-      {
-        details: err instanceof Error ? { message: err.message } : undefined,
-      }
-    );
+    return error('INTERNAL', '친구 관계 삭제 중 오류가 발생했습니다.');
   }
 }
 

@@ -1,11 +1,11 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
+import { getCachedDownloadUrl } from '@/server/database/r2/download-url-cache-r2';
 import { DocumentRepository } from '@/share/schema/repositories/document-repository';
-import { documentDownloadUrlResponseSchema } from '@/share/schema/zod/document-upload-zod';
 import { uuidSchema } from '@/share/schema/zod/base-zod';
+import { documentDownloadUrlResponseSchema } from '@/share/schema/zod/document-upload-zod';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
-import { getCachedDownloadUrl } from '@/server/database/r2/download-url-cache-r2';
 
 type RouteContext = {
   params: Promise<{
@@ -92,7 +92,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       message: '다운로드 URL을 발급했습니다.',
     });
   } catch (err) {
-    console.error('[GET /api/document/[documentId]/download-url] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[GET /api/document/[documentId]/download-url] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -104,9 +109,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    return error('INTERNAL', '다운로드 URL 발급 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '다운로드 URL 발급 중 오류가 발생했습니다.');
   }
 }
 

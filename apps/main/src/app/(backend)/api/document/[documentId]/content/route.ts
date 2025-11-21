@@ -1,11 +1,11 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
 import { DocumentRepository } from '@/share/schema/repositories/document-repository';
+import { uuidSchema } from '@/share/schema/zod/base-zod';
 import {
   documentContentResponseSchema,
   documentContentUpdateRequestSchema,
 } from '@/share/schema/zod/document-note-zod';
-import { uuidSchema } from '@/share/schema/zod/base-zod';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 
@@ -90,8 +90,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       message: '노트 콘텐츠를 성공적으로 조회했습니다.',
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[GET /api/document/[documentId]/content] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[GET /api/document/[documentId]/content] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -103,9 +107,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       });
     }
 
-    return error('INTERNAL', '노트 콘텐츠 조회 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '노트 콘텐츠 조회 중 오류가 발생했습니다.');
   }
 }
 
@@ -197,8 +199,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message: '노트 콘텐츠를 저장했습니다.',
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[POST /api/document/[documentId]/content] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/document/[documentId]/content] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -210,9 +216,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
-    return error('INTERNAL', '노트 콘텐츠 저장 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '노트 콘텐츠 저장 중 오류가 발생했습니다.');
   }
 }
 

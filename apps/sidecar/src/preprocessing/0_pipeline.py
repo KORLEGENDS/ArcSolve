@@ -6,8 +6,7 @@
   단일 파일(1차: PDF + 이미지)을 파싱 → 청킹 → 임베딩 → PostgreSQL 저장까지 수행한다.
 
 주요 함수:
-- run_pipeline_for_file(file_path: str, user_id: uuid.UUID) -> dict
-- run_pipeline_for_pdf(pdf_path: str, user_id: uuid.UUID) -> dict  (호환용 래퍼)
+- run_pipeline_for_file(file_path: str, user_id: uuid.UUID, document_id: uuid.UUID) -> dict
 """
 
 from __future__ import annotations
@@ -17,7 +16,11 @@ import uuid
 from typing import Any, Dict
 
 
-def run_pipeline_for_file(file_path: str, user_id: uuid.UUID) -> Dict[str, Any]:
+def run_pipeline_for_file(
+    file_path: str,
+    user_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> Dict[str, Any]:
     """
     단일 파일에 대해 전체 파이프라인을 실행한다.
 
@@ -46,7 +49,7 @@ def run_pipeline_for_file(file_path: str, user_id: uuid.UUID) -> Dict[str, Any]:
     embeddings = embed_mod.embed_chunks_step(chunks)
 
     # 4) 저장
-    result = save_mod.save_to_pg_step(parsed, chunks, embeddings, user_id)
+    result = save_mod.save_to_pg_step(parsed, chunks, embeddings, user_id, document_id)
 
     # 파이프라인 메타 정보 포함
     out: Dict[str, Any] = {
@@ -58,13 +61,4 @@ def run_pipeline_for_file(file_path: str, user_id: uuid.UUID) -> Dict[str, Any]:
         "chunk_count": result.get("chunk_count"),
     }
     return out
-
-
-def run_pipeline_for_pdf(pdf_path: str, user_id: uuid.UUID) -> Dict[str, Any]:
-    """
-    (호환용) 기존 PDF 전용 함수 시그니처를 유지한다.
-    내부적으로는 run_pipeline_for_file 을 호출한다.
-    """
-    return run_pipeline_for_file(pdf_path, user_id)
-
 

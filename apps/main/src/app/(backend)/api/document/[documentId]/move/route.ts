@@ -4,9 +4,9 @@ import {
   DocumentRepository,
   mapDocumentToDTO,
 } from '@/share/schema/repositories/document-repository';
+import { uuidSchema } from '@/share/schema/zod/base-zod';
 import type { DocumentMoveRequest } from '@/share/schema/zod/document-upload-zod';
 import { documentMoveRequestSchema } from '@/share/schema/zod/document-upload-zod';
-import { uuidSchema } from '@/share/schema/zod/base-zod';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
 
@@ -67,7 +67,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     );
   } catch (err) {
-    console.error('[PATCH /api/document/[documentId]/move] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[PATCH /api/document/[documentId]/move] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -79,9 +84,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
     }
 
-    return error('INTERNAL', '문서 이동 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '문서 이동 중 오류가 발생했습니다.');
   }
 }
 

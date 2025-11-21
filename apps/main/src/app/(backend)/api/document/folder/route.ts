@@ -51,7 +51,12 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[POST /api/document/folder] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/document/folder] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -63,9 +68,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return error('INTERNAL', '폴더 생성 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '폴더 생성 중 오류가 발생했습니다.');
   }
 }
 

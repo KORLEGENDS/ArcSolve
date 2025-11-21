@@ -23,23 +23,13 @@
 
 from __future__ import annotations
 
-import os
 import uuid
-from pathlib import Path
 from typing import Any, Dict, List
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import func
 
-from document_schema import (
-    Base,
-    Document,
-    DocumentContent,
-    DocumentChunk,
-    DocumentKind,
-    DocumentUploadStatus,
-    DocumentProcessingStatus,
-)
+from src.schema.db import get_session
+from src.schema.document_schema import Document, DocumentContent, DocumentChunk
 
 
 def save_to_pg_step(
@@ -47,6 +37,7 @@ def save_to_pg_step(
     chunks: List[str],
     embeddings: List[List[float]],
     user_id: uuid.UUID,
+    document_id: uuid.UUID,
 ) -> Dict[str, Any]:
     """
     파싱/청킹/임베딩 결과를 PostgreSQL에 저장한다.
@@ -56,55 +47,28 @@ def save_to_pg_step(
     - DocumentChunk: 청킹 텍스트 + 임베딩
     """
     if len(chunks) != len(embeddings):
-        raise ValueError(f"chunks({len(chunks)})와 embeddings({len(embeddings)}) 길이가 다릅니다")
+        raise ValueError(
+            f"chunks({len(chunks)})와 embeddings({len(embeddings)}) 길이가 다릅니다",
+        )
 
-    # DB 접속 설정 (환경변수 또는 기본값)
-    db_user = os.getenv("POSTGRES_USER", "postgres")
-    db_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    db_name = os.getenv("POSTGRES_DB", "postgres")
-    db_host = os.getenv("POSTGRES_HOST", "localhost")
-    db_port = os.getenv("POSTGRES_PORT", "5432")
-
-    database_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-
-    engine = create_engine(database_url)
-
-    # 확장 및 테이블 초기화
-    with engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS ltree"))
-        conn.commit()
-    Base.metadata.create_all(engine)
-
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    session = get_session()
 
     try:
-        pdf_path = Path(parsed.get("pdf_path") or parsed.get("file_name", ""))
-        mime_type = parsed.get("mime_type") or "application/pdf"
-
-        # Document 생성
-        safe_name = (pdf_path.stem if pdf_path.stem else parsed.get("file_name", "document")).replace("-", "_").replace(
-            " ", "_"
+        # 1) 기존 Document 조회 및 검증
+        doc = (
+            session.query(Document)
+            .filter(
+                Document.document_id == document_id,
+                Document.user_id == user_id,
+            )
+            .first()
         )
-        doc_path = f"root.{safe_name}_{uuid.uuid4().hex[:8]}"
+        if doc is None:
+            raise ValueError(
+                f"Document를 찾을 수 없습니다: document_id={document_id}, user_id={user_id}",
+            )
 
-        new_doc = Document(
-            document_id=uuid.uuid4(),
-            user_id=user_id,
-            name=parsed.get("file_name"),
-            path=doc_path,
-            kind=DocumentKind.DOCUMENT,
-            mime_type=mime_type,
-            file_size=int(parsed.get("file_size") or 0),
-            storage_key=f"local_pipeline/{parsed.get('file_name')}",
-            upload_status=DocumentUploadStatus.UPLOADED,
-            processing_status=DocumentProcessingStatus.PROCESSED,
-        )
-        session.add(new_doc)
-        session.flush()
-
-        # DocumentContent 생성 (contents JSONB에 markdown/layout/metrics 저장)
+        # 2) DocumentContent 생성 (contents JSONB에 markdown/layout/metrics 저장)
         content_json = {
             "schema_version": 1,
             "markdown": parsed.get("markdown") or "",
@@ -112,19 +76,27 @@ def save_to_pg_step(
             "metrics": parsed.get("metrics") or {},
         }
 
+        latest_version = (
+            session.query(func.max(DocumentContent.version))
+            .filter(DocumentContent.document_id == doc.document_id)
+            .scalar()
+            or 0
+        )
+
         new_content = DocumentContent(
             document_content_id=uuid.uuid4(),
-            document_id=new_doc.document_id,
+            document_id=doc.document_id,
             user_id=user_id,
-            version=1,
+            version=latest_version + 1,
             contents=content_json,
         )
         session.add(new_content)
         session.flush()
 
-        new_doc.latest_content_id = new_content.document_content_id
+        # latest_content_id 갱신
+        doc.latest_content_id = new_content.document_content_id
 
-        # DocumentChunk 생성
+        # 3) DocumentChunk 생성
         for idx, (chunk_text, embed_vec) in enumerate(zip(chunks, embeddings)):
             new_chunk = DocumentChunk(
                 document_chunk_id=uuid.uuid4(),
@@ -138,7 +110,7 @@ def save_to_pg_step(
         session.commit()
 
         return {
-            "document_id": new_doc.document_id,
+            "document_id": doc.document_id,
             "content_id": new_content.document_content_id,
             "chunk_count": len(chunks),
         }

@@ -23,12 +23,7 @@
 3. **3단계 – 임베딩 (`3_embed.embed_chunks_step`)**
 4. **4단계 – 저장 (`4_pg_save.save_to_pg_step`)**
 
-이 4단계는 `0_pipeline.run_pipeline_for_file` 에서 순차적으로 호출됩니다.  
-기존 `run_pipeline_for_pdf` 는 내부적으로 `run_pipeline_for_file` 을 호출하는 호환용 래퍼입니다.
-
-```python
-from src import 0_pipeline  # 실제 코드는 importlib로 로드
-```
+이 4단계는 `0_pipeline.run_pipeline_for_file` 에서 순차적으로 호출됩니다.
 
 실제 사용 시에는 다음과 같이 실행합니다:
 
@@ -170,7 +165,7 @@ PY
 
 ## 4단계: PostgreSQL 저장 (`src/4_pg_save.py`)
 
-- **함수**: `save_to_pg_step(parsed, chunks, embeddings, user_id) -> dict`
+- **함수**: `save_to_pg_step(parsed, chunks, embeddings, user_id, document_id) -> dict`
 - **외부 의존성**:
   - `document_schema.py` (SQLAlchemy ORM 스키마)
   - `sqlalchemy`, `psycopg2-binary`, `pgvector`
@@ -233,8 +228,7 @@ PY
 
 ## 0단계: 전체 파이프라인 (`src/0_pipeline.py`)
 
-- **함수(일반화 엔트리)**: `run_pipeline_for_file(file_path: str, user_id: uuid.UUID) -> dict`
-- **호환용 래퍼**: `run_pipeline_for_pdf(pdf_path: str, user_id: uuid.UUID) -> dict`
+- **함수(일반화 엔트리)**: `run_pipeline_for_file(file_path: str, user_id: uuid.UUID, document_id: uuid.UUID) -> dict`
 - **역할**:
   - 1~4단계 모듈을 순차 호출하여 **단일 파일에 대한 전체 전처리 + 저장** 수행
 
@@ -243,7 +237,7 @@ PY
 1. `parsed = parse_document_step(file_path)`
 2. `chunks = chunk_markdown_step(parsed["markdown"])`
 3. `embeddings = embed_chunks_step(chunks)`
-4. `result = save_to_pg_step(parsed, chunks, embeddings, user_id)`
+4. `result = save_to_pg_step(parsed, chunks, embeddings, user_id, document_id)`
 
 ### **최종 반환**
 

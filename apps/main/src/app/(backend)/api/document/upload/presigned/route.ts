@@ -1,16 +1,15 @@
-import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
+import { BUCKET, r2Client } from '@/server/database/r2/client-r2';
+import { getUploadProcess, updateProcessStatus } from '@/server/database/r2/upload-process-r2';
 import { DocumentRepository } from '@/share/schema/repositories/document-repository';
 import {
   documentUploadPresignRequestSchema,
   type DocumentUploadPresignRequest,
 } from '@/share/schema/zod/document-upload-zod';
 import { auth } from '@auth';
-import type { NextRequest } from 'next/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { BUCKET, r2Client } from '@/server/database/r2/client-r2';
-import { getUploadProcess, updateProcessStatus } from '@/server/database/r2/upload-process-r2';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -114,20 +113,17 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[POST /api/document/upload/presigned] Error:', err);
+    console.error('[POST /api/document/upload/presigned] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
-    if (err instanceof ApiException) {
-      const session = await auth().catch(() => null);
-      return error(err.code, err.message, {
-        user: session?.user?.id
-          ? { id: session.user.id, email: session.user.email || undefined }
-          : undefined,
-        details: err.details,
-      });
-    }
-
+    const session = await auth().catch(() => null);
     return error('INTERNAL', '업로드 URL 발급 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
+      user: session?.user?.id
+        ? { id: session.user.id, email: session.user.email || undefined }
+        : undefined,
     });
   }
 }

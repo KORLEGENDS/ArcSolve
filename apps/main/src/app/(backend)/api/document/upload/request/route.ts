@@ -1,5 +1,7 @@
-import { ApiException, throwApi } from '@/server/api/errors';
+import type { ApiException as ApiExceptionType } from '@/server/api/errors';
+import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
+import { generateFileStorageKey } from '@/server/database/r2/upload-r2';
 import { DocumentRepository } from '@/share/schema/repositories/document-repository';
 import {
   documentUploadRequestSchema,
@@ -8,8 +10,6 @@ import {
 import { generateUUID } from '@/share/share-utils/id-utils';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
-import { generateFileStorageKey } from '@/server/database/r2/upload-r2';
-import type { ApiException as ApiExceptionType } from '@/server/api/errors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +75,12 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[POST /api/document/upload/request] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/document/upload/request] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof (ApiException as unknown as typeof ApiExceptionType)) {
       const session = await auth().catch(() => null);
@@ -87,9 +92,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return error('INTERNAL', '문서 업로드 요청 처리 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '문서 업로드 요청 처리 중 오류가 발생했습니다.');
   }
 }
 

@@ -9,8 +9,8 @@ import {
   youtubeDocumentCreateRequestSchema,
 } from '@/share/schema/zod/document-youtube-zod';
 import { fetchYoutubeTitle } from '@/share/share-utils/youtube-utils';
-import type { NextRequest } from 'next/server';
 import { auth } from '@auth';
+import type { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
 
@@ -68,8 +68,12 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[POST /api/document/youtube] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/document/youtube] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -81,9 +85,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return error('INTERNAL', 'YouTube 문서 생성 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', 'YouTube 문서 생성 중 오류가 발생했습니다.');
   }
 }
 

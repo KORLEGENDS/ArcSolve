@@ -60,14 +60,13 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[GET /api/arcyou/chat/rooms] Error:', err);
-    return error(
-      'INTERNAL',
-      '채팅방 목록 조회 중 오류가 발생했습니다.',
-      {
-        details: err instanceof Error ? { message: err.message } : undefined,
-      }
-    );
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[GET /api/arcyou/chat/rooms] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    return error('INTERNAL', '채팅방 목록 조회 중 오류가 발생했습니다.');
   }
 }
 
@@ -165,14 +164,13 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (err) {
-    console.error('[POST /api/arcyou/chat/rooms] Error:', err);
-    return error(
-      'INTERNAL',
-      '채팅방 생성 중 오류가 발생했습니다.',
-      {
-        details: err instanceof Error ? { message: err.message } : undefined,
-      }
-    );
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/arcyou/chat/rooms] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    return error('INTERNAL', '채팅방 생성 중 오류가 발생했습니다.');
   }
 }
 

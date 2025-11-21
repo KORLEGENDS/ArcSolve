@@ -1,16 +1,16 @@
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
-import { BUCKET, r2Client } from '@/server/database/r2/client-r2';
 import { db } from '@/server/database/postgresql/client-postgresql';
+import { BUCKET, r2Client } from '@/server/database/r2/client-r2';
 import {
   getUploadProcess,
   updateProcessStatus,
 } from '@/server/database/r2/upload-process-r2';
+import { outbox } from '@/share/schema/drizzles';
 import {
   DocumentRepository,
   mapDocumentToDTO,
 } from '@/share/schema/repositories/document-repository';
-import { outbox } from '@/share/schema/drizzles';
 import {
   documentUploadConfirmRequestSchema,
   type DocumentUploadConfirmRequest,
@@ -189,7 +189,12 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (err) {
-    console.error('[POST /api/document/upload/confirm] Error:', err);
+    // 서버 측에서만 에러 로그 기록 (클라이언트에 노출 안 됨)
+    console.error('[POST /api/document/upload/confirm] Error:', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     if (err instanceof ApiException) {
       const session = await auth().catch(() => null);
@@ -201,9 +206,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return error('INTERNAL', '업로드 완료 확인 중 오류가 발생했습니다.', {
-      details: err instanceof Error ? { message: err.message } : undefined,
-    });
+    return error('INTERNAL', '업로드 완료 확인 중 오류가 발생했습니다.');
   }
 }
 

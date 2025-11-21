@@ -1,0 +1,4 @@
+INFO:     Will watch for changes in these directories: ['/Users/arcsolve/projects/ArcSolve/apps/sidecar']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [55577] using WatchFiles
+INFO:     Stopping reloader process [55577]

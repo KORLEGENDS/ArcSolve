@@ -14,19 +14,21 @@ FastAPI 사이드카 서버 진입점.
 """
 
 import importlib
-import shutil
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, File, Form, UploadFile
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from src.processing.storage.r2_client import download_to_temp
 from src.processing.tools.query_embed_search import query_embed_search
 from src.processing.tools.query_text_search import query_text_search
 from src.processing.tools.queyr_tree_list import query_tree_list
+from src.schema.db import get_session
+from src.schema.document_schema import Document
 
 # ---------------------------------------------------------------------------
 # .env 로부터 환경변수 로드
@@ -135,18 +137,14 @@ class TreeListItem(BaseModel):
     relative_path: str
 
 
-class IngestFileResponse(BaseModel):
-    """단일 파일 인입 파이프라인의 최소 응답 스키마."""
+class DocumentParseRequest(BaseModel):
+    """기존 Document에 대한 전처리(파싱/청킹/임베딩) 요청 바디."""
 
-    status: str = Field("ok", description="요청 처리 결과 상태 (항상 'ok')")
-    file_name: str = Field(..., description="업로드된 원본 파일명")
-    mime_type: Optional[str] = Field(
-        None,
-        description="추론된 MIME 타입 (예: application/pdf, image/png, text/html 등)",
+    user_id: str = Field(
+        ...,
+        alias="userId",
+        description="전처리 대상 사용자 UUID (문자열)",
     )
-    document_id: str = Field(..., description="저장된 Document.document_id")
-    content_id: str = Field(..., description="저장된 DocumentContent.document_content_id")
-    chunk_count: int = Field(..., description="저장된 DocumentChunk 개수")
 
 
 @app.get("/")
@@ -156,6 +154,7 @@ async def health_check() -> Dict[str, Any]:
         "status": "ok",
         "service": "ArcYou Sidecar Tools API",
         "endpoints": [
+            "/internal/documents/{documentId}/parse",
             "/tools/embed-search",
             "/tools/text-search",
             "/tools/tree-list",
@@ -163,61 +162,99 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
-@app.post("/ingest/file", response_model=IngestFileResponse, status_code=201)
-def ingest_file(
-    user_id: str = Form(..., description="업로드 대상 사용자 UUID (문자열)"),
-    file: UploadFile = File(..., description="업로드할 단일 파일"),
-) -> IngestFileResponse:
+@app.post(
+    "/internal/documents/{document_id}/parse",
+    status_code=200,
+)
+def parse_document(
+    document_id: str,
+    payload: DocumentParseRequest,
+) -> Dict[str, Any]:
     """
-    단일 파일을 업로드 받아 전처리 파이프라인(파싱 → 청킹 → 임베딩 → PostgreSQL 저장)을
-    동기적으로 수행하는 MVP 인입 엔드포인트.
+    기존 Document(Next 서버에서 생성된 업로드 문서)에 대해
+    파일 다운로드 → 파싱 → 청킹 → 임베딩 → PostgreSQL 저장을 수행하는 엔드포인트.
 
-    - 입력: multipart/form-data (user_id + file)
-    - 출력: 성공 여부 및 저장된 Document/Content/Chunk 메타데이터
+    - 입력: path param document_id + body.userId
+    - 출력: 최소한의 파이프라인 결과 메타데이터
     """
-    # 1) user_id 검증
+    # 1) document_id, userId 검증
     try:
-        user_uuid = uuid.UUID(user_id)
+        document_uuid = uuid.UUID(document_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="user_id는 UUID 문자열이어야 합니다.")
-
-    if not file or not file.filename:
-        raise HTTPException(status_code=400, detail="file 이 제공되지 않았습니다.")
-
-    # 2) 업로드 파일을 로컬 디스크에 저장
-    uploads_dir = _UPLOAD_ROOT / str(user_uuid)
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
-    original_name = Path(file.filename).name
-    # 경로 구분자/공백 등 최소한의 sanitizing
-    safe_name = original_name.replace("/", "_").replace("\\", "_").replace(" ", "_")
-    tmp_name = f"{uuid.uuid4().hex}_{safe_name}"
-    tmp_path = uploads_dir / tmp_name
+        raise HTTPException(status_code=400, detail="document_id는 UUID 문자열이어야 합니다.")
 
     try:
-        with tmp_path.open("wb") as dst:
-            shutil.copyfileobj(file.file, dst)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="파일 저장 중 오류가 발생했습니다.") from exc
+        user_uuid = uuid.UUID(payload.user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="userId는 UUID 문자열이어야 합니다.")
 
-    # 3) 전처리 파이프라인 실행 (동기)
+    # 2) Document 메타 조회 (storage_key 확인)
+    session = get_session()
     try:
-        result: Dict[str, Any] = _PIPELINE_MOD.run_pipeline_for_file(str(tmp_path), user_uuid)
+        document = (
+            session.query(Document)
+            .filter(
+                Document.document_id == document_uuid,
+                Document.user_id == user_uuid,
+            )
+            .first()
+        )
+        if document is None:
+            raise HTTPException(
+                status_code=404,
+                detail="해당 Document를 찾을 수 없습니다.",
+            )
+        if not document.storage_key:
+            raise HTTPException(
+                status_code=400,
+                detail="Document에 storage_key가 설정되어 있지 않습니다.",
+            )
+        storage_key = str(document.storage_key)
+    finally:
+        session.close()
+
+    # 3) R2에서 임시 파일로 다운로드
+    tmp_path: Path | None = None
+    try:
+        tmp_path = download_to_temp(storage_key)
+    except Exception as exc:  # pragma: no cover - 스토리지 오류는 런타임에서만 재현 가능
+        raise HTTPException(
+            status_code=500,
+            detail=f"R2에서 파일을 다운로드하지 못했습니다: {exc}",
+        ) from exc
+
+    # 4) 전처리 파이프라인 실행 (동기)
+    try:
+        result: Dict[str, Any] = _PIPELINE_MOD.run_pipeline_for_file(
+            str(tmp_path),
+            user_uuid,
+            document_uuid,
+        )
     except ValueError as exc:
         # 예: 지원하지 않는 파일 형식 등 사용자 입력 문제
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="파일 인입 파이프라인 처리에 실패했습니다.") from exc
+    except Exception as exc:  # pragma: no cover - FastAPI에서 공통 에러로 처리
+        raise HTTPException(
+            status_code=500,
+            detail="파일 전처리 파이프라인 처리에 실패했습니다.",
+        ) from exc
+    finally:
+        # 임시 파일/디렉터리 정리 (실패하더라도 무시)
+        if tmp_path is not None:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+                parent = tmp_path.parent
+                parent.rmdir()
+            except Exception:
+                pass
 
-    # 4) 최소 메타데이터만 응답
-    return IngestFileResponse(
-        status="ok",
-        file_name=str(result.get("file_name") or original_name),
-        mime_type=result.get("mime_type"),
-        document_id=str(result.get("document_id")),
-        content_id=str(result.get("content_id")),
-        chunk_count=int(result.get("chunk_count") or 0),
-    )
+    return {
+        "status": "ok",
+        "document_id": str(document_uuid),
+        "content_id": str(result.get("content_id")),
+        "chunk_count": int(result.get("chunk_count") or 0),
+    }
 
 
 @app.post("/tools/embed-search", response_model=List[EmbedSearchResultItem])

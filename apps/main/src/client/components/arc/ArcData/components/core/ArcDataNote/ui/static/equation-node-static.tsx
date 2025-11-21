@@ -2,9 +2,29 @@
 import type { RenderElementProps, TEquationElement } from 'platejs';
 
 import { getEquationHtml } from '@platejs/math';
+import DOMPurify from 'isomorphic-dompurify';
 import { RadicalIcon } from 'lucide-react';
 
 import { cn } from '@/share/share-utils/cn-utils';
+
+/**
+ * KaTeX에서 생성된 HTML을 XSS 공격으로부터 안전하게 sanitize합니다.
+ * KaTeX가 사용하는 태그와 속성만 허용합니다.
+ */
+function sanitizeKatexHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'span', 'div', 'math', 'semantics', 'mrow', 'mi', 'mo', 'mn', 'msup',
+      'msub', 'mfrac', 'mroot', 'msqrt', 'mtext', 'annotation', 'mtable',
+      'mtr', 'mtd', 'munderover', 'munder', 'mover', 'mspace'
+    ],
+    ALLOWED_ATTR: [
+      'class', 'style', 'aria-hidden', 'xmlns', 'encoding', 'data-line'
+    ],
+    // style 속성 내에서 안전한 CSS만 허용
+    ALLOW_DATA_ATTR: false,
+  });
+}
 
 export function EquationElementStatic(
   props: RenderElementProps<TEquationElement>
@@ -37,7 +57,7 @@ export function EquationElementStatic(
         {element.texExpression.length > 0 ? (
           <span
             dangerouslySetInnerHTML={{
-              __html: html,
+              __html: sanitizeKatexHtml(html),
             }}
           />
         ) : (
@@ -80,7 +100,7 @@ export function InlineEquationElementStatic(
           'after:absolute after:inset-0 after:-top-0.5 after:-left-1 after:z-1 after:h-[calc(100%)+4px] after:w-[calc(100%+8px)] after:rounded-sm after:content-[""]',
           'h-6',
           props.element.texExpression.length === 0 &&
-            'text-muted-foreground after:bg-neutral-500/10'
+          'text-muted-foreground after:bg-neutral-500/10'
         )}
       >
         <span
@@ -88,7 +108,7 @@ export function InlineEquationElementStatic(
             props.element.texExpression.length === 0 && 'hidden',
             'font-mono leading-none'
           )}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeKatexHtml(html) }}
         />
       </div>
       {props.children}
