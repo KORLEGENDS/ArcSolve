@@ -22,6 +22,7 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import styles from "./ArcAIMessage.module.css";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -30,28 +31,28 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex flex-col gap-2",
-      from === "user"
-        ? "is-user ml-auto justify-end w-fit max-w-[80%]"
-        : "is-assistant w-full",
+      styles.message,
+      from === "user" ? styles.isUser : styles.isAssistant,
       className
     )}
     {...props}
   />
 );
 
-export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
+export type MessageContentProps = HTMLAttributes<HTMLDivElement> & {
+  from?: UIMessage["role"];
+};
 
 export const MessageContent = ({
   children,
   className,
+  from,
   ...props
 }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-full flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
-      "group-[.is-assistant]:text-foreground",
+      styles.messageContent,
+      from === "user" && styles.isUser,
       className
     )}
     {...props}
@@ -67,7 +68,7 @@ export const MessageActions = ({
   children,
   ...props
 }: MessageActionsProps) => (
-  <div className={cn("flex items-center gap-1", className)} {...props}>
+  <div className={cn(styles.messageActions, className)} {...props}>
     {children}
   </div>
 );
@@ -88,7 +89,7 @@ export const MessageAction = ({
   const button = (
     <Button size={size} type="button" variant={variant} {...props}>
       {children}
-      <span className="sr-only">{label || tooltip}</span>
+      <span className={styles.srOnly}>{label || tooltip}</span>
     </Button>
   );
 
@@ -174,7 +175,7 @@ export const MessageBranch = ({
   return (
     <MessageBranchContext.Provider value={contextValue}>
       <div
-        className={cn("grid w-full gap-2 [&>div]:pb-0", className)}
+        className={cn(styles.messageBranch, className)}
         {...props}
       />
     </MessageBranchContext.Provider>
@@ -200,8 +201,8 @@ export const MessageBranchContent = ({
   return childrenArray.map((branch, index) => (
     <div
       className={cn(
-        "grid gap-2 overflow-hidden [&>div]:pb-0",
-        index === currentBranch ? "block" : "hidden"
+        styles.messageBranchContent,
+        index === currentBranch ? styles.visible : styles.hidden
       )}
       key={branch.key}
       {...props}
@@ -229,7 +230,7 @@ export const MessageBranchSelector = ({
 
   return (
     <ButtonGroup
-      className="[&>*:not(:first-child)]:rounded-l-md [&>*:not(:last-child)]:rounded-r-md"
+      className={cn(styles.messageBranchSelector, className)}
       orientation="horizontal"
       {...props}
     />
@@ -293,10 +294,7 @@ export const MessageBranchPage = ({
 
   return (
     <ButtonGroupText
-      className={cn(
-        "border-none bg-transparent text-muted-foreground shadow-none",
-        className
-      )}
+      className={cn(styles.messageBranchPage, className)}
       {...props}
     >
       {currentBranch + 1} of {totalBranches}
@@ -309,10 +307,7 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        className
-      )}
+      className={cn(styles.messageResponse, className)}
       {...props}
     />
   ),
@@ -341,17 +336,14 @@ export function MessageAttachment({
 
   return (
     <div
-      className={cn(
-        "group relative size-24 overflow-hidden rounded-lg",
-        className
-      )}
+      className={cn(styles.messageAttachment, className)}
       {...props}
     >
       {isImage ? (
         <>
           <img
             alt={filename || "attachment"}
-            className="size-full object-cover"
+            className={styles.messageAttachmentImage}
             height={100}
             src={data.url}
             width={100}
@@ -359,7 +351,7 @@ export function MessageAttachment({
           {onRemove && (
             <Button
               aria-label="Remove attachment"
-              className="absolute top-2 right-2 size-6 rounded-full bg-background/80 p-0 opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 [&>svg]:size-3"
+              className={styles.messageAttachmentRemoveButton}
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove();
@@ -368,7 +360,7 @@ export function MessageAttachment({
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className={styles.srOnly}>Remove</span>
             </Button>
           )}
         </>
@@ -376,7 +368,7 @@ export function MessageAttachment({
         <>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex size-full shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <div className={styles.messageAttachmentFileIcon}>
                 <PaperclipIcon className="size-4" />
               </div>
             </TooltipTrigger>
@@ -385,7 +377,7 @@ export function MessageAttachment({
           {onRemove && (
             <Button
               aria-label="Remove attachment"
-              className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
+              className={styles.messageAttachmentFileRemoveButton}
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove();
@@ -394,7 +386,7 @@ export function MessageAttachment({
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className={styles.srOnly}>Remove</span>
             </Button>
           )}
         </>
@@ -416,10 +408,7 @@ export function MessageAttachments({
 
   return (
     <div
-      className={cn(
-        "ml-auto flex w-fit flex-wrap items-start gap-2",
-        className
-      )}
+      className={cn(styles.messageAttachments, className)}
       {...props}
     >
       {children}
@@ -435,12 +424,10 @@ export const MessageToolbar = ({
   ...props
 }: MessageToolbarProps) => (
   <div
-    className={cn(
-      "mt-4 flex w-full items-center justify-between gap-4",
-      className
-    )}
+    className={cn(styles.messageToolbar, className)}
     {...props}
   >
     {children}
   </div>
 );
+

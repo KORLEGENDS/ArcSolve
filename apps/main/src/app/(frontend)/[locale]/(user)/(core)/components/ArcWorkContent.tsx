@@ -5,6 +5,7 @@ import { useArcWorkTab } from '@/client/components/arc/ArcWork/adapters/useArcWo
 import { createFactory } from '@/client/components/arc/ArcWork/components';
 import { ArcYouChatRoom } from '@/client/components/arc/ArcYou/ArcYouChat';
 import { ArcData } from '@/client/components/arc/ArcData';
+import ArcAI from '@/client/components/arc/ArcAI/ArcAI';
 import { useArcWorkRestoreLayout } from '@/client/states/stores/arcwork-layout-store';
 import type { Action } from 'flexlayout-react';
 import { Model, type TabNode } from 'flexlayout-react';
@@ -37,6 +38,14 @@ export function ArcWorkContent({
           return <div className="p-4">문서 ID 정보가 없습니다.</div>;
         }
         return <ArcData documentId={documentId} />;
+      }
+
+      if (component === 'arcai-session') {
+        const documentId = node.getId();
+        if (!documentId) {
+          return <div className="p-4">AI 세션 ID 정보가 없습니다.</div>;
+        }
+        return <ArcAI documentId={documentId} />;
       }
 
       return null; // createFactory가 defaultArcWorkFactory를 호출

@@ -28,6 +28,11 @@ export const CACHE_TTL = {
   CHAT: {
     MESSAGES: (60 * TIME_UNITS.MINUTE) / 1000, // 60분 - 채팅 메시지 캐시
   },
+
+  AI: {
+    LAST_USER_MESSAGE: (60 * TIME_UNITS.MINUTE) / 1000, // 60분 - AI 직전 사용자 메시지 캐시
+    CONVERSATION: (10 * TIME_UNITS.MINUTE) / 1000, // 10분 - AI 전체 대화 스냅샷 캐시
+  },
 } as const;
 
 // ==================== Rate Limit 설정 ====================
@@ -58,6 +63,15 @@ export const CacheKey = {
   rateLimit: {
     user: (userId: string) => `ratelimit:user:${userId}`,
     ip: (ip: string) => `ratelimit:ip:${ip}`,
+  },
+  // AI 관련 캐시 키
+  ai: {
+    // 특정 사용자 + 문서에 대한 "직전 사용자 메시지" 캐시
+    lastUserMessage: (userId: string, documentId: string) =>
+      `ai:last-user:${userId}:${documentId}`,
+    // 특정 사용자 + 문서에 대한 전체 대화 스냅샷 캐시
+    conversation: (userId: string, documentId: string) =>
+      `ai:conversation:${userId}:${documentId}`,
   },
   // 파일 업로드/다운로드 관련 키
   upload: {

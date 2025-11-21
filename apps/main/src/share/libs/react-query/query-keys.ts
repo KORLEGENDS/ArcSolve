@@ -96,6 +96,12 @@ export const queryKeys = {
     content: (documentId: string) =>
       [...queryKeys.documents.all(), 'content', documentId] as const,
   },
+
+  // AI 관련 (document 기반 AI 세션)
+  ai: {
+    conversation: (documentId: string) =>
+      ['ai', 'conversation', documentId] as const,
+  },
 } as const;
 
 /**

@@ -1,0 +1,46 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.messageList {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section {
+  position: relative;
+}
+
+.sectionHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 0.5rem 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  align-items: flex-start;
+  background: radial-gradient(
+      circle at top,
+      color-mix(in oklab, var(--color-background) 92%, transparent),
+      transparent 60%
+    ),
+    var(--color-background);
+}
+
+.sectionContent {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.section.isLastSection .sectionContent {
+  min-height: var(--last-section-min, 0px);
+}
+

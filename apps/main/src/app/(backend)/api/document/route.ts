@@ -131,6 +131,14 @@ export async function POST(request: NextRequest) {
         created = result.document;
         break;
       }
+      case 'ai': {
+        created = await repository.createAiSessionForOwner({
+          userId,
+          parentPath: input.parentPath,
+          name: input.name,
+        });
+        break;
+      }
       default: {
         throwApi('BAD_REQUEST', '지원하지 않는 문서 종류입니다.', {
           kind: (input as { kind?: unknown })?.kind,

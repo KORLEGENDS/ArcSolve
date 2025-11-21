@@ -151,6 +151,12 @@ export type CreateNoteInput = {
   initialContents?: unknown;
 };
 
+export type CreateAiSessionInput = {
+  userId: string;
+  parentPath: string;
+  name: string;
+};
+
 export class DocumentRepository {
   constructor(private readonly database: DB = defaultDb) {}
 
@@ -363,6 +369,59 @@ export class DocumentRepository {
 
       if (!row) {
         throw new Error('외부 파일 문서 생성에 실패했습니다.');
+      }
+
+      return row;
+    } catch (error) {
+      if (isDatabaseError(error) && error.code === '23505') {
+        // user_id + path 유니크 제약 위반
+        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
+          userId: input.userId,
+          parentPath: input.parentPath,
+          name: input.name,
+        });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * ArcAI 세션용 문서를 생성합니다.
+   *
+   * - documents.kind = 'document'
+   * - mimeType = 'application/vnd.arc.ai-chat+json'
+   * - uploadStatus = 'uploaded'
+   * - processingStatus = 'processed'
+   * - fileSize / storageKey / latestContentId = null
+   */
+  async createAiSessionForOwner(input: CreateAiSessionInput): Promise<Document> {
+    const label = toLtreeLabel(input.name);
+    const parentLtreePath = normalizeLtreePath(input.parentPath);
+    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
+
+    // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+    if (parentLtreePath) {
+      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
+    }
+
+    try {
+      const [row] = await this.database
+        .insert(documents)
+        .values({
+          userId: input.userId,
+          path,
+          name: input.name,
+          kind: 'document',
+          mimeType: 'application/vnd.arc.ai-chat+json',
+          fileSize: null,
+          storageKey: null,
+          uploadStatus: 'uploaded',
+          processingStatus: 'processed',
+        })
+        .returning();
+
+      if (!row) {
+        throw new Error('AI 세션 문서 생성에 실패했습니다.');
       }
 
       return row;

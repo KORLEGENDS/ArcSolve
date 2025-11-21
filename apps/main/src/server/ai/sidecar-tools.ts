@@ -77,15 +77,14 @@ export async function callEmbedSearchTool(args: {
   userId: string;
   query: string;
   topK?: number;
-  pathPrefix?: string;
 }): Promise<EmbedSearchResultItem[]> {
-  const { userId, query, topK = 5, pathPrefix } = args;
+  const { userId, query, topK = 5 } = args;
 
   return callSidecar<EmbedSearchResultItem[]>("/tools/embed-search", {
     user_id: userId,
     query,
     top_k: topK,
-    path_prefix: pathPrefix ?? null,
+    path_prefix: null,
   });
 }
 
@@ -93,15 +92,14 @@ export async function callTextSearchTool(args: {
   userId: string;
   query: string;
   topK?: number;
-  pathPrefix?: string;
 }): Promise<TextSearchResultItem[]> {
-  const { userId, query, topK = 5, pathPrefix } = args;
+  const { userId, query, topK = 5 } = args;
 
   return callSidecar<TextSearchResultItem[]>("/tools/text-search", {
     user_id: userId,
     query,
     top_k: topK,
-    path_prefix: pathPrefix ?? null,
+    path_prefix: null,
   });
 }
 

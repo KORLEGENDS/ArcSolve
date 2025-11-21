@@ -112,8 +112,12 @@ export type DocumentContentResponse = z.infer<typeof documentContentResponseSche
 
 /**
  * Document 생성 요청 스키마
- * - kind 필드는 API 레벨 디스크리미네이터로, 현재는 노트 생성용 'note'만 허용합니다.
+ * - kind 필드는 API 레벨 디스크리미네이터입니다.
  * - DB의 documents.kind('folder' | 'document')와는 별개의 개념이며, 실제 문서 타입은 mimeType으로 구분합니다.
+ *
+ * 현재 지원:
+ * - 'note' : 노트 문서 (contents 포함)
+ * - 'ai'   : AI 세션 문서 (contents 없음, ArcAI 전용)
  */
 const documentNoteCreateRequestSchema = z.object({
   kind: z.literal('note'),
@@ -122,8 +126,15 @@ const documentNoteCreateRequestSchema = z.object({
   contents: noteContentSchema.optional(),
 });
 
+const documentAiCreateRequestSchema = z.object({
+  kind: z.literal('ai'),
+  name: documentNameSchema,
+  parentPath: documentParentPathSchema,
+});
+
 export const documentCreateRequestSchema = z.discriminatedUnion('kind', [
   documentNoteCreateRequestSchema,
+  documentAiCreateRequestSchema,
 ]);
 
 export type DocumentCreateRequest = z.infer<typeof documentCreateRequestSchema>;
