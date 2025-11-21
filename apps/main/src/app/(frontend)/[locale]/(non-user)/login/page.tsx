@@ -4,9 +4,9 @@ import { ArcLogo, ArcLogoTagline } from '@/client/components/arc/ArcLogo';
 import { ArcState } from '@/client/components/arc/ArcState';
 import { Badge } from '@/client/components/ui/badge';
 import {
-    Card,
-    CardContent,
-    CardHeader
+  Card,
+  CardContent,
+  CardHeader
 } from '@/client/components/ui/card';
 import { Link } from '@/share/libs/i18n/routing';
 import { assetUrl } from '@/share/share-utils/asset-url';
@@ -54,7 +54,7 @@ export default function LoginPage(): JSX.Element {
 
   return (
     <main className="min-h-screen w-full flex items-center justify-center p-6">
-      <Card className='login-card bg-background/95 w-full backdrop-blur border-[--color-brand]/20 shadow-2xl' style={{ containerType: 'inline-size' }}>
+      <Card className='max-w-[420px] login-card bg-background/95 w-full backdrop-blur border-[--color-brand]/20 shadow-2xl' style={{ containerType: 'inline-size' }}>
         <CardHeader className='text-center space-y-4'>
           <div className="flex flex-col items-center">
             <div className="flex flex-col items-center space-y-1">
