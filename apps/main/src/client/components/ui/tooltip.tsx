@@ -39,7 +39,7 @@ function TooltipTrigger({
 
 type TooltipContentProps = Omit<
   React.ComponentProps<typeof TooltipPrimitive.Content>,
-  'children'
+  'children' | 'align'
 > & {
   title: React.ReactNode;
   description?: React.ReactNode;
