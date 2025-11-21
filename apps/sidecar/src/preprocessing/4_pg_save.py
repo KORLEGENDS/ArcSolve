@@ -38,6 +38,7 @@ from document_schema import (
     DocumentChunk,
     DocumentKind,
     DocumentUploadStatus,
+    DocumentProcessingStatus,
 )
 
 
@@ -93,11 +94,12 @@ def save_to_pg_step(
             user_id=user_id,
             name=parsed.get("file_name"),
             path=doc_path,
-            kind=DocumentKind.FILE,
+            kind=DocumentKind.DOCUMENT,
             mime_type=mime_type,
             file_size=int(parsed.get("file_size") or 0),
             storage_key=f"local_pipeline/{parsed.get('file_name')}",
             upload_status=DocumentUploadStatus.UPLOADED,
+            processing_status=DocumentProcessingStatus.PROCESSED,
         )
         session.add(new_doc)
         session.flush()

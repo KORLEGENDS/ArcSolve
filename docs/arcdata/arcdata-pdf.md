@@ -417,57 +417,81 @@ usePDFViewController({
 
 ## 7. PDFManager 상세
 
-### 7.1. 싱글톤 및 동적 import
-
-```ts
-class ArcDataPDFManager {
-  private static instance: ArcDataPDFManager;
-  private static pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
-
-  private constructor() {}
-
-  static getInstance(): ArcDataPDFManager {
-    if (!ArcDataPDFManager.instance) {
-      ArcDataPDFManager.instance = new ArcDataPDFManager();
-    }
-    return ArcDataPDFManager.instance;
-  }
-
-  private async getPdfJs() {
-    if (typeof window === 'undefined') {
-      throw new Error('PDF.js는 브라우저 환경에서만 사용할 수 있습니다.');
-    }
-
-    if (!ArcDataPDFManager.pdfjsLibPromise) {
-      ArcDataPDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
-        if (!mod.GlobalWorkerOptions.workerSrc) {
-          mod.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
-        }
-        return mod;
-      });
-    }
-
-    return ArcDataPDFManager.pdfjsLibPromise;
-  }
-}
-```
-
-- 서버 렌더링 시 DOM 전역(`DOMMatrix` 등)이 없기 때문에, **정적 import가 아닌 동적 import**를 사용합니다.
-- 브라우저 환경에서 최초 호출 시에만 `GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs'`를 설정합니다.
-- `/public/pdf.worker.mjs`는 `node_modules/pdfjs-dist/build/pdf.worker.mjs`와 **버전을 맞춰야** 합니다.
-
-### 7.2. 문서 로드
-
-```ts
-async loadDocument(url: string): Promise<PDFDocumentProxy> {
-  const pdfjsLib = await this.getPdfJs();
-  const loadingTask = pdfjsLib.getDocument({ url });
-  return (await loadingTask.promise) as PDFDocumentProxy;
-}
-```
-
-- 실제 구현에서는 캐시/동시 로딩 제어 로직이 추가되어 있지만,
-  기본적으로는 R2 서명 URL을 그대로 `getDocument`에 전달하여 pdf.js 문서를 로드합니다.
+### 7.1. 싱글톤 및 동적 import (초기화 개선)
+ 
+ ```ts
+ export class ArcDataPDFManager {
+   private static instance: ArcDataPDFManager;
+   private static pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+ 
+   private constructor() {}
+ 
+   static getInstance(): ArcDataPDFManager {
+     if (!ArcDataPDFManager.instance) {
+       ArcDataPDFManager.instance = new ArcDataPDFManager();
+     }
+     return ArcDataPDFManager.instance;
+   }
+ 
+   /**
+    * 브라우저 환경에서만 pdfjs-dist를 동적으로 import하고 초기화합니다.
+    * - Worker 설정을 한 곳에서 관리하기 위해 public static으로 노출
+    */
+   static async initPDFJS(): Promise<typeof import('pdfjs-dist')> {
+     if (typeof window === 'undefined') {
+       throw new Error('PDF.js는 브라우저 환경에서만 사용할 수 있습니다.');
+     }
+ 
+     if (!ArcDataPDFManager.pdfjsLibPromise) {
+       ArcDataPDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
+         // 워커 경로 설정 (JPEG 2000 등 복잡한 이미지 렌더링에 필수)
+         if (!mod.GlobalWorkerOptions.workerSrc) {
+           const workerSrc = '/pdf.worker.mjs';
+           console.log(`[ArcDataPDFManager] Setting workerSrc to ${workerSrc}`);
+           mod.GlobalWorkerOptions.workerSrc = workerSrc;
+         }
+         return mod;
+       });
+     }
+ 
+     return ArcDataPDFManager.pdfjsLibPromise;
+   }
+ }
+ ```
+ 
+ - **중앙 집중식 초기화:** `initPDFJS()` 정적 메서드를 통해 `pdfjs-dist` 로드와 `GlobalWorkerOptions.workerSrc` 설정을 한 곳에서 처리합니다.
+ - **Race Condition 방지:** `usePDFViewerServices` 등 다른 곳에서도 이 메서드를 호출하여 초기화 순서를 보장합니다.
+ - **리소스 경로:** `/public/pdf.worker.mjs`를 워커 소스로 사용합니다.
+ 
+ ### 7.2. 문서 로드 및 필수 리소스 설정
+ 
+ ```ts
+ async loadDocument(url: string): Promise<PDFDocumentProxy> {
+   const pdfjsLib = await ArcDataPDFManager.initPDFJS();
+   
+   // ArcDataManager를 통해 공통 바이너리 다운로드 경로 사용
+   const blob = await arcDataManager.loadBlobFromSource(url, {
+     mimeType: 'application/pdf',
+   });
+   const data = new Uint8Array(await blob.arrayBuffer());
+ 
+   const loadingTask = pdfjsLib.getDocument({
+     data,
+     cMapUrl: '/cmaps/', // 한글 등 CMap 지원
+     cMapPacked: true,
+     standardFontDataUrl: '/standard_fonts/', // 표준 폰트 지원
+     wasmUrl: '/wasm/', // JPEG 2000 등 디코딩을 위한 WASM 경로
+     verbosity: pdfjsLib.VerbosityLevel.INFOS, // 상세 로그 (디버깅용)
+   });
+   return (await loadingTask.promise) as PDFDocumentProxy;
+ }
+ ```
+ 
+ - **필수 리소스 설정:** JPEG 2000 이미지(JPXDecode)나 복잡한 폰트 렌더링을 위해 다음 리소스 경로를 명시적으로 설정합니다.
+   - `cMapUrl`: `/cmaps/`
+   - `standardFontDataUrl`: `/standard_fonts/`
+   - `wasmUrl`: `/wasm/` (OpenJPEG WASM 모듈 등)
+ - **데이터 로드:** URL을 직접 넘기는 대신 `ArcDataManager`를 통해 Blob을 다운로드하고 `Uint8Array` 형태로 전달하여, 인증 헤더나 커스텀 다운로드 로직을 태울 수 있습니다.
 
 ### 7.3. 렌더링
 

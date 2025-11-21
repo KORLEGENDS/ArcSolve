@@ -31,7 +31,7 @@ interface RenderOptions {
 
 // ==================== PDF Manager 싱글톤 ====================
 
-class ArcDataPDFManager {
+export class ArcDataPDFManager {
   private static instance: ArcDataPDFManager;
 
   // 동적 import된 pdf.js 모듈 캐시
@@ -55,7 +55,7 @@ class ArcDataPDFManager {
   /**
    * Private constructor - 싱글톤 패턴
    */
-  private constructor() {}
+  private constructor() { }
 
   /**
    * 싱글톤 인스턴스 획득
@@ -68,25 +68,36 @@ class ArcDataPDFManager {
   }
 
   /**
-   * 브라우저 환경에서만 pdfjs-dist를 동적으로 import
-   * - 서버 렌더링 시 DOMMatrix 등이 없어도 모듈 평가가 일어나지 않도록 보호
+   * 브라우저 환경에서만 pdfjs-dist를 동적으로 import하고 초기화합니다.
+   * - Worker 설정을 한 곳에서 관리하기 위해 public static으로 노출
    */
-  private async getPdfJs() {
+  static async initPDFJS(): Promise<typeof import('pdfjs-dist')> {
     if (typeof window === 'undefined') {
       throw new Error('PDF.js는 브라우저 환경에서만 사용할 수 있습니다.');
     }
 
     if (!ArcDataPDFManager.pdfjsLibPromise) {
       ArcDataPDFManager.pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
-        // 워커 경로를 한 번만 초기화
+        // 워커 경로 설정 (JPEG 2000 등 복잡한 이미지 렌더링에 필수)
         if (!mod.GlobalWorkerOptions.workerSrc) {
-          mod.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+          const workerSrc = '/pdf.worker.mjs';
+          console.log(`[ArcDataPDFManager] Setting workerSrc to ${workerSrc}`);
+          mod.GlobalWorkerOptions.workerSrc = workerSrc;
+        } else {
+          console.log('[ArcDataPDFManager] workerSrc is already set:', mod.GlobalWorkerOptions.workerSrc);
         }
         return mod;
       });
     }
 
     return ArcDataPDFManager.pdfjsLibPromise;
+  }
+
+  /**
+   * 내부 사용 편의를 위한 래퍼
+   */
+  private async getPdfJs() {
+    return ArcDataPDFManager.initPDFJS();
   }
 
   /**
@@ -120,11 +131,13 @@ class ArcDataPDFManager {
     }
 
     // 3. 새로 로드
+    console.log(`[ArcDataPDFManager] Loading document: ${url}`);
     const loadPromise = this.loadDocumentInternal(url);
     this.loadingPromises.set(url, loadPromise);
 
     try {
       const document = await loadPromise;
+      console.log(`[ArcDataPDFManager] Document loaded successfully: ${url}`);
 
       // 캐시에 저장
       this.documentCache.set(url, {
@@ -154,7 +167,14 @@ class ArcDataPDFManager {
     });
     const data = new Uint8Array(await blob.arrayBuffer());
 
-    const loadingTask = pdfjsLib.getDocument({ data });
+    const loadingTask = pdfjsLib.getDocument({
+      data,
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/standard_fonts/',
+      wasmUrl: '/wasm/', // WASM 파일이 위치한 디렉토리 경로
+      verbosity: pdfjsLib.VerbosityLevel.INFOS, // 상세 로그 출력
+    });
     return (await loadingTask.promise) as PDFDocumentProxy;
   }
 
@@ -329,7 +349,4 @@ class ArcDataPDFManager {
 
 // Export singleton instance
 export const pdfManager = ArcDataPDFManager.getInstance();
-
-// Export type for testing
-export type { ArcDataPDFManager };
 

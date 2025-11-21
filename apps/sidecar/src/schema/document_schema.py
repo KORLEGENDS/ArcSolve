@@ -64,9 +64,8 @@ class Ltree(TypeDecorator):
 class DocumentKind(str, enum.Enum):
     """Document kind enumeration."""
 
-    NOTE = "note"
-    FILE = "file"
     FOLDER = "folder"
+    DOCUMENT = "document"
 
 
 class DocumentRelationType(str, enum.Enum):
@@ -85,6 +84,15 @@ class DocumentUploadStatus(str, enum.Enum):
     UPLOADING = "uploading"
     UPLOADED = "uploaded"
     UPLOAD_FAILED = "upload_failed"
+
+
+class DocumentProcessingStatus(str, enum.Enum):
+    """Document processing status enumeration."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
 
 
 # Table definitions
@@ -152,6 +160,17 @@ class Document(Base):
         Enum(DocumentUploadStatus, name="document_upload_status", native_enum=True),
         nullable=False,
         default=DocumentUploadStatus.UPLOADED,
+    )
+
+    """
+    전처리(파싱/임베딩 등) 상태
+    - 파일 업로드 이후, 백엔드 전처리 파이프라인의 진행 상태를 나타냅니다.
+    - note/folder 등 비파일 문서는 생성 시점에 'processed' 로 간주할 수 있습니다.
+    """
+    processing_status: Mapped[DocumentProcessingStatus] = mapped_column(
+        Enum(DocumentProcessingStatus, name="document_processing_status", native_enum=True),
+        nullable=False,
+        default=DocumentProcessingStatus.PENDING,
     )
 
     # points to the latest content version (nullable for empty documents)

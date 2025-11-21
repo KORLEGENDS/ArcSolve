@@ -11,6 +11,8 @@ import * as React from 'react';
  */
 let viewerModulePromise: Promise<typeof import('pdfjs-dist/web/pdf_viewer.mjs')> | null = null;
 
+import { ArcDataPDFManager } from '../../managers/ArcDataPDFManager';
+
 export async function loadPdfJsViewerModule(): Promise<typeof import('pdfjs-dist/web/pdf_viewer.mjs')> {
   if (viewerModulePromise) return viewerModulePromise;
 
@@ -19,8 +21,9 @@ export async function loadPdfJsViewerModule(): Promise<typeof import('pdfjs-dist
       throw new Error('PDF.js Viewer는 브라우저 환경에서만 사용할 수 있습니다.');
     }
 
-    // 1) 코어 모듈 로드 후 globalThis.pdfjsLib 세팅
-    const pdfjsLib = await import('pdfjs-dist');
+    // 1) 코어 모듈 로드 및 초기화 (ArcDataPDFManager를 통해 중앙 관리)
+    const pdfjsLib = await ArcDataPDFManager.initPDFJS();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).pdfjsLib = pdfjsLib;
 

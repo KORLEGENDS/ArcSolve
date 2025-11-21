@@ -41,6 +41,8 @@ export const ArcDataPDFViewer = React.forwardRef<ArcDataPDFViewerHandle, ArcData
             enableAutoLinking: false,
           });
 
+          console.log('[ArcDataPDF] PDFViewer initialized', instance);
+
           viewerRef.current = instance;
           linkService.setViewer?.(instance);
         }
@@ -49,8 +51,13 @@ export const ArcDataPDFViewer = React.forwardRef<ArcDataPDFViewerHandle, ArcData
         if (!viewer) return;
 
         // 문서 바인딩만 위임 (초기 스케일/페이지/링크 주입 등은 모두 pdf.js 기본 동작 사용)
-        viewer.setDocument?.(document);
-        linkService.setDocument?.(document, null);
+        console.log('[ArcDataPDF] Binding document to viewer', document);
+        try {
+          viewer.setDocument?.(document);
+          linkService.setDocument?.(document, null);
+        } catch (e) {
+          console.error('[ArcDataPDF] Error binding document:', e);
+        }
       };
 
       void ensureViewer();
@@ -77,6 +84,29 @@ export const ArcDataPDFViewer = React.forwardRef<ArcDataPDFViewerHandle, ArcData
         eventBus.off('pagechanging', handler);
       };
     }, [eventBus, onPageChange]);
+
+    // [DEBUG] 렌더링 상태 및 에러 모니터링 로그
+    React.useEffect(() => {
+      if (!eventBus) return;
+
+      const onPagesInit = () => console.log('[ArcDataPDF] Event: pagesinit');
+      const onPagesLoaded = () => console.log('[ArcDataPDF] Event: pagesloaded');
+      const onPageRendered = (evt: any) => console.log('[ArcDataPDF] Event: pagerendered', evt);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const onError = (evt: any) => console.error('[ArcDataPDF] Event: error', evt);
+
+      eventBus.on('pagesinit', onPagesInit);
+      eventBus.on('pagesloaded', onPagesLoaded);
+      eventBus.on('pagerendered', onPageRendered);
+      eventBus.on('error', onError);
+
+      return () => {
+        eventBus.off('pagesinit', onPagesInit);
+        eventBus.off('pagesloaded', onPagesLoaded);
+        eventBus.off('pagerendered', onPageRendered);
+        eventBus.off('error', onError);
+      };
+    }, [eventBus]);
 
     React.useImperativeHandle(
       ref,

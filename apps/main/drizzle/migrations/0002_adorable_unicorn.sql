@@ -1,0 +1,2 @@
+CREATE TYPE "public"."document_processing_status" AS ENUM('pending', 'processing', 'processed', 'failed');--> statement-breakpoint
+ALTER TABLE "document" ADD COLUMN "processing_status" "document_processing_status" DEFAULT 'pending' NOT NULL;

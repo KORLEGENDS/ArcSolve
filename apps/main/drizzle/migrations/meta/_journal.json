@@ -15,6 +15,13 @@
       "when": 1763611518855,
       "tag": "0001_nappy_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1763690912485,
+      "tag": "0002_adorable_unicorn",
+      "breakpoints": true
     }
   ]
 }

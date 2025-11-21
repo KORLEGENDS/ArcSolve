@@ -194,11 +194,12 @@ PY
 - **Document**
   - `name`: 파일명
   - `path`: `root.<safe_name>_<uuid8>`
-  - `kind`: `DocumentKind.FILE`
+  - `kind`: `DocumentKind.DOCUMENT`
   - `mime_type`: `parsed["mime_type"]` (없으면 `"application/pdf"` 등 기본값)
   - `file_size`: `parsed["file_size"]`
   - `storage_key`: `"local_pipeline/<file_name>"`
   - `upload_status`: `DocumentUploadStatus.UPLOADED`
+  - `processing_status`: `DocumentProcessingStatus.PROCESSED`
 
 - **DocumentContent**
   - `version`: `1`
