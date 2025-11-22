@@ -175,28 +175,28 @@ export function ArcManager(): React.ReactElement {
   const [tabStates, setTabStates] =
     React.useState<Record<ArcDataType, ArcManagerTabViewState>>({
       documents: {
-        searchQuery: '',
-        currentPath: '',
-        isCollapsed: true,
-        creatingFolder: false,
-        newFolderName: '',
-        creatingNoteType: null,
-        newNoteName: '',
-        creatingYoutube: false,
-        newYoutubeUrl: '',
-      },
+      searchQuery: '',
+      currentPath: '',
+      isCollapsed: true,
+      creatingFolder: false,
+      newFolderName: '',
+      creatingNoteType: null,
+      newNoteName: '',
+      creatingYoutube: false,
+      newYoutubeUrl: '',
+    },
       ai: {
-        searchQuery: '',
-        currentPath: '',
-        isCollapsed: true,
-        creatingFolder: false,
-        newFolderName: '',
-        creatingNoteType: null,
-        newNoteName: '',
-        creatingYoutube: false,
-        newYoutubeUrl: '',
-      },
-    });
+      searchQuery: '',
+      currentPath: '',
+      isCollapsed: true,
+      creatingFolder: false,
+      newFolderName: '',
+      creatingNoteType: null,
+      newNoteName: '',
+      creatingYoutube: false,
+      newYoutubeUrl: '',
+    },
+  });
 
   // 3. documents 탭용 업로드 훅 (다른 탭은 사용하지 않음)
   const documentsTabState = tabStates.documents;
@@ -371,20 +371,20 @@ export function ArcManager(): React.ReactElement {
 
   const folderCreateHandlers =
     React.useMemo<Record<ArcDataType, FolderCreateHandler | null>>(
-      () => ({
+    () => ({
         // documents 탭: document 도메인 폴더 생성 후 문서 도메인 목록 갱신
         documents: async ({ parentPath, name }) => {
           await createFolder({ parentPath, name, domain: 'document' });
           await refetchDocumentsDomain();
-        },
+      },
         // ai 탭: AI 도메인 폴더 생성 후 AI 세션 목록 갱신
         ai: async ({ parentPath, name }) => {
           await createFolder({ parentPath, name, domain: 'ai' });
           await refetchAi();
-        },
-      }),
+      },
+    }),
       [createFolder, refetchDocumentsDomain, refetchAi],
-    );
+  );
 
   // 폴더 생성 중복 실행 방지를 위한 ref (탭별 1회만 동작)
   const folderCreatingRef = React.useRef<Record<ArcDataType, boolean>>({
@@ -670,13 +670,13 @@ export function ArcManager(): React.ReactElement {
 
           const treeItems: ArcManagerTreeItem[] = (() => {
             if (isDocumentsTab) {
-              if (!currentPath) {
-                // 루트에서는 전체 트리 루트를 그대로 보여줍니다.
+            if (!currentPath) {
+              // 루트에서는 전체 트리 루트를 그대로 보여줍니다.
                 return documentTreeItems;
-              }
-              // 특정 폴더로 이동한 경우, 해당 폴더의 자식들을 루트처럼 보여줍니다.
+            }
+            // 특정 폴더로 이동한 경우, 해당 폴더의 자식들을 루트처럼 보여줍니다.
               const node = findTreeNodeByPath(documentTreeItems, currentPath);
-              return node?.children ?? [];
+            return node?.children ?? [];
             }
 
             if (isAiTab) {

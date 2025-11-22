@@ -178,6 +178,6 @@ const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
 이 정책을 기준으로, 새로운 DnD 기능(예: 다른 도메인 탭에서 ArcManager 아이템을 받아서 렌더링하는 기능)을 설계할 때도
 **“기본은 탭 생성, 필요 시 Drop Sink로 로컬 우선 처리”**라는 패턴을 일관되게 적용한다.
 
-이동 완료 후 React Query 캐시(listFiles/listNotes/listAll)가 동시에 옵티미스틱하게 갱신되므로,
+이동 완료 후 React Query 캐시(문서/AI 트리용 목록 쿼리)가 동시에 옵티미스틱하게 갱신되므로,
 ArcManager 트리가 즉시 반영된다.
 

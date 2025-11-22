@@ -91,8 +91,6 @@ export const documents = pgTable(
     - 노트/파일 + **document 도메인 폴더**
   - `kind=ai` : **AI 탭용 트리**
     - AI 세션 + **AI 도메인 폴더**
-  - `kind=file` / `kind=note` : 과거 호환용 (기존 파일/노트 전용 뷰)
-  - `kind=all` : 모든 문서(kind) 반환
 
 폴더는 `kind='folder'` 이고, `mimeType` 으로 도메인을 구분합니다.
 
@@ -130,29 +128,13 @@ const documents = allDocuments.filter((doc) => {
     !isAiSession &&
     !mimeType.startsWith('application/vnd.arc.folder+');
 
-  // 기본값(null) 또는 'file' : 기존 파일 트리 호환용
-  if (kindParam === null || kindParam === 'file') {
-    // 일반 파일 + document 폴더만 반환 (AI 세션/AI 폴더 제외)
-    return isDocumentFolder || isFileLike;
-  }
-
-  if (kindParam === 'note') {
-    // 노트 뷰(호환용): note + document 폴더만 반환
-    return isDocumentFolder || isNote;
-  }
-
-  if (kindParam === 'document') {
-    // 통합 노트/파일 트리: note + fileLike + document 폴더
-    return isDocumentFolder || isNote || isFileLike;
-  }
-
   if (kindParam === 'ai') {
     // AI 트리: AI 세션 + AI 폴더만 반환
     return isAiFolder || isAiSession;
   }
 
-  // kind = 'all' → 모든 kind 허용
-  return true;
+  // 기본(문서 트리): note + fileLike + document 폴더
+  return isDocumentFolder || isNote || isFileLike;
 });
 ```
 
@@ -284,10 +266,10 @@ type DocumentFolderCreateRequest = {
   - `DocumentDTO`: 서버 Document 엔티티의 클라이언트 DTO
   - `DocumentMoveMutationVariables`: `{ documentId: string; parentPath: string }`
 - 주요 옵션
-  - `listFiles`: `GET /api/document?kind=file` → `DocumentDTO[]` (ArcManager `files` 탭에서 사용)
-  - `listNotes`: `GET /api/document?kind=note` → `DocumentDTO[]` (ArcManager `notes` 탭에서 사용)
+  - `listDocumentsDomain`: `GET /api/document?kind=document` → `DocumentDTO[]` (ArcManager `documents` 탭에서 사용)
+  - `listAi`: `GET /api/document?kind=ai` → `DocumentDTO[]` (ArcManager `ai` 탭에서 사용)
   - `move`: `PATCH /api/document/[documentId]/move` → `DocumentDTO`
-  - `createFolder`: `POST /api/document/folder` → `DocumentDTO` (현재는 `files`/`notes` 탭에서 모두 사용)
+  - `createFolder`: `POST /api/document/folder` → `DocumentDTO` (문서/AI 탭 모두 사용, `folderDomain` 으로 도메인 지정)
 
 ```76:176:apps/main/src/share/libs/react-query/query-options/document.ts
 export const documentQueryOptions = {
@@ -472,10 +454,9 @@ export function useDocumentMove(): UseDocumentMoveReturn {
 정의 파일: `apps/main/src/client/components/arc/ArcManager/ArcManager.tsx`
 
 - 탭 종류
-  - `notes` / `files` / `chat`
-  - `files` 탭: 파일/폴더 문서를 `GET /api/document?kind=file` 기반으로 조회
-  - `notes` 탭: 노트/폴더 문서를 `GET /api/document?kind=note`, `POST /api/document`, `POST /api/document/folder` 로 조회/생성
-  - `chat` 탭: UI 구조만 준비되어 있고, 아직 별도의 서버 도메인과는 연결되지 않음
+  - `documents` / `ai`
+  - `documents` 탭: 노트/파일/문서 도메인 폴더를 `GET /api/document?kind=document` 기반으로 조회/생성
+  - `ai` 탭: AI 세션/AI 폴더를 `GET /api/document?kind=ai` 기반으로 조회
 - 탭별 상태 (`ArcManagerTabViewState`)
   - `searchQuery`: 검색어 (현재 필터 미적용, UI만)
   - `currentPath`: 현재 탐색 중인 경로 (`''` = 루트)
@@ -483,7 +464,7 @@ export function useDocumentMove(): UseDocumentMoveReturn {
   - `creatingFolder`: 인라인 새 폴더 입력 중 여부
   - `newFolderName`: 인라인 입력 값
 
-문서 목록(`DocumentDTO[]`)은 `fileTreeItems: ArcManagerTreeItem[]`으로 변환되어 트리 구조로 렌더링됩니다.
+문서 목록(`DocumentDTO[]`)은 `documentTreeItems` / `aiTreeItems` 로 변환되어 트리 구조로 렌더링됩니다.
 
 #### 6.2 인라인 생성 패턴
 

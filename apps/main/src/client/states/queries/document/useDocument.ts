@@ -107,11 +107,8 @@ export interface UseDocumentMoveReturn {
 }
 
 type DocumentsListQueryKey =
-  | ReturnType<typeof queryKeys.documents.listFiles>
-  | ReturnType<typeof queryKeys.documents.listNotes>
   | ReturnType<typeof queryKeys.documents.listDocumentsDomain>
-  | ReturnType<typeof queryKeys.documents.listAi>
-  | ReturnType<typeof queryKeys.documents.listAll>;
+  | ReturnType<typeof queryKeys.documents.listAi>;
 
 export interface UseDocumentFolderCreateReturn {
   createFolder: (input: {
@@ -197,13 +194,7 @@ export function useDocumentCreate(): UseDocumentCreateReturn {
 
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listNotes(),
-          }),
-          queryClient.invalidateQueries({
             queryKey: queryKeys.documents.listDocumentsDomain(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listAll(),
           }),
         ]);
 
@@ -285,11 +276,8 @@ function applyDocumentMoveOptimistic(
 export function useDocumentMove(): UseDocumentMoveReturn {
   const queryClient = useQueryClient();
   const listQueryKeys: DocumentsListQueryKey[] = [
-    queryKeys.documents.listFiles(),
-    queryKeys.documents.listNotes(),
     queryKeys.documents.listDocumentsDomain(),
     queryKeys.documents.listAi(),
-    queryKeys.documents.listAll(),
   ];
 
   const moveMutation = useMutation({
@@ -400,16 +388,10 @@ export function useDocumentUpdate(): UseDocumentUpdateReturn {
             queryKey: queryKeys.documents.byId(documentId),
           }),
           queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listFiles(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listNotes(),
-          }),
-          queryClient.invalidateQueries({
             queryKey: queryKeys.documents.listDocumentsDomain(),
           }),
           queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listAll(),
+            queryKey: queryKeys.documents.listAi(),
           }),
         ]);
         return;
@@ -455,14 +437,11 @@ export function useDocumentYoutubeCreate(): UseDocumentYoutubeCreateReturn {
 
 function createDocumentListHook(
   getOptions: () =>
-    | ReturnType<typeof documentQueryOptions.listFiles>
-    | ReturnType<typeof documentQueryOptions.listNotes>
     | ReturnType<typeof documentQueryOptions.listDocumentsDomain>
-    | ReturnType<typeof documentQueryOptions.listAi>
-    | ReturnType<typeof documentQueryOptions.listAll>,
+    | ReturnType<typeof documentQueryOptions.listAi>,
 ) {
   return function useDocumentList(): UseDocumentFilesReturn {
-    const query = useQuery(getOptions());
+    const query = useQuery<DocumentDTO[]>(getOptions() as any);
 
     const refetch = useCallback(
       async () => {
@@ -482,20 +461,6 @@ function createDocumentListHook(
     };
   };
 }
-
-/**
- * 현재 사용자 기준 file 문서 목록 조회 훅 (호환용)
- */
-export const useDocumentFiles = createDocumentListHook(
-  documentQueryOptions.listFiles,
-);
-
-/**
- * 현재 사용자 기준 note 문서 목록 조회 훅 (호환용)
- */
-export const useDocumentNotes = createDocumentListHook(
-  documentQueryOptions.listNotes,
-);
 
 /**
  * 현재 사용자 기준 노트/파일 도메인(document) 문서 목록 조회 훅
@@ -538,19 +503,10 @@ export function useDocumentDelete(): UseDocumentDeleteReturn {
           queryKey: queryKeys.documents.content(documentId),
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listFiles(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listNotes(),
-        }),
-        queryClient.invalidateQueries({
           queryKey: queryKeys.documents.listDocumentsDomain(),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.documents.listAi(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listAll(),
         }),
       ]);
     },

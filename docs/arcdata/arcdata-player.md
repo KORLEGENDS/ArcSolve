@@ -17,8 +17,9 @@ Player 관련 주요 구성요소는 다음과 같습니다.
   - ArcData 도메인의 **엔트리 포인트 컴포넌트**
   - props: `{ documentId: string }`
   - 역할:
-    - `useDocumentFiles()`로 현재 사용자 기준 `DocumentDTO[]` 목록 조회
-    - `documentId`에 해당하는 문서를 찾고, `kind` / `fileMeta.mimeType` / `fileMeta.storageKey`를 기반으로
+    - `useDocumentDetail(documentId)` 로 단일 문서 메타(`DocumentDTO`) 조회
+    - `kind` / `mimeType` / `storageKey`를 기반으로
+      - 노트/드로우면 `ArcDataNoteHost` / `ArcDataDrawHost`
       - PDF면 `ArcDataPDFHost`
       - 영상/오디오/YouTube면 `ArcDataPlayerHost`
       - 그 외 타입은 아직 미지원으로 처리
@@ -63,26 +64,29 @@ Player 관련 주요 구성요소는 다음과 같습니다.
 ArcData는 대략 다음과 같은 흐름으로 Player 호스트를 선택합니다(개념 요약).
 
 ```ts
-// 1. 문서 목록 조회
-const { data: documents } = useDocumentFiles();
+// 1. 단일 문서 메타 조회
+const { data: document, isLoading, isError } = useDocumentDetail(documentId);
+if (isLoading || isError || !document) return null;
 
-// 2. 대상 문서 선택
-const document = documents.find((d) => d.documentId === documentId);
-if (!document || document.kind !== 'document') return null;
+// 2. 폴더는 ArcData에서 직접 렌더링하지 않음
+if (document.kind === 'folder') return null;
 
 const mimeType = document.mimeType ?? null;
 const storageKey = document.storageKey ?? null;
 
 // 3. 타입 판별
 const isPDF = mimeType === 'application/pdf';
-const isVideo = typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('video/');
-const isAudio = typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('audio/');
+const isVideo =
+  typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('video/');
+const isAudio =
+  typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('audio/');
 
 const isExternalUrl =
   typeof storageKey === 'string' &&
   (storageKey.startsWith('http://') || storageKey.startsWith('https://'));
 
-const isYoutubeMime = typeof mimeType === 'string' && mimeType.toLowerCase() === 'video/youtube';
+const isYoutubeMime =
+  typeof mimeType === 'string' && mimeType.toLowerCase() === 'video/youtube';
 const isYoutubeUrl =
   isExternalUrl &&
   typeof storageKey === 'string' &&
@@ -437,7 +441,7 @@ ArcData 탭에서는 **Player 호스트를 통해 YouTube 영상으로 재생**�
 1. 사용자가 ArcManager 파일 트리에서 YouTube 문서를 드래그 → ArcWork 탭으로 드롭합니다.
 2. ArcWork는 `{ id: documentId, name, type: 'arcdata-document' }` 메타데이터로 새 탭을 생성합니다.
 3. `ArcWorkContent` factory에서 `component === 'arcdata-document'`인 탭에 대해 `<ArcData documentId={id} />`를 렌더링합니다.
-4. `ArcData`는 `useDocumentFiles()`로 문서 목록을 조회하고, 대상 문서를 Player 대상 여부(isVideo/isAudio/isYoutube)로 판별합니다.
+4. `ArcData`는 `useDocumentDetail(documentId)`로 단일 문서를 조회하고, Player 대상 여부(isVideo/isAudio/isYoutube)로 판별합니다.
 5. Player 대상이면 `<ArcDataPlayerHost documentId mimeType storageKey />`를 렌더링합니다.
 6. `ArcDataPlayerHost`는 외부 URL 여부에 따라:
    - YouTube/외부 URL → `storageKey`를 그대로 `src`로 사용

@@ -26,19 +26,13 @@ export async function GET(request: NextRequest) {
     const kindParam = searchParams.get('kind');
 
     // kind 파라미터:
-    // - null 또는 'file'   : (호환용) file + folder 트리
-    // - 'note'             : (호환용) note + folder 트리
-    // - 'document'         : 노트/파일 트리 (note + file + document 폴더)
-    // - 'ai'               : AI 트리 (AI 세션 + AI 폴더)
-    // - 'all'              : 모든 kind (note/file/ai/folder)
+    // - null 또는 'document' : 노트/파일 + document 도메인 폴더 트리
+    // - 'ai'                 : AI 세션 + AI 도메인 폴더 트리
     if (
       !(
         kindParam === null ||
-        kindParam === 'file' ||
-        kindParam === 'note' ||
         kindParam === 'document' ||
-        kindParam === 'ai' ||
-        kindParam === 'all'
+        kindParam === 'ai'
       )
     ) {
       return error('BAD_REQUEST', '지원하지 않는 문서 종류입니다.', {
@@ -73,29 +67,13 @@ export async function GET(request: NextRequest) {
         !isAiSession &&
         !mimeType.startsWith('application/vnd.arc.folder+');
 
-      // 기본값(null) 또는 'file' : 기존 파일 트리 호환용
-      if (kindParam === null || kindParam === 'file') {
-        // 일반 파일 + document 폴더만 반환 (AI 세션/AI 폴더 제외)
-        return isDocumentFolder || isFileLike;
-      }
-
-      if (kindParam === 'note') {
-        // 노트 뷰(호환용): note + document 폴더만 반환
-        return isDocumentFolder || isNote;
-      }
-
-      if (kindParam === 'document') {
-        // 통합 노트/파일 트리: note + fileLike + document 폴더
-        return isDocumentFolder || isNote || isFileLike;
-      }
-
       if (kindParam === 'ai') {
         // AI 트리: AI 세션 + AI 폴더만 반환
         return isAiFolder || isAiSession;
       }
 
-      // kind = 'all' → 모든 kind 허용
-      return true;
+      // 기본(문서 트리): note + fileLike + document 폴더
+      return isDocumentFolder || isNote || isFileLike;
     });
 
     return ok(

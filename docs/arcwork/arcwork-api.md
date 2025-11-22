@@ -551,12 +551,12 @@ ArcData 문서 탭 역시 동일 패턴을 따릅니다.
   - `startAddTabDrag(e, { id, name, type })`
 
 - 문서 목록/트리 데이터:
-  - API: `GET /api/document?kind=file`
+  - API: `GET /api/document?kind=document`
     - 응답: `{ documents: DocumentDTO[] }` (서버 `mapDocumentToDTO`로 정규화된 형태)
-  - React Query 옵션: `documentQueryOptions.listFiles()`
-  - 훅: `useDocumentFiles()` (`apps/main/src/client/states/queries/document/useDocument.ts`)
+  - React Query 옵션: `documentQueryOptions.listDocumentsDomain()`
+  - 훅: `useDocumentDocumentsDomain()` (`apps/main/src/client/states/queries/document/useDocument.ts`)
     - 반환: `DocumentDTO[]`와 로딩/에러 상태
-  - UI 예시: `ArcManager`의 files 탭에서 `useDocumentFiles()` → `path` 기반으로 `ArcManagerTreeItem[]` 트리 변환 후 렌더링
+  - UI 예시: `ArcManager`의 documents 탭에서 `useDocumentDocumentsDomain()` → `path` 기반으로 `ArcManagerTreeItem[]` 트리 변환 후 렌더링
 
 **DocumentDTO 구조:**
 ```ts

@@ -90,12 +90,15 @@ export const queryKeys = {
       [...queryKeys.documents.all(), 'detail', documentId] as const,
     downloadUrl: (documentId: string) =>
       [...queryKeys.documents.all(), 'download-url', documentId] as const,
-    listFiles: () => [...queryKeys.documents.all(), 'list', 'file'] as const,
-    listNotes: () => [...queryKeys.documents.all(), 'list', 'note'] as const,
+    /**
+     * ArcManager 문서 탭(노트/파일 도메인) 트리용 목록
+     */
     listDocumentsDomain: () =>
       [...queryKeys.documents.all(), 'list', 'document'] as const,
+    /**
+     * ArcManager AI 탭 트리용 목록
+     */
     listAi: () => [...queryKeys.documents.all(), 'list', 'ai'] as const,
-    listAll: () => [...queryKeys.documents.all(), 'list', 'all'] as const,
     content: (documentId: string) =>
       [...queryKeys.documents.all(), 'content', documentId] as const,
   },

@@ -128,13 +128,10 @@ export type DocumentDetailResponse = {
 };
 
 const createDocumentListQueryOptions = (params: {
-  kind: 'file' | 'note' | 'document' | 'ai' | 'all';
+  kind: 'document' | 'ai';
   queryKey:
-    | ReturnType<typeof queryKeys.documents.listFiles>
-    | ReturnType<typeof queryKeys.documents.listNotes>
-    | ReturnType<typeof queryKeys.documents.listAi>
-    | ReturnType<typeof queryKeys.documents.listAll>
-    | ReturnType<typeof queryKeys.documents.listDocumentsDomain>;
+    | ReturnType<typeof queryKeys.documents.listDocumentsDomain>
+    | ReturnType<typeof queryKeys.documents.listAi>;
 }) =>
   queryOptions({
     queryKey: params.queryKey,
@@ -252,24 +249,6 @@ export const documentQueryOptions = {
       ),
     }),
   /**
-   * 현재 사용자 기준 file 문서 목록 조회
-   */
-  listFiles: () =>
-    createDocumentListQueryOptions({
-      kind: 'file',
-      queryKey: queryKeys.documents.listFiles(),
-    }),
-
-  /**
-   * 현재 사용자 기준 note 문서 목록 조회
-   */
-  listNotes: () =>
-    createDocumentListQueryOptions({
-      kind: 'note',
-      queryKey: queryKeys.documents.listNotes(),
-    }),
-
-  /**
    * 현재 사용자 기준 노트/파일 도메인(document) 문서 목록 조회
    * - note + file + document 폴더
    */
@@ -280,12 +259,13 @@ export const documentQueryOptions = {
     }),
 
   /**
-   * 현재 사용자 기준 모든 kind 문서 목록 조회
+   * 현재 사용자 기준 AI 세션 문서 목록 조회
+   * - kind='ai' (AI 세션 + AI 폴더)
    */
-  listAll: () =>
+  listAi: () =>
     createDocumentListQueryOptions({
-      kind: 'all',
-      queryKey: queryKeys.documents.listAll(),
+      kind: 'ai',
+      queryKey: queryKeys.documents.listAi(),
     }),
 
   /**
@@ -300,16 +280,6 @@ export const documentQueryOptions = {
         documentMoveRequestSchema.parse(body),
     }
   ),
-
-  /**
-   * 현재 사용자 기준 AI 세션 문서 목록 조회
-   * - kind='ai' (AI 세션 + folder)
-   */
-  listAi: () =>
-    createDocumentListQueryOptions({
-      kind: 'ai',
-      queryKey: queryKeys.documents.listAi(),
-    }),
 
   /**
    * 문서 메타 업데이트 뮤테이션 옵션

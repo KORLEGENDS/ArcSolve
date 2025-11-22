@@ -17,11 +17,10 @@
 - **DB 스키마 레벨**: `documents.kind = 'folder' | 'document'`
   - 폴더 vs 리프(파일/노트 등) 구조만 담당
   - 실제 타입(노트/드로우/PDF/YouTube)은 `mimeType`으로 구분
-- **API 뷰 필터 레벨**: `GET /api/document?kind=file|note|all`
-  - ArcWork/ArcManager의 "파일 탭 / 노트 탭 / 전체"를 위한 UX 필터
-  - `kind=file`: 폴더 + note가 아닌 리프 (file-like)
-  - `kind=note`: 폴더 + note 리프 (note-like)
-  - `kind=all`: 전체 문서
+- **API 뷰 필터 레벨**: `GET /api/document?kind=document|ai`
+  - ArcManager의 "문서 탭 / AI 탭"을 위한 UX 필터
+  - `kind=document`: 노트/파일 + document 도메인 폴더
+  - `kind=ai`: AI 세션 + AI 도메인 폴더
 
 ---
 
@@ -364,15 +363,13 @@ export async function GET(request: NextRequest) {
     const kindParam = searchParams.get('kind');
 
     // kind 파라미터:
-    // - null 또는 'file'   : file + folder 트리 (기존 ArcManager files 탭과 동일)
-    // - 'note'             : note + folder 트리 (향후 notes 탭에서 사용)
-    // - 'all'              : 모든 kind (note/file/folder)
+    // - null 또는 'document' : 노트/파일 + document 도메인 폴더 트리
+    // - 'ai'                 : AI 세션 + AI 도메인 폴더 트리
     if (
       !(
         kindParam === null ||
-        kindParam === 'file' ||
-        kindParam === 'note' ||
-        kindParam === 'all'
+        kindParam === 'document' ||
+        kindParam === 'ai'
       )
     ) {
       return error('BAD_REQUEST', '지원하지 않는 문서 종류입니다.', { … });
@@ -383,25 +380,34 @@ export async function GET(request: NextRequest) {
     const documents = allDocuments.filter((doc) => {
       const mimeType = doc.mimeType ?? undefined;
       const isFolder = doc.kind === 'folder';
+
       const isNote =
         typeof mimeType === 'string' &&
         mimeType.startsWith('application/vnd.arc.note+');
+      const isAiSession =
+        typeof mimeType === 'string' &&
+        mimeType === 'application/vnd.arc.ai-chat+json';
+
+      const isDocumentFolder =
+        isFolder &&
+        (mimeType === null ||
+          mimeType === 'application/vnd.arc.folder+document');
+      const isAiFolder =
+        isFolder && mimeType === 'application/vnd.arc.folder+ai';
+
       const isFileLike =
         typeof mimeType === 'string' &&
-        !mimeType.startsWith('application/vnd.arc.note+');
+        !isNote &&
+        !isAiSession &&
+        !mimeType.startsWith('application/vnd.arc.folder+');
 
-      if (kindParam === null || kindParam === 'file') {
-        // 기존 동작: file + folder 문서만 반환
-        return isFolder || isFileLike;
+      if (kindParam === 'ai') {
+        // AI 트리: AI 세션 + AI 폴더만 반환
+        return isAiFolder || isAiSession;
       }
 
-      if (kindParam === 'note') {
-        // 노트 뷰: note + folder 문서만 반환
-        return isFolder || isNote;
-      }
-
-      // kind = 'all' → 모든 kind 허용
-      return true;
+      // 기본(문서 트리): note + fileLike + document 폴더
+      return isDocumentFolder || isNote || isFileLike;
     });
 
     return ok(
