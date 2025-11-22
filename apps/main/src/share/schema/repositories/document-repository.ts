@@ -171,8 +171,122 @@ export type CreateAiSessionInput = {
   name: string;
 };
 
+type BaseDocumentCreateParams = {
+  /**
+   * 문서를 소유하는 사용자 ID
+   */
+  userId: string;
+  /**
+   * 이미 normalizeLtreePath를 거친 부모 경로 (ltree 문자열)
+   * - 빈 문자열('')이면 루트로 간주합니다.
+   */
+  parentLtreePath: string;
+  /**
+   * 클라이언트에서 전달된 기본 표시 이름
+   * - 실제 저장되는 name은 suffix가 붙을 수 있습니다. (예: "새 파일 (1)")
+   */
+  baseName: string;
+  /**
+   * 생성할 문서 kind
+   */
+  kind: Document['kind'];
+  /**
+   * 업로드/전처리 상태
+   */
+  uploadStatus: DocumentUploadStatus;
+  processingStatus: DocumentProcessingStatus;
+  /**
+   * MIME / 파일 메타데이터
+   */
+  mimeType?: string | null;
+  fileSize?: number | null;
+  storageKey?: string | null;
+  /**
+   * documentId를 외부에서 강제로 지정해야 하는 경우 (예: 업로드 파이프라인)
+   */
+  documentId?: string;
+};
+
 export class DocumentRepository {
   constructor(private readonly database: DB = defaultDb) {}
+
+  /**
+   * 동일 parentPath 내에서 같은 baseName을 갖는 문서가 이미 존재하는 경우,
+   * "이름 (1)", "이름 (2)" 형태로 suffix를 증가시키며 유일한 name/path 조합을 찾아 문서를 생성합니다.
+   *
+   * - 유일성 기준은 DB 인덱스(document_user_id_path_deleted_null_idx)에 맞춰 userId + path 입니다.
+   * - path는 항상 최종 결정된 name에 대해 toLtreeLabel을 적용한 값으로 생성됩니다.
+   * - INSERT는 항상 ON CONFLICT DO NOTHING(target: userPathUnique)로 수행하여,
+   *   충돌 시 예외 대신 "행이 생성되지 않음"으로 처리합니다.
+   */
+  private async insertDocumentWithAutoSuffix(
+    database: DB,
+    params: BaseDocumentCreateParams,
+  ): Promise<Document> {
+    const {
+      userId,
+      parentLtreePath,
+      baseName,
+      kind,
+      uploadStatus,
+      processingStatus,
+      mimeType,
+      fileSize,
+      storageKey,
+      documentId,
+    } = params;
+
+    // 현실적으로 suffx 100까지 가는 일은 거의 없지만, 무한 루프 방지를 위해 상한을 둡니다.
+    const MAX_SUFFIX = 100;
+
+    for (let suffix = 0; suffix <= MAX_SUFFIX; suffix++) {
+      const displayName =
+        suffix === 0 ? baseName : `${baseName} (${suffix})`;
+
+      const label = toLtreeLabel(displayName);
+      const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
+
+      const values: typeof documents.$inferInsert = {
+        userId,
+        path,
+        // UI 표시는 항상 name을 사용하므로, 최종 결정된 표시 이름을 그대로 저장합니다.
+        name: displayName,
+        kind,
+        uploadStatus,
+        processingStatus,
+        mimeType: mimeType ?? null,
+        fileSize: fileSize ?? null,
+        storageKey: storageKey ?? null,
+      };
+
+      if (documentId) {
+        values.documentId = documentId;
+      }
+
+      const [row] = await database
+        .insert(documents)
+        .values(values)
+        // userId + path 유니크 제약(document_user_id_path_deleted_null_idx)에 맞춰
+        // 충돌 시 예외 대신 NO-OP 처리합니다.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .onConflictDoNothing({ target: (documents as any).userPathUnique })
+        .returning();
+
+      if (row) {
+        return row;
+      }
+
+      // 행이 생성되지 않았다면 동일 userId + path 조합이 이미 존재하는 경우로 간주하고
+      // suffix를 하나 늘려 재시도합니다.
+    }
+
+    // 이 지점까지 왔다면 비정상적인 충돌 상황으로 간주합니다.
+    throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
+      userId,
+      parentPath: parentLtreePath,
+      name: baseName,
+    });
+  }
 
   /**
    * 주어진 경로에 해당하는 folder 문서를 보장합니다.
@@ -312,10 +426,8 @@ export class DocumentRepository {
    * - mimeType / fileSize / storageKey에 초기 메타데이터 저장
    */
   async createPendingFileForUpload(input: CreatePendingFileInput): Promise<Document> {
-    const label = toLtreeLabel(input.name);
     // 클라이언트는 ltree 기반 경로를 사용하며, 서버에서 한 번 더 정규화합니다.
     const parentLtreePath = normalizeLtreePath(input.parentPath);
-    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
     // 업로드 파일은 노트/파일 트리(document 도메인)에 속합니다.
@@ -323,39 +435,20 @@ export class DocumentRepository {
       await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath, 'document');
     }
 
-    try {
-      const [row] = await this.database
-        .insert(documents)
-        .values({
-          documentId: input.documentId,
-          userId: input.userId,
-          path,
-          name: input.name,
-          kind: 'document',
-          mimeType: input.mimeType,
-          fileSize: input.fileSize,
-          storageKey: input.storageKey,
-          uploadStatus: 'pending',
-          processingStatus: 'pending',
-        })
-        .returning();
+    const row = await this.insertDocumentWithAutoSuffix(this.database, {
+      userId: input.userId,
+      parentLtreePath,
+      baseName: input.name,
+      kind: 'document',
+      uploadStatus: 'pending',
+      processingStatus: 'pending',
+      mimeType: input.mimeType,
+      fileSize: input.fileSize,
+      storageKey: input.storageKey,
+      documentId: input.documentId,
+    });
 
-      if (!row) {
-        throw new Error('문서 생성에 실패했습니다.');
-      }
-
-      return row;
-    } catch (error) {
-      if (isDatabaseError(error) && error.code === '23505') {
-        // user_id + path 유니크 제약 위반
-        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
-          userId: input.userId,
-          parentPath: input.parentPath,
-          name: input.name,
-        });
-      }
-      throw error;
-    }
+    return row;
   }
 
   /**
@@ -365,9 +458,7 @@ export class DocumentRepository {
    * - mimeType / storageKey만 설정합니다.
    */
   async createExternalFile(input: CreateExternalFileInput): Promise<Document> {
-    const label = toLtreeLabel(input.name);
     const parentLtreePath = normalizeLtreePath(input.parentPath);
-    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
     // 외부 리소스 파일도 노트/파일 트리(document 도메인)에 속합니다.
@@ -375,38 +466,19 @@ export class DocumentRepository {
       await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath, 'document');
     }
 
-    try {
-      const [row] = await this.database
-        .insert(documents)
-        .values({
-          userId: input.userId,
-          path,
-          name: input.name,
-          kind: 'document',
-          mimeType: input.mimeType,
-          fileSize: null,
-          storageKey: input.storageKey,
-          uploadStatus: 'uploaded',
-          processingStatus: 'processed',
-        })
-        .returning();
+    const row = await this.insertDocumentWithAutoSuffix(this.database, {
+      userId: input.userId,
+      parentLtreePath,
+      baseName: input.name,
+      kind: 'document',
+      uploadStatus: 'uploaded',
+      processingStatus: 'processed',
+      mimeType: input.mimeType,
+      fileSize: null,
+      storageKey: input.storageKey,
+    });
 
-      if (!row) {
-        throw new Error('외부 파일 문서 생성에 실패했습니다.');
-      }
-
-      return row;
-    } catch (error) {
-      if (isDatabaseError(error) && error.code === '23505') {
-        // user_id + path 유니크 제약 위반
-        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
-          userId: input.userId,
-          parentPath: input.parentPath,
-          name: input.name,
-        });
-      }
-      throw error;
-    }
+    return row;
   }
 
   /**
@@ -419,9 +491,7 @@ export class DocumentRepository {
    * - fileSize / storageKey / latestContentId = null
    */
   async createAiSessionForOwner(input: CreateAiSessionInput): Promise<Document> {
-    const label = toLtreeLabel(input.name);
     const parentLtreePath = normalizeLtreePath(input.parentPath);
-    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
     // AI 세션은 AI 트리(ai 도메인)에 속합니다.
@@ -429,38 +499,19 @@ export class DocumentRepository {
       await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath, 'ai');
     }
 
-    try {
-      const [row] = await this.database
-        .insert(documents)
-        .values({
-          userId: input.userId,
-          path,
-          name: input.name,
-          kind: 'document',
-          mimeType: 'application/vnd.arc.ai-chat+json',
-          fileSize: null,
-          storageKey: null,
-          uploadStatus: 'uploaded',
-          processingStatus: 'processed',
-        })
-        .returning();
+    const row = await this.insertDocumentWithAutoSuffix(this.database, {
+      userId: input.userId,
+      parentLtreePath,
+      baseName: input.name,
+      kind: 'document',
+      uploadStatus: 'uploaded',
+      processingStatus: 'processed',
+      mimeType: 'application/vnd.arc.ai-chat+json',
+      fileSize: null,
+      storageKey: null,
+    });
 
-      if (!row) {
-        throw new Error('AI 세션 문서 생성에 실패했습니다.');
-      }
-
-      return row;
-    } catch (error) {
-      if (isDatabaseError(error) && error.code === '23505') {
-        // user_id + path 유니크 제약 위반
-        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
-          userId: input.userId,
-          parentPath: input.parentPath,
-          name: input.name,
-        });
-      }
-      throw error;
-    }
+    return row;
   }
 
   /**
@@ -477,9 +528,7 @@ export class DocumentRepository {
     document: Document;
     content: DocumentContent;
   }> {
-    const label = toLtreeLabel(input.name);
     const parentLtreePath = normalizeLtreePath(input.parentPath);
-    const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     return this.database.transaction(async (tx) => {
       // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
@@ -490,24 +539,17 @@ export class DocumentRepository {
 
       const noteMimeType = inferNoteMimeTypeFromContents(input.initialContents);
 
-      const [createdDocument] = await tx
-        .insert(documents)
-        .values({
-          userId: input.userId,
-          path,
-          name: input.name,
-          kind: 'document',
-          uploadStatus: 'uploaded',
-          processingStatus: 'processed',
-          mimeType: noteMimeType,
-          fileSize: null,
-          storageKey: null,
-        })
-        .returning();
-
-      if (!createdDocument) {
-        throw new Error('노트 문서 생성에 실패했습니다.');
-      }
+      const createdDocument = await this.insertDocumentWithAutoSuffix(tx, {
+        userId: input.userId,
+        parentLtreePath,
+        baseName: input.name,
+        kind: 'document',
+        uploadStatus: 'uploaded',
+        processingStatus: 'processed',
+        mimeType: noteMimeType,
+        fileSize: null,
+        storageKey: null,
+      });
 
       const [createdContent] = await tx
         .insert(documentContents)
@@ -971,12 +1013,11 @@ export class DocumentRepository {
       return updatedRoot;
     } catch (error) {
       if (isDatabaseError(error) && error.code === '23505') {
-        // user_id + path 유니크 제약 위반
-        throwApi('CONFLICT', '같은 경로에 이미 문서가 존재합니다.', {
-          documentId,
-          userId,
-          targetParentPath,
-        });
+        // user_id + path 유니크 제약 위반:
+        // - 대상 위치에 동일 path를 가진 문서가 이미 있는 경우입니다.
+        // - 이동이 의미 없는 상태이므로, 서버에서는 에러를 던지지 않고
+        //   기존 문서를 그대로 반환하여 no-op 으로 처리합니다.
+        return current;
       }
       throw error;
     }

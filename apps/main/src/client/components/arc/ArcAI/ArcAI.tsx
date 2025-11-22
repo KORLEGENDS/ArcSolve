@@ -61,6 +61,7 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
       <div className={styles.chatArea}>
         <ArcAIMessageList
           messages={messages}
+          aiStatus={status}
           scrollTrigger={scrollTrigger}
           emptyTitle={
             isLoadingHistory ? '대화 히스토리를 불러오는 중입니다.' : undefined

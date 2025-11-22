@@ -167,6 +167,17 @@ export const documentContents = pgTable(
 export class DocumentRepository {
   constructor(private readonly database: DB = defaultDb) {}
 
+  /**
+   * 이름 자동 suffix 규칙
+   *
+   * - 노트/파일/AI 세션 문서를 생성할 때, 동일한 디렉토리(parentPath)에 같은 이름이 이미 존재하면
+   *   "이름 (1)", "이름 (2)" 와 같이 suffix를 자동으로 증가시키며 유일한 name/path 조합을 찾습니다.
+   * - 유일성 기준은 DB 인덱스(document_user_id_path_deleted_null_idx)에 맞춰 userId + path 입니다.
+   * - path는 항상 최종 결정된 name에 대해 toLtreeLabel을 적용한 값으로 생성됩니다.
+   * - 폴더는 createFolderForOwner/ensureFolderForOwner 의 정책에 따라
+   *   같은 경로 요청 시 기존 폴더를 재사용합니다(새 suffix 폴더를 만들지 않음).
+   */
+
   // 폴더 보장/생성
   private async ensureFolderForOwner(database: DB, userId: string, rawPath: string): Promise<Document | null> { … }
   async createFolderForOwner(input: { userId: string; parentPath: string; name: string }): Promise<Document> { … }
@@ -208,6 +219,10 @@ export class DocumentRepository {
     userId: string;
     targetParentPath: string;
   }): Promise<Document> { … }
+  // 이동 시 정책:
+  // - 동일 userId + path 유니크 제약(23505) 발생 시 CONFLICT 에러를 던지지 않고,
+  //   기존 문서를 그대로 반환하는 no-op 처리 (충돌을 에러로 보지 않음)
+  // - 자기 자신 또는 하위 경로로 이동 요청도 동일하게 no-op
 
   // 문서 삭제 (hard delete + FK cascade)
   async deleteDocumentForOwner(params: { documentId: string; userId: string }): Promise<void> { … }
@@ -588,10 +603,9 @@ export const documentQueryOptions = {
     …('/api/document/{documentId}/download-url?…', (data) => documentDownloadUrlResponseSchema.parse(data)),
   }),
 
-  // 목록: file/note/all
-  listFiles: () => queryOptions({ queryKey: queryKeys.documents.listFiles(), …('/api/document?kind=file', …) }),
-  listNotes: () => queryOptions({ queryKey: queryKeys.documents.listNotes(), …('/api/document?kind=note', …) }),
-  listAll: () => queryOptions({ queryKey: queryKeys.documents.listAll(), …('/api/document?kind=all', …) }),
+  // 목록: document/ai 도메인
+  listDocumentsDomain: () => queryOptions({ queryKey: queryKeys.documents.listDocumentsDomain(), …('/api/document?kind=document', …) }),
+  listAi: () => queryOptions({ queryKey: queryKeys.documents.listAi(), …('/api/document?kind=ai', …) }),
 
   // 이동/메타/콘텐츠/삭제
   move: createApiMutation(…'/api/document/{id}/move'…),
@@ -653,8 +667,8 @@ export function useDocumentDownloadUrl(
 
 ### 7.2 목록/상세/콘텐츠
 
-- `useDocumentFiles()` – 파일/폴더 목록 (ArcManager files 탭)
-- `useDocumentNotes()` – 노트/폴더 목록 (ArcManager notes 탭)
+- `useDocumentDocumentsDomain()` – 문서 도메인(노트/파일 + 폴더) 목록 (ArcManager documents 탭)
+- `useDocumentAiSessions()` – AI 도메인(AI 세션 + 폴더) 목록 (ArcManager ai 탭)
 - `useDocumentDetail(documentId)` – 단일 문서 메타
 - `useDocumentContent(documentId)` – 최신 콘텐츠(JSON)
 
@@ -666,12 +680,13 @@ export function useDocumentDownloadUrl(
   - 내부 동작:
     1. `DELETE /api/document/[id]` 호출 (`documentQueryOptions.delete`)
     2. **성공 시 `useArcWorkCloseTab()`으로 동일 `documentId`를 가진 ArcWork 탭(예: `arcdata-document`)을 먼저 닫음**
-    3. 그 다음에 `queryKeys.documents.*` 관련 쿼리(detail, content, listFiles, listNotes, listAll)를 순차적으로 invalidate
+    3. 그 다음에 `queryKeyUtils.updateDocumentCache({ action: 'remove', documentId })`로
+       단일 문서만 캐시에서 제거 (리스트 refetch 없음)
   - 이렇게 해서 삭제 직후 ArcData 탭에서 `/content`를 계속 재요청하며 404를 반복하는 문제를 방지
-- `useDocumentFolderCreate()` – 폴더 생성
-- `useDocumentYoutubeCreate()` – YouTube 문서 생성
-- `useDocumentCreate()` – 노트 문서 생성 (kind='note')
-- `useDocumentAiCreate()` – AI 세션 문서 생성 (kind='ai')
+- `useDocumentFolderCreate()` – 폴더 생성 (성공 시 `updateDocumentCache('add')`)
+- `useDocumentYoutubeCreate()` – YouTube 문서 생성 (성공 시 `updateDocumentCache('add')`)
+- `useDocumentCreate()` – 노트 문서 생성 (kind='note', 성공 시 `updateDocumentCache('add')`)
+- `useDocumentAiCreate()` – AI 세션 문서 생성 (kind='ai', 성공 시 `updateDocumentCache('add')`)
 
 ---
 
@@ -692,21 +707,21 @@ export function useDocumentDownloadUrl(
 
 ## 8. UI 연동
 
-### 8.1 ArcManager (파일/노트 트리)
+### 8.1 ArcManager (문서/AI 트리)
 
-- 파일 탭:
-  - `useDocumentFiles()` → `DocumentDTO[]` → `ArcManagerTreeItem[]`로 변환 후 트리 렌더
-  - 내부적으로 `GET /api/document?kind=file`을 호출하며,
-    - `kind='folder'` 문서 + `mimeType`이 note 계열이 **아닌** 문서(`isFileLike`)만 포함합니다.
+- documents 탭:
+  - `useDocumentDocumentsDomain()` → `DocumentDTO[]` → `ArcManagerTreeItem[]`로 변환 후 트리 렌더
+  - 내부적으로 `GET /api/document?kind=document`을 호출하며,
+    - 노트/파일 + document 도메인 폴더(`mimeType=null` 또는 `application/vnd.arc.folder+document`)만 포함합니다.
   - DnD → `useDocumentMove()`로 path 기반 subtree 이동
-  - 폴더 생성/업로드/YouTube 생성 → 각 훅 호출 후 목록 refetch
+  - 폴더 생성/업로드/YouTube 생성 → 각 훅 호출 후 `updateDocumentCache('add')`
 
-- 노트 탭(향후 확장 포인트):
-  - `useDocumentNotes()` → note + folder 트리
-  - 서버에서는 `GET /api/document?kind=note`를 호출하며,
-    - `kind='folder'` 문서 + `mimeType`이 `application/vnd.arc.note+...` 인 문서만 포함합니다.
-  - 노트 생성 버튼 → `useDocumentCreate()` (kind='note', `DEFAULT_NOTE_PARAGRAPH` 기본값)
-  - DnD → ArcWork 탭에 `arcdata-document` 탭으로 노트 열기
+- ai 탭:
+  - `useDocumentAiSessions()` → AI 세션 + AI 폴더 트리
+  - 서버에서는 `GET /api/document?kind=ai`를 호출하며,
+    - AI 세션(`mimeType='application/vnd.arc.ai-chat+json'`) + AI 폴더(`mimeType='application/vnd.arc.folder+ai'`)만 포함합니다.
+  - AI 세션 생성 버튼 → `useDocumentAiCreate()` (성공 시 `updateDocumentCache('add')`)
+  - DnD → ArcWork 탭에 `arcdata-document` 탭으로 AI 세션 열기
 
 ### 8.2 ArcData (문서 뷰어)
 

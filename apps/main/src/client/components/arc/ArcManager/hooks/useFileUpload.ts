@@ -1,6 +1,6 @@
 import { createUploadToast } from '@/client/components/ui/upload-toast';
 import { useDocument } from '@/client/states/queries/document/useDocument';
-import { queryKeys } from '@/share/libs/react-query/query-keys';
+import { queryKeyUtils } from '@/share/libs/react-query/query-keys';
 import { allowedDocumentFileMimeTypes } from '@/share/schema/zod/document-upload-zod';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
@@ -95,12 +95,10 @@ export function useFileUpload(parentPath: string) {
         toast.setProgress(100, 'completed');
         toast.complete();
 
-        // 6. 문서 관련 캐시 무효화
-        // - 단일 문서 상세 캐시
-        await documentHook.invalidateDocument(confirmedDocument.documentId);
-        // - 문서 도메인(document) 목록 캐시 (ArcManager documents 탭 등)
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listDocumentsDomain(),
+        // 6. 문서 관련 캐시 업데이트(단일 요소 패치)
+        queryKeyUtils.updateDocumentCache(queryClient, {
+          action: 'add',
+          document: confirmedDocument,
         });
       } catch (error) {
         const errorMessage =

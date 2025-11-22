@@ -12,7 +12,7 @@ import {
   TooltipTrigger,
 } from "@/client/components/ui/tooltip";
 import { cn } from "@/client/components/ui/utils";
-import type { FileUIPart, UIMessage } from "ai";
+import type { FileUIPart, ToolUIPart, UIMessage } from "ai";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -22,8 +22,15 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import { useArcAIMarkdown } from "../../hooks/useArcAIMarkdown";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "../ArcAIElements/tool";
 import styles from "./ArcAIMessage.module.css";
-import { useArcAIMarkdown } from "./useArcAIMarkdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -355,6 +362,28 @@ export const MessageResponse = memo(
 );
 
 MessageResponse.displayName = "MessageResponse";
+
+export type MessageToolCallProps = {
+  /**
+   * AI SDK UI에서 내려오는 tool 파트
+   * - type: 'tool-embedSearch' | 'tool-textSearch' | ...
+   */
+  part: ToolUIPart;
+};
+
+export function MessageToolCall({ part }: MessageToolCallProps) {
+  const { type, state, input, output, errorText } = part;
+
+  return (
+    <Tool>
+      <ToolHeader state={state} type={type} />
+      <ToolContent>
+        <ToolInput input={input} />
+        <ToolOutput errorText={errorText} output={output} />
+      </ToolContent>
+    </Tool>
+  );
+}
 
 export type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
   data: FileUIPart;

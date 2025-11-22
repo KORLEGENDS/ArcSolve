@@ -6,7 +6,7 @@
  */
 
 import { useArcWorkCloseTab } from '@/client/states/stores/arcwork-layout-store';
-import { queryKeys } from '@/share/libs/react-query/query-keys';
+import { queryKeys, queryKeyUtils } from '@/share/libs/react-query/query-keys';
 import {
   documentQueryOptions,
   type DocumentDTO,
@@ -147,10 +147,10 @@ export function useDocumentUpload(): UseDocumentUploadReturn {
   const invalidateDocument = useCallback(
     async (documentId: string) => {
       await queryClient.invalidateQueries({
-        queryKey: ['documents', 'detail', documentId],
+        queryKey: queryKeys.documents.byId(documentId),
       });
     },
-    [queryClient]
+    [queryClient],
   );
 
   return {
@@ -192,11 +192,11 @@ export function useDocumentCreate(): UseDocumentCreateReturn {
           contents,
         });
 
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listDocumentsDomain(),
-          }),
-        ]);
+        // 단일 문서(노트) 추가에 대해 캐시를 직접 패치합니다.
+        queryKeyUtils.updateDocumentCache(queryClient, {
+          action: 'add',
+          document: created,
+        });
 
         return created;
       }
@@ -325,16 +325,23 @@ export function useDocumentMove(): UseDocumentMoveReturn {
  * 폴더 생성 훅
  */
 export function useDocumentFolderCreate(): UseDocumentFolderCreateReturn {
+  const queryClient = useQueryClient();
   const createMutation = useMutation(documentQueryOptions.createFolder);
 
   return {
     createFolder: async (input) => {
       const { name, parentPath, domain } = input;
-      return createMutation.mutateAsync({
+      const created = await createMutation.mutateAsync({
         name,
         parentPath,
         folderDomain: domain,
       });
+      // 폴더도 Document로 취급되므로 공통 Document 캐시 패치를 사용합니다.
+      queryKeyUtils.updateDocumentCache(queryClient, {
+        action: 'add',
+        document: created,
+      });
+      return created;
     },
     isCreating: createMutation.isPending,
     createError: createMutation.error,
@@ -382,18 +389,12 @@ export function useDocumentUpdate(): UseDocumentUpdateReturn {
     async (input: UpdateDocumentInput) => {
       if (input.mode === 'meta') {
         const { documentId, name } = input;
-        await metaMutation.mutateAsync({ documentId, name });
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.byId(documentId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listDocumentsDomain(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.documents.listAi(),
-          }),
-        ]);
+        const updated = await metaMutation.mutateAsync({ documentId, name });
+        // 단일 문서 메타 변경은 캐시 패치로 처리합니다.
+        queryKeyUtils.updateDocumentCache(queryClient, {
+          action: 'update',
+          document: updated,
+        });
         return;
       }
 
@@ -407,6 +408,7 @@ export function useDocumentUpdate(): UseDocumentUpdateReturn {
         updatedAt: null,
       });
 
+      // 콘텐츠는 문서 메타/리스트와 분리된 별도 쿼리이므로, 직접 해당 쿼리만 무효화합니다.
       await queryClient.invalidateQueries({
         queryKey: queryKeys.documents.content(documentId),
       });
@@ -426,10 +428,18 @@ export function useDocumentUpdate(): UseDocumentUpdateReturn {
  * - ArcManager 파일 탭에서 YouTube URL을 문서로 추가할 때 사용합니다.
  */
 export function useDocumentYoutubeCreate(): UseDocumentYoutubeCreateReturn {
+  const queryClient = useQueryClient();
   const createMutation = useMutation(documentQueryOptions.createYoutube);
 
   return {
-    createYoutube: createMutation.mutateAsync,
+    createYoutube: async (input) => {
+      const created = await createMutation.mutateAsync(input);
+      queryKeyUtils.updateDocumentCache(queryClient, {
+        action: 'add',
+        document: created,
+      });
+      return created;
+    },
     isCreating: createMutation.isPending,
     createError: createMutation.error,
   };
@@ -495,20 +505,11 @@ export function useDocumentDelete(): UseDocumentDeleteReturn {
       // - 탭이 없으면 closeTab은 false를 반환하므로 별도 처리가 필요하지 않습니다.
       closeTab(documentId);
 
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.byId(documentId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.content(documentId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listDocumentsDomain(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listAi(),
-        }),
-      ]);
+      // 단일 문서 삭제는 리스트/메타 캐시에서만 제거합니다.
+      queryKeyUtils.updateDocumentCache(queryClient, {
+        action: 'remove',
+        documentId,
+      });
     },
     [closeTab, deleteMutation, queryClient],
   );

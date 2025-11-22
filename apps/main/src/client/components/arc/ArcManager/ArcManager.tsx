@@ -372,15 +372,13 @@ export function ArcManager(): React.ReactElement {
   const folderCreateHandlers =
     React.useMemo<Record<ArcDataType, FolderCreateHandler | null>>(
     () => ({
-        // documents 탭: document 도메인 폴더 생성 후 문서 도메인 목록 갱신
+        // documents 탭: document 도메인 폴더 생성
         documents: async ({ parentPath, name }) => {
           await createFolder({ parentPath, name, domain: 'document' });
-          await refetchDocumentsDomain();
       },
-        // ai 탭: AI 도메인 폴더 생성 후 AI 세션 목록 갱신
+        // ai 탭: AI 도메인 폴더 생성
         ai: async ({ parentPath, name }) => {
           await createFolder({ parentPath, name, domain: 'ai' });
-          await refetchAi();
       },
     }),
       [createFolder, refetchDocumentsDomain, refetchAi],
@@ -530,12 +528,6 @@ export function ArcManager(): React.ReactElement {
           parentPath,
           contents,
         });
-
-        await refetchDocumentsDomain().catch(() => {
-          // 목록 갱신 실패는 치명적이지 않으므로 콘솔만 남깁니다.
-          // eslint-disable-next-line no-console
-          console.error('노트 목록 갱신 실패');
-        });
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('노트 생성 실패:', error);
@@ -615,9 +607,6 @@ export function ArcManager(): React.ReactElement {
 
       try {
         await createYoutube({ url, parentPath });
-        if (tabValue === 'documents') {
-          await refetchDocumentsDomain();
-        }
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('YouTube 문서 생성 실패:', error);

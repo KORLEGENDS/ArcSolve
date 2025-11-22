@@ -12,7 +12,6 @@
   gap: 2rem;
   max-width: 800px;
   margin: 0 auto;
-  padding-bottom: 160px;
   padding-inline: 32px;
 }
 
@@ -43,7 +42,14 @@
   gap: 0.75rem;
 }
 
+.preparing {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  color: var(--color-muted-foreground);
+}
+
 .section.isLastSection .sectionContent {
   min-height: var(--last-section-min, 0px);
+  margin-bottom: 160px;
 }
 

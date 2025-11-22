@@ -161,7 +161,7 @@ type DocumentMoveRequest = {
   3. 서브트리에 포함되는 모든 문서에 대해 `oldPath` prefix를 `newBasePath`로 치환
      - 파일이면 “자기 자신만 이동”
      - 폴더이면 “폴더 + 하위 전체 이동”
-  4. `userId + path` 유니크 제약 위반 시 `CONFLICT` 에러 반환
+  4. `userId + path` 유니크 제약 위반 시 에러 대신 no-op (기존 문서 반환)
 
 ```279:379:apps/main/src/share/schema/repositories/document-repository.ts
   async moveDocumentForOwner(params: {
@@ -274,11 +274,24 @@ type DocumentFolderCreateRequest = {
 ```76:176:apps/main/src/share/libs/react-query/query-options/document.ts
 export const documentQueryOptions = {
   // ...
-  listFiles: () =>
+  listDocumentsDomain: () =>
     queryOptions({
-      queryKey: queryKeys.documents.listFiles(),
+      queryKey: queryKeys.documents.listDocumentsDomain(),
       ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
-        '/api/document?kind=file',
+        '/api/document?kind=document',
+        (data) => data.documents,
+        {
+          staleTime: TIMEOUT.CACHE.SHORT,
+          gcTime: TIMEOUT.CACHE.MEDIUM,
+        }
+      ),
+    }),
+
+  listAi: () =>
+    queryOptions({
+      queryKey: queryKeys.documents.listAi(),
+      ...createApiQueryOptions<DocumentDTO[], DocumentListResponse>(
+        '/api/document?kind=ai',
         (data) => data.documents,
         {
           staleTime: TIMEOUT.CACHE.SHORT,
@@ -316,13 +329,16 @@ export const documentQueryOptions = {
 
 정의 위치: `apps/main/src/client/states/queries/document/useDocument.ts`
 
-- `useDocumentFiles`
-  - `documentQueryOptions.listFiles()` 기반
-  - ArcManager 파일 탭이 사용하는 파일/폴더 목록
+- `useDocumentDocumentsDomain`
+  - `documentQueryOptions.listDocumentsDomain()` 기반
+  - ArcManager documents 탭이 사용하는 노트/파일/폴더 목록
+- `useDocumentAiSessions`
+  - `documentQueryOptions.listAi()` 기반
+  - ArcManager ai 탭이 사용하는 AI 세션/AI 폴더 목록
 - `useDocumentMove`
   - `documentQueryOptions.move` 기반
-  - **옵티미스틱 업데이트 + 전체 캐시 갱신을 포함**
-  - `listFiles`, `listNotes`, `listAll` 키에 대해 동시에 옵티미스틱 적용/롤백/invalidate를 수행하므로, 파일/노트 탭 모두에서 이동 즉시 UI 반영
+  - **옵티미스틱 업데이트 + 캐시 갱신을 포함**
+  - `listDocumentsDomain`, `listAi` 키에 대해 옵티미스틱 적용/롤백/invalidate를 수행하므로, documents/ai 탭 모두에서 이동 즉시 UI 반영
 - `useDocumentFolderCreate`
   - 새 폴더 생성용 mutation
 
@@ -403,7 +419,8 @@ export function useDocumentMove(): UseDocumentMoveReturn {
   const moveMutation = useMutation({
     mutationFn: documentQueryOptions.move.mutationFn,
     async onMutate(variables: DocumentMoveMutationVariables) {
-      const key = queryKeys.documents.listFiles();
+      const keyDocuments = queryKeys.documents.listDocumentsDomain();
+      const keyAi = queryKeys.documents.listAi();
 
       // 관련 쿼리의 진행 중 refetch를 취소합니다.
       await queryClient.cancelQueries({ queryKey: key });
@@ -419,13 +436,15 @@ export function useDocumentMove(): UseDocumentMoveReturn {
       return { previous };
     },
     onError(_error, _variables, context) {
-      const key = queryKeys.documents.listFiles();
+      const keyDocuments = queryKeys.documents.listDocumentsDomain();
+      const keyAi = queryKeys.documents.listAi();
       if (context?.previous) {
         queryClient.setQueryData<DocumentDTO[]>(key, context.previous);
       }
     },
     onSettled() {
-      const key = queryKeys.documents.listFiles();
+      const keyDocuments = queryKeys.documents.listDocumentsDomain();
+      const keyAi = queryKeys.documents.listAi();
       void queryClient.invalidateQueries({ queryKey: key });
     },
   });
@@ -524,7 +543,7 @@ export function useDocumentMove(): UseDocumentMoveReturn {
       - `useDocumentDelete()`를 호출해:
         1. 서버에서 문서를 hard delete(+ FK cascade) 하고,
         2. **성공 시 ArcWork 레이아웃에서 동일 `documentId`를 가진 `arcdata-document` 탭을 먼저 닫은 다음,**
-        3. 문서 메타/콘텐츠/목록 관련 React Query 캐시를 invalidate 합니다.
+        3. `queryKeyUtils.updateDocumentCache({ action: 'remove', documentId })`로 단일 문서만 캐시에서 제거합니다.
       - 컨텍스트 메뉴에서 어떤 노트 타입이든 삭제를 눌렀을 때, **탭이 먼저 닫힌 뒤, 백그라운드에서 리스트/캐시가 정리되는** 것이 의도된 동작입니다.
 
 ```ts

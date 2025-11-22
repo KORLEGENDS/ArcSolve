@@ -4,7 +4,7 @@ import { cn } from "@/client/components/ui/utils";
 import type { ReactElement } from "react";
 import { isValidElement } from "react";
 import type { Options } from "react-markdown";
-import { CodeBlock, CodeBlockCopyButton } from "../ArcAIElements/code-block";
+import { CodeBlock, CodeBlockCopyButton } from "../components/ArcAIElements/code-block";
 import styles from "./useArcAIMarkdownComponents.module.css";
 
 // React 엘리먼트로부터 string child 를 안전하게 추출

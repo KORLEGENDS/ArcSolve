@@ -66,7 +66,7 @@ ArcData 탭은 다음 메타데이터 구조를 사용합니다.
 - `id`:
   - `document.documentId` (문서 UUID)
 - `name`:
-  - 탭 타이틀로 표시할 파일명 (일반적으로 `path`의 마지막 segment)
+  - 탭 타이틀로 표시할 파일명 (가능하면 `document.name` 사용, 없으면 path fallback)
 - `type`:
   - `'arcdata-document'` (ArcData 문서 뷰어용 컴포넌트 키)
 
@@ -75,7 +75,7 @@ ArcData 탭은 다음 메타데이터 구조를 사용합니다.
 ```ts
 const meta = {
   id: document.documentId,
-  name: getNameFromPath(document.path), // 예: "files.gpt_4_pdf" → "gpt_4_pdf"
+  name: document.name ?? document.path.split('.').pop()!, // 가능하면 document.name 사용, 없으면 path 마지막 segment
   type: 'arcdata-document',
 };
 ```
@@ -122,19 +122,22 @@ ArcData 탭은 주로 **ArcManager 파일 트리에서 DnD로 생성**됩니다.
 `ArcManager.tsx`의 files 탭에서 `ArcManagerTree`에 다음과 같이 DnD 핸들러를 전달합니다.
 
 ```tsx
-const startAddTabDrag = useArcWorkStartAddTabDrag();
+setArcWorkTabDragData(event, {
+  id: item.id,
+  name: item.name || item.path.split('.').pop()!,
+  type: 'arcdata-document',
+});
 
 <ArcManagerTree
   items={treeItems}
   onFolderEnter={(path) =>
-    patchTabState('files', { currentPath: path, isCollapsed: false })
+    patchTabState('documents', { currentPath: path, isCollapsed: false })
   }
   onItemDragStart={({ item, event }) => {
     if (item.itemType === 'item') {
-      const name = getNameFromPath(item.path);
-      startAddTabDrag(event, {
+      setArcWorkTabDragData(event, {
         id: item.id,          // = documentId
-        name,
+        name: item.name || item.path.split('.').pop()!,
         type: 'arcdata-document',
       });
     }

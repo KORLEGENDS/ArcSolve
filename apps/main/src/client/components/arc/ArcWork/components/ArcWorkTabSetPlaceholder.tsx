@@ -2,11 +2,12 @@
 
 import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
 import { Button } from '@/client/components/ui/button';
+import { queryKeyUtils } from '@/share/libs/react-query/query-keys';
 import {
-  aiQueryOptions,
-  type DocumentDTO,
+    aiQueryOptions,
+    type DocumentDTO,
 } from '@/share/libs/react-query/query-options';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TabSetPlaceHolderCallback } from 'flexlayout-react';
 import * as React from 'react';
 
@@ -23,6 +24,7 @@ export interface ArcWorkTabSetPlaceholderProps {
  */
 export function ArcWorkTabSetPlaceholder({ node }: ArcWorkTabSetPlaceholderProps) {
   const { ensureOpenTab } = useArcWorkTabCreateAdapter();
+  const queryClient = useQueryClient();
   const createAiSessionMutation = useMutation<DocumentDTO, unknown, { name: string; parentPath: string }>({
     mutationFn: (variables) =>
       aiQueryOptions.createSession.mutationFn({
@@ -38,6 +40,12 @@ export function ArcWorkTabSetPlaceholder({ node }: ArcWorkTabSetPlaceholderProps
         parentPath: '',
       });
 
+      // AI 세션 생성 후 단일 Document 캐시를 패치합니다.
+      queryKeyUtils.updateDocumentCache(queryClient, {
+        action: 'add',
+        document: doc,
+      });
+
       ensureOpenTab({
         id: doc.documentId,
         name: doc.name,
@@ -49,7 +57,7 @@ export function ArcWorkTabSetPlaceholder({ node }: ArcWorkTabSetPlaceholderProps
       // eslint-disable-next-line no-console
       console.error('[ArcWorkTabSetPlaceholder] AI 세션 문서 생성 실패:', error);
     }
-  }, [createAiSessionMutation, ensureOpenTab]);
+  }, [createAiSessionMutation, ensureOpenTab, queryClient]);
 
   return (
     <div className="flex h-full w-full items-center justify-center text-muted-foreground">
