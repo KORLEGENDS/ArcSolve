@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = streamText({
-      model: openai('gpt-4o'),
+      model: openai('gpt-4.1-nano'),
       system: SYSTEM_PROMPT,
       messages: convertToModelMessages(validatedMessages),
       tools: {
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
         if (part.type === 'start') {
           return {
             createdAt: Date.now(),
-            model: 'gpt-4o',
+            model: 'gpt-4.1-nano',
           };
         }
         if (part.type === 'finish') {

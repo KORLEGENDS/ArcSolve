@@ -48,21 +48,12 @@ export const ArcAIMessageList = ({
 
   useEffect(() => {
     const root = rootRef.current;
-    const lastSection = lastSectionRef.current;
-
-    if (!root || !lastSection) return;
-
-    const header = lastSection.querySelector<HTMLElement>(
-      `.${styles.sectionHeader}`
-    );
-
-    if (!header) return;
+    if (!root) return;
 
     const viewportHeight = root.clientHeight;
-    const headerHeight = header.offsetHeight;
-    const minHeight = Math.max(0, viewportHeight - headerHeight);
+    const minHeight = Math.max(0, viewportHeight - 100);
 
-    lastSection.style.setProperty("--last-section-min", `${minHeight}px`);
+    root.style.setProperty("--last-section-min", `${minHeight}px`);
   }, [sections.length]);
 
   if (sections.length === 0) {

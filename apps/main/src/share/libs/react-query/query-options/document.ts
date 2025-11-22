@@ -117,10 +117,11 @@ export type DocumentDetailResponse = {
 };
 
 const createDocumentListQueryOptions = (params: {
-  kind: 'file' | 'note' | 'all';
+  kind: 'file' | 'note' | 'ai' | 'all';
   queryKey:
     | ReturnType<typeof queryKeys.documents.listFiles>
     | ReturnType<typeof queryKeys.documents.listNotes>
+    | ReturnType<typeof queryKeys.documents.listAi>
     | ReturnType<typeof queryKeys.documents.listAll>;
 }) =>
   queryOptions({
@@ -277,6 +278,16 @@ export const documentQueryOptions = {
         documentMoveRequestSchema.parse(body),
     }
   ),
+
+  /**
+   * 현재 사용자 기준 AI 세션 문서 목록 조회
+   * - kind='ai' (AI 세션 + folder)
+   */
+  listAi: () =>
+    createDocumentListQueryOptions({
+      kind: 'ai',
+      queryKey: queryKeys.documents.listAi(),
+    }),
 
   /**
    * 문서 메타 업데이트 뮤테이션 옵션

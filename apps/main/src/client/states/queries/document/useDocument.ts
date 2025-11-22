@@ -109,6 +109,7 @@ export interface UseDocumentMoveReturn {
 type DocumentsListQueryKey =
   | ReturnType<typeof queryKeys.documents.listFiles>
   | ReturnType<typeof queryKeys.documents.listNotes>
+  | ReturnType<typeof queryKeys.documents.listAi>
   | ReturnType<typeof queryKeys.documents.listAll>;
 
 export interface UseDocumentFolderCreateReturn {
@@ -469,6 +470,13 @@ export const useDocumentFiles = createDocumentListHook(
  */
 export const useDocumentNotes = createDocumentListHook(
   documentQueryOptions.listNotes,
+);
+
+/**
+ * 현재 사용자 기준 AI 세션 문서 목록 조회 훅
+ */
+export const useDocumentAiSessions = createDocumentListHook(
+  documentQueryOptions.listAi,
 );
 
 /**

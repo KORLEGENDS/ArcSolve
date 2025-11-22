@@ -23,6 +23,7 @@ import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 import styles from "./ArcAIMessage.module.css";
+import { useArcAIMarkdown } from "./useArcAIMarkdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -302,16 +303,55 @@ export const MessageBranchPage = ({
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+export type MessageResponseProps = ComponentProps<typeof Streamdown> & {
+  /**
+   * ArcAI 전용 마크다운 애니메이션 사용 여부
+   * - 기본값: true
+   */
+  animate?: boolean;
+};
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(styles.messageResponse, className)}
-      {...props}
-    />
-  ),
-  (prevProps, nextProps) => prevProps.children === nextProps.children
+  ({ className, animate = true, children, ...props }: MessageResponseProps) => {
+    const isStringChild = typeof children === "string";
+
+    const markdown = useArcAIMarkdown({
+      content: isStringChild ? (children as string) : "",
+      enableAnimation: animate && isStringChild,
+      granularity: "word",
+    });
+
+    // AnimatedMarkdown 의 인라인 스타일 패턴을 유지하되,
+    // 전역 ft-fadeIn 키프레임을 사용하는 토큰 단위 애니메이션 토큰을 직접 사용
+    const fadeStyle = `
+.fade-segment {
+  display: inline-block;
+  opacity: 0;
+  animation: var(--animate-ft-fadeIn);
+  animation-fill-mode: forwards;
+}
+`.trim();
+
+    if (isStringChild) {
+      return (
+        <div className={cn(styles.messageResponse, className)}>
+          <style>{fadeStyle}</style>
+          <Streamdown {...props} {...markdown} />
+        </div>
+      );
+    }
+
+    // 문자열이 아닌 children 이 들어오는 경우에는 Streamdown 기본 동작으로 폴백
+    return (
+      <div className={cn(styles.messageResponse, className)}>
+        <style>{fadeStyle}</style>
+        <Streamdown {...props}>{children}</Streamdown>
+      </div>
+    );
+  },
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children &&
+    prevProps.animate === nextProps.animate
 );
 
 MessageResponse.displayName = "MessageResponse";

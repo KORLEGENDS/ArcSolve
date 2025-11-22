@@ -24,6 +24,7 @@ import {
   useDocumentFolderCreate,
   useDocumentMove,
   useDocumentNotes,
+  useDocumentAiSessions,
   useDocumentYoutubeCreate,
 } from '@/client/states/queries/document/useDocument';
 import { setArcWorkTabDragData, useArcWorkEnsureOpenTab } from '@/client/states/stores/arcwork-layout-store';
@@ -46,7 +47,7 @@ import {
 import * as React from 'react';
 import s from './ArcManager.module.css';
 
-export type ArcDataType = 'notes' | 'files' | 'chat';
+export type ArcDataType = 'notes' | 'files' | 'ai';
 
 export interface ArcManagerTabConfig {
   value: ArcDataType;
@@ -89,7 +90,7 @@ interface ArcManagerItemAction {
 const DEFAULT_TABS: ArcManagerTabConfig[] = [
   { value: 'notes', icon: Notebook, label: '노트' },
   { value: 'files', icon: FolderOpenDot, label: '파일' },
-  { value: 'chat', icon: MessageSquare, label: '채팅' },
+  { value: 'ai', icon: MessageSquare, label: 'AI' },
 ];
 
 const DEFAULT_DRAW_SCENE: EditorContent = {
@@ -194,7 +195,7 @@ export function ArcManager(): React.ReactElement {
       creatingYoutube: false,
       newYoutubeUrl: '',
     },
-    chat: {
+    ai: {
       searchQuery: '',
       currentPath: '',
       isCollapsed: true,
@@ -215,6 +216,8 @@ export function ArcManager(): React.ReactElement {
   const { data: fileDocuments, refetch: refetchFiles } = useDocumentFiles();
   // 노트 문서 목록 조회 (mimeType 기준 노트형 문서)
   const { data: noteDocuments, refetch: refetchNotes } = useDocumentNotes();
+  // AI 세션 문서 목록 조회 (mimeType 기준 AI 세션 문서)
+  const { data: aiDocuments, refetch: refetchAi } = useDocumentAiSessions();
 
   const fileNameMap = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -246,6 +249,26 @@ export function ArcManager(): React.ReactElement {
     }
     return map;
   }, [noteDocuments]);
+
+  const aiNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (!aiDocuments) return map;
+    for (const doc of aiDocuments) {
+      if (doc.path && doc.name) {
+        map.set(doc.path, doc.name);
+      }
+    }
+    return map;
+  }, [aiDocuments]);
+
+  const aiDocumentMap = React.useMemo(() => {
+    const map = new Map<string, DocumentDTO>();
+    if (!aiDocuments) return map;
+    for (const doc of aiDocuments) {
+      map.set(doc.documentId, doc);
+    }
+    return map;
+  }, [aiDocuments]);
 
   // 문서 이동
   const { move } = useDocumentMove();
@@ -303,7 +326,7 @@ export function ArcManager(): React.ReactElement {
        * 드래그 소스 탭 논리 타입(파일 탭/노트 탭)
        * - 구조 kind('folder' | 'document')와는 별개입니다.
        */
-      kind: 'file' | 'note';
+      kind: 'file' | 'note' | 'ai';
     }) => {
       const { item, event, kind } = params;
       const dt = event.dataTransfer;
@@ -317,10 +340,13 @@ export function ArcManager(): React.ReactElement {
             ? (item as { name?: string }).name!
             : item.path;
 
+        const componentType =
+          kind === 'ai' ? 'arcai-session' : 'arcdata-document';
+
         setArcWorkTabDragData(event, {
           id: item.id,
           name: tabName,
-          type: 'arcdata-document',
+          type: componentType,
         });
       }
 
@@ -330,6 +356,8 @@ export function ArcManager(): React.ReactElement {
         docMeta = fileDocumentMap.get(item.id);
       } else if (kind === 'note') {
         docMeta = noteDocuments?.find((d) => d.documentId === item.id);
+      } else if (kind === 'ai') {
+        docMeta = aiDocumentMap.get(item.id);
       }
 
       const payload = {
@@ -354,7 +382,7 @@ export function ArcManager(): React.ReactElement {
         // ignore
       }
     },
-    [fileDocumentMap, noteDocuments],
+    [fileDocumentMap, noteDocuments, aiDocumentMap],
   );
 
   type FolderCreateHandler = (params: { parentPath: string; name: string }) => Promise<void>;
@@ -371,17 +399,20 @@ export function ArcManager(): React.ReactElement {
         await createFolder({ parentPath, name });
         await refetchNotes();
       },
-      // chat 탭: 아직 전용 도메인이 없으므로 폴더 생성은 비활성화 상태로 유지합니다.
-      chat: null,
+      // ai 탭: DocumentRepository 기반 폴더 생성 후 AI 세션 문서 목록 갱신
+      ai: async ({ parentPath, name }) => {
+        await createFolder({ parentPath, name });
+        await refetchAi();
+      },
     }),
-    [createFolder, refetchFiles, refetchNotes],
+    [createFolder, refetchFiles, refetchNotes, refetchAi],
   );
 
   // 폴더 생성 중복 실행 방지를 위한 ref (탭별 1회만 동작)
   const folderCreatingRef = React.useRef<Record<ArcDataType, boolean>>({
     notes: false,
     files: false,
-    chat: false,
+    ai: false,
   });
 
   // 파일/폴더 문서 목록을 ArcManagerTreeItem[] 트리 구조로 변환
@@ -478,6 +509,51 @@ export function ArcManager(): React.ReactElement {
 
     return roots;
   }, [noteDocuments]);
+
+  const aiTreeItems = React.useMemo<ArcManagerTreeItem[]>(() => {
+    if (!aiDocuments || aiDocuments.length === 0) return [];
+
+    type TreeNode = ArcManagerTreeItem & { children?: ArcManagerTreeItem[] };
+    const nodeMap = new Map<string, TreeNode>();
+    const roots: TreeNode[] = [];
+
+    for (const doc of aiDocuments) {
+      const createdAt = new Date(doc.createdAt);
+      const updatedAt = new Date(doc.updatedAt);
+      const itemType: 'folder' | 'item' = doc.kind === 'folder' ? 'folder' : 'item';
+
+      const node: TreeNode = {
+        id: doc.documentId,
+        path: doc.path,
+        name: doc.name,
+        itemType,
+        tags: [],
+        createdAt,
+        updatedAt,
+        children: itemType === 'folder' ? [] : undefined,
+      };
+
+      nodeMap.set(doc.path, node);
+    }
+
+    for (const node of nodeMap.values()) {
+      const parentPath = getParentPath(node.path);
+      if (!parentPath) {
+        roots.push(node);
+        continue;
+      }
+
+      const parentNode = nodeMap.get(parentPath);
+      if (!parentNode) {
+        roots.push(node);
+      } else {
+        if (!parentNode.children) parentNode.children = [];
+        parentNode.children.push(node);
+      }
+    }
+
+    return roots;
+  }, [aiDocuments]);
 
   // 공통: 탭별 상태 조회/갱신
   const getTabState = React.useCallback(
@@ -646,6 +722,7 @@ export function ArcManager(): React.ReactElement {
         {DEFAULT_TABS.map((tab) => {
           const isFileTab = tab.value === 'files';
           const isNotesTab = tab.value === 'notes';
+          const isAiTab = tab.value === 'ai';
           const tabState = getTabState(tab.value);
           const {
             searchQuery,
@@ -661,13 +738,13 @@ export function ArcManager(): React.ReactElement {
 
           const treeItems: ArcManagerTreeItem[] = (() => {
             if (isFileTab) {
-            if (!currentPath) {
-              // 루트에서는 전체 트리 루트를 그대로 보여줍니다.
-              return fileTreeItems;
-            }
-            // 특정 폴더로 이동한 경우, 해당 폴더의 자식들을 루트처럼 보여줍니다.
-            const node = findTreeNodeByPath(fileTreeItems, currentPath);
-            return node?.children ?? [];
+              if (!currentPath) {
+                // 루트에서는 전체 트리 루트를 그대로 보여줍니다.
+                return fileTreeItems;
+              }
+              // 특정 폴더로 이동한 경우, 해당 폴더의 자식들을 루트처럼 보여줍니다.
+              const node = findTreeNodeByPath(fileTreeItems, currentPath);
+              return node?.children ?? [];
             }
 
             if (isNotesTab) {
@@ -678,10 +755,24 @@ export function ArcManager(): React.ReactElement {
               return node?.children ?? [];
             }
 
+            if (isAiTab) {
+              if (!currentPath) {
+                return aiTreeItems;
+              }
+              const node = findTreeNodeByPath(aiTreeItems, currentPath);
+              return node?.children ?? [];
+            }
+
             return [];
           })();
 
-          const dragKind: 'file' | 'note' | null = isFileTab ? 'file' : isNotesTab ? 'note' : null;
+          const dragKind: 'file' | 'note' | 'ai' | null = isFileTab
+            ? 'file'
+            : isNotesTab
+              ? 'note'
+              : isAiTab
+                ? 'ai'
+                : null;
 
           const treeInteractionProps: Partial<ArcManagerTreeProps> = dragKind
             ? {
@@ -1024,6 +1115,34 @@ export function ArcManager(): React.ReactElement {
                                 className="hover:underline"
                                 onClick={() =>
                                   patchTabState('notes', {
+                                    currentPath: crumb.path,
+                                    ...(crumb.path ? { isCollapsed: false } : {}),
+                                  })
+                                }
+                              >
+                                {crumb.label}
+                              </button>
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {isAiTab && (
+                  <Collapsible open={!isCollapsed}>
+                    <CollapsibleContent>
+                      <div className="px-2 pb-1 text-xs text-muted-foreground flex flex-wrap gap-1">
+                        {buildBreadcrumbItems(currentPath, aiNameMap).map(
+                          (crumb, index) => (
+                            <span key={crumb.path} className="flex items-center gap-1">
+                              {index > 0 && <span>/</span>}
+                              <button
+                                type="button"
+                                className="hover:underline"
+                                onClick={() =>
+                                  patchTabState('ai', {
                                     currentPath: crumb.path,
                                     ...(crumb.path ? { isCollapsed: false } : {}),
                                   })

@@ -1,7 +1,7 @@
 ## 1. ArcManager 개요
 
-ArcManager는 ArcSolve 내에서 **문서(파일/폴더) 트리를 탐색하고 관리하는 파일 매니저**입니다.  
-현재 구현은 `document` 도메인(ArcData, ArcWork와 연동되는 파일/폴더) 중심이며, 구조적으로는 노트/채팅 탭까지 확장 가능하도록 설계되어 있습니다.
+ArcManager는 ArcSolve 내에서 **문서(파일/폴더/AI 세션) 트리를 탐색하고 관리하는 파일 매니저**입니다.  
+현재 구현은 `document` 도메인(ArcData, ArcWork와 연동되는 파일/폴더/AI 세션) 중심이며, 구조적으로는 노트/AI 탭까지 확장 가능하도록 설계되어 있습니다.
 
 - **주요 역할**
   - `document` 테이블 기반 **트리 구조(ltree)**를 좌측 패널에서 탐색

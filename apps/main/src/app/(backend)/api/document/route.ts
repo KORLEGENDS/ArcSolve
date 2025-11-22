@@ -26,14 +26,16 @@ export async function GET(request: NextRequest) {
     const kindParam = searchParams.get('kind');
 
     // kind 파라미터:
-    // - null 또는 'file'   : file + folder 트리 (기존 ArcManager files 탭과 동일)
-    // - 'note'             : note + folder 트리 (향후 notes 탭에서 사용)
-    // - 'all'              : 모든 kind (note/file/folder)
+    // - null 또는 'file'   : file + folder 트리 (ArcManager files 탭)
+    // - 'note'             : note + folder 트리 (ArcManager notes 탭)
+    // - 'ai'               : ai 세션 + folder 트리 (ArcManager ai 탭)
+    // - 'all'              : 모든 kind (note/file/ai/folder)
     if (
       !(
         kindParam === null ||
         kindParam === 'file' ||
         kindParam === 'note' ||
+        kindParam === 'ai' ||
         kindParam === 'all'
       )
     ) {
@@ -51,18 +53,25 @@ export async function GET(request: NextRequest) {
       const isNote =
         typeof mimeType === 'string' &&
         mimeType.startsWith('application/vnd.arc.note+');
-      const isFileLike =
+      const isAiSession =
         typeof mimeType === 'string' &&
-        !mimeType.startsWith('application/vnd.arc.note+');
+        mimeType === 'application/vnd.arc.ai-chat+json';
+      const isFileLike =
+        typeof mimeType === 'string' && !isNote && !isAiSession;
 
       if (kindParam === null || kindParam === 'file') {
-        // 기존 동작: file + folder 문서만 반환
+        // 파일 뷰: 일반 파일 + folder 문서만 반환 (AI 세션 제외)
         return isFolder || isFileLike;
       }
 
       if (kindParam === 'note') {
         // 노트 뷰: note + folder 문서만 반환
         return isFolder || isNote;
+      }
+
+      if (kindParam === 'ai') {
+        // AI 뷰: AI 세션 + folder 문서만 반환
+        return isFolder || isAiSession;
       }
 
       // kind = 'all' → 모든 kind 허용

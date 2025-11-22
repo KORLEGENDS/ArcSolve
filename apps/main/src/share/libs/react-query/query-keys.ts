@@ -92,6 +92,7 @@ export const queryKeys = {
       [...queryKeys.documents.all(), 'download-url', documentId] as const,
     listFiles: () => [...queryKeys.documents.all(), 'list', 'file'] as const,
     listNotes: () => [...queryKeys.documents.all(), 'list', 'note'] as const,
+    listAi: () => [...queryKeys.documents.all(), 'list', 'ai'] as const,
     listAll: () => [...queryKeys.documents.all(), 'list', 'all'] as const,
     content: (documentId: string) =>
       [...queryKeys.documents.all(), 'content', documentId] as const,
