@@ -17,9 +17,13 @@ export abstract class BaseError extends Error {
     super(message);
     this.name = this.constructor.name;
 
-    // V8 스택 추적 최적화
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
+    // V8 스택 추적 최적화 (React Native/TS 환경에서는 타입 단언으로 처리)
+    const captureStackTrace = (Error as any).captureStackTrace as
+      | ((target: unknown, constructor?: Function) => void)
+      | undefined;
+
+    if (typeof captureStackTrace === 'function') {
+      captureStackTrace(this, this.constructor);
     }
   }
 

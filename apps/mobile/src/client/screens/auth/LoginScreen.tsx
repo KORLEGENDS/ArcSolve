@@ -4,16 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSocialLogin } from '@/client/states/queries/auth/useAuth';
 import type { OAuthProvider } from '@/share/libs/auth/oauth-config';
+import { colorTokens, radiusTokens, spacingTokens, typographyTokens } from '@/client/styles/tokens';
 
 export function LoginScreen() {
   const [loadingProvider, setLoadingProvider] = useState<OAuthProvider | null>(null);
@@ -78,10 +72,10 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colorTokens.background,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacingTokens.xl,
   },
   content: {
     width: '100%',
@@ -89,42 +83,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#000000',
+    ...typographyTokens.title,
+    marginBottom: spacingTokens.sm,
+    color: colorTokens.textPrimary,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 48,
+    ...typographyTokens.subtitle,
+    marginBottom: spacingTokens.xxl,
   },
   buttonContainer: {
     width: '100%',
-    gap: 12,
+    gap: spacingTokens.md * 1.5,
   },
   button: {
     width: '100%',
     height: 48,
-    borderRadius: 12,
+    borderRadius: radiusTokens.lg,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
   kakaoButton: {
-    backgroundColor: '#FEE500',
+    backgroundColor: colorTokens.kakao,
   },
   kakaoButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(0,0,0,0.85)',
+    ...typographyTokens.button,
+    color: colorTokens.kakaoText,
   },
   naverButton: {
-    backgroundColor: '#03C75A',
+    backgroundColor: colorTokens.naver,
   },
   naverButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typographyTokens.button,
     color: '#FFFFFF',
   },
 });

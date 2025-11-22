@@ -9,8 +9,8 @@ import { queryKeys } from '@/share/libs/react-query/query-keys';
 import { authQueryOptions } from '@/share/libs/react-query/query-options/auth';
 import { logoutWithCacheClear } from '@/share/providers/client/auth-provider';
 import {
-  clearRefreshToken,
-  saveRefreshToken,
+    clearRefreshToken,
+    saveRefreshToken,
   saveSession,
 } from '@/share/share-utils/session-utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,17 +49,17 @@ export function useSocialLogin() {
       // 2. Better Auth 세션 쿠키를 포함하여 모바일 전용 토큰 발급
       const cookies = authClient.getCookie?.();
 
-      const tokenResponse = await fetch(`${API_BASE_URL}/api/auth/mobile/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+          const tokenResponse = await fetch(`${API_BASE_URL}/api/auth/mobile/token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
           ...(cookies ? { Cookie: cookies } : {}),
-        },
-      });
+            },
+          });
 
-      if (!tokenResponse.ok) {
-        throw new Error('토큰 발급에 실패했습니다.');
-      }
+          if (!tokenResponse.ok) {
+            throw new Error('토큰 발급에 실패했습니다.');
+          }
 
       const tokenResult = (await tokenResponse.json()) as StandardApiResponse<{
         accessToken: string;
@@ -75,12 +75,12 @@ export function useSocialLogin() {
       }> | StandardApiErrorResponse;
 
       const tokenData = extractApiData(tokenResult);
-
+          
       // 3. Refresh Token을 SecureStore에 저장
-      if (tokenData.refreshToken) {
-        await saveRefreshToken(tokenData.refreshToken);
-      }
-
+          if (tokenData.refreshToken) {
+            await saveRefreshToken(tokenData.refreshToken);
+          }
+          
       // 4. Better Auth 세션 조회 (선택) 및 사용자 정보 결정
       const { data: session } = await authClient.getSession();
       const user = session?.user ?? tokenData.user;
@@ -92,15 +92,15 @@ export function useSocialLogin() {
 
       // 5. Access Token과 사용자 정보를 전역 상태에 저장 (메모리)
       setAuth(user, tokenData.accessToken);
-
+          
       // 6. 세션 정보도 SecureStore에 저장 (호환성 유지)
       await saveSession({ user });
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
-
+          
+          queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
+          
       // 7. Expo Router로 홈 화면 이동
-      router.replace('/(app)');
-
+          router.replace('/(app)');
+          
       return { user };
     },
   });

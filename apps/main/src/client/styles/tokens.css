@@ -1,0 +1,193 @@
+/**
+ * 디자인 토큰 정의 (웹 공용)
+ *
+ * - Tailwind CSS v4 `@theme` 기반
+ * - 색상 / 간격 / 타이포 / radius / shadow / animation 토큰
+ * - 웹 메인 엔트리: `index.css` 에서 `@import "./tokens.css";` 로 사용
+ * - (추후 필요 시) 모바일 NativeWind 글로벌 스타일에서도 재사용 가능
+ */
+
+@theme {
+  --color-brand: oklch(54.171% 0.00006 271.152);
+  --color-highlight: oklch(42.761% 0.00005 271.152);
+
+  /* Tailwind v4 중립 팔레트 */
+  --color-neutral-50: oklch(98.5% 0 0);
+  --color-neutral-100: oklch(97% 0 0);
+  --color-neutral-150: oklch(94% 0 0);
+  --color-neutral-200: oklch(92.2% 0 0);
+  --color-neutral-300: oklch(87% 0 0);
+  --color-neutral-400: oklch(70.8% 0 0);
+  --color-neutral-500: oklch(55.6% 0 0);
+  --color-neutral-600: oklch(43.9% 0 0);
+  --color-neutral-700: oklch(37.1% 0 0);
+  --color-neutral-800: oklch(26.9% 0 0);
+  --color-neutral-900: oklch(22% 0 0);
+  --color-neutral-950: oklch(19% 0 0);
+
+  --color-black: #000;
+  --color-white: #fff;
+
+  --color-red-400: oklch(70.4% 0.191 22.216);
+  --color-red-600: oklch(57.7% 0.245 27.325);
+  --color-orange-600: oklch(64.6% 0.222 41.116);
+  --color-amber-400: oklch(82.8% 0.189 84.429);
+  --color-amber-500: oklch(76.9% 0.188 70.08);
+  --color-emerald-500: oklch(69.6% 0.17 162.48);
+  --color-teal-600: oklch(60% 0.118 184.704);
+  --color-cyan-900: oklch(39.8% 0.07 227.392);
+  --color-blue-700: oklch(48.8% 0.243 264.376);
+  --color-purple-500: oklch(62.7% 0.265 303.9);
+
+  /* spacing */
+  --spacing-xs: 0.125rem;
+  --spacing: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.5rem;
+
+  /* containers */
+  --container-3xs: 16rem;
+  --container-2xs: 18rem;
+  --container-xs: 20rem;
+  --container-sm: 24rem;
+  --container-md: 28rem;
+  --container-lg: 32rem;
+  --container-xl: 36rem;
+  --container-2xl: 42rem;
+  --container-3xl: 48rem;
+  --container-4xl: 56rem;
+  --container-5xl: 64rem;
+  --container-6xl: 72rem;
+  --container-7xl: 80rem;
+
+  /* 타이포 토큰 */
+  --text-heading-2: 1.5rem;
+  --text-heading-2--line-height: 1.75rem;
+  --text-heading-2--letter-spacing: -.015625rem;
+  --text-heading-2--font-weight: 600;
+
+  --text-heading-3: 1.125rem;
+  --text-heading-3--line-height: 1.625rem;
+  --text-heading-3--letter-spacing: -.028125rem;
+  --text-heading-3--font-weight: 600;
+
+  --text-body-regular: 1rem;
+  --text-body-regular--line-height: 1.625rem;
+  --text-body-regular--letter-spacing: 0.025rem;
+  --text-body-regular--font-weight: 400;
+
+  --text-body-small-regular: .875rem;
+  --text-body-small-regular--line-height: 1.125rem;
+  --text-body-small-regular--letter-spacing: 0.019rem;
+  --text-body-small-regular--font-weight: 400;
+
+  --text-body-small-emphasized: .875rem;
+  --text-body-small-emphasized--line-height: 1.125rem;
+  --text-body-small-emphasized--letter-spacing: 0.019rem;
+  --text-body-small-emphasized--font-weight: 600;
+
+  --text-monospace: .9375rem;
+  --text-monospace--line-height: 1.375rem;
+  --text-monospace--letter-spacing: -.025rem;
+  --text-monospace--font-weight: 400;
+
+  --text-caption-regular: .75rem;
+  --text-caption-regular--line-height: 1rem;
+  --text-caption-regular--letter-spacing: 0.00625rem;
+  --text-caption-regular--font-weight: 400;
+
+  /* radius */
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius: 0.625rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
+  --radius-2xl: 2.5rem;
+  --radius-3xl: 3rem;
+  --radius-4xl: 3.5rem;
+  --radius-full: 9999px;
+
+  /* shadow */
+  --inset-shadow-2xs: inset 0 1px rgb(0 0 0 / 5%);
+  --inset-shadow-xs: inset 0 1px 1px rgb(0 0 0 / 5%);
+  --inset-shadow-sm: inset 0 2px 4px rgb(0 0 0 / 5%);
+
+  --drop-shadow-xs: 0 1px 1px rgb(0 0 0 / 5%);
+  --drop-shadow-sm: 0 1px 2px rgb(0 0 0 / 15%);
+  --drop-shadow-md: 0 3px 3px rgb(0 0 0 / 12%);
+  --drop-shadow-lg: 0 4px 4px rgb(0 0 0 / 15%);
+  --drop-shadow-xl: 0 9px 7px rgb(0 0 0 / 10%);
+  --drop-shadow-2xl: 0 25px 25px rgb(0 0 0 / 15%);
+
+  --aspect-video: 16 / 9;
+
+  --transition-short: 0.1s;
+  --transition-medium: 0.2s;
+  --transition-long: 0.3s;
+
+  /* animation tokens */
+  --animate-collapsible-down: collapsible-down 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-collapsible-up:   collapsible-up   200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-ft-fadeIn:        ft-fadeIn        500ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  --mask-fade-x: 12px;
+  --mask-fade-y: 12px;
+
+  --ai-from: theme(colors.purple.500);
+  --ai-to: theme(colors.indigo.500);
+
+  --ai-shadow-offset-x: 0px;
+  --ai-shadow-offset-y: 6px;
+  --ai-shadow-blur: 18px;
+  --ai-shadow-opacity: 35%;
+
+  @keyframes ft-fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+      filter: blur(2px);
+      background-color: color-mix(in oklab, var(--color-amber-400) 35%, transparent);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+      background-color: transparent;
+    }
+  }
+
+  @keyframes collapsible-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+
+  @keyframes collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes alpha-wave {
+    /*
+     * Seamless loop distance for mask-position (X axis):
+     * - Background/mask percentage offsets are computed against (elementWidth - imageWidth).
+     * - To shift exactly one tile width (imageWidth) with repeat, percentage must be:
+     *   percent = -imageWidth / (elementWidth - imageWidth) * 100
+     * - With mask-size: 180% => imageWidth = 1.8 * elementWidth ⇒ percent = -1.8 / (1 - 1.8) * 100 = -225%
+     */
+    0% { -webkit-mask-position: 0% 50%; mask-position: 0% 50%; }
+    100% { -webkit-mask-position: -225% 50%; mask-position: -225% 50%; }
+  }
+}
+
+
