@@ -1,8 +1,4 @@
-import {
-  loadConversationWithCache,
-  saveConversationSnapshot,
-  saveLastAiUserMessage,
-} from '@/server/ai/io-ai';
+import { saveConversationSnapshot } from '@/server/ai/io-ai';
 import { SYSTEM_PROMPT } from '@/server/ai/prompt-ai';
 import { createDocumentAiTools } from '@/server/ai/tools-ai';
 import { throwApi } from '@/server/api/errors';
@@ -20,30 +16,31 @@ import {
 interface CreateChatStreamParams {
   documentId: string;
   userId: string;
-  newMessages: UIMessage[];
+  /**
+   * 클라이언트(useChat)가 관리 중인 전체 UIMessage[]
+   * - 서버에서는 별도의 이전 히스토리 로드 없이, 이 배열을 그대로 기준으로 스트리밍을 수행합니다.
+   */
+  messages: UIMessage[];
 }
 
 /**
  * 문서 AI 채팅 스트림 생성 및 오케스트레이션
  */
 export async function createDocumentChatStream(params: CreateChatStreamParams) {
-  const { documentId, userId, newMessages } = params;
+  const { documentId, userId, messages } = params;
   const repository = new DocumentAiRepository();
 
-  // 1. 이전 히스토리 로드 (Redis → 없으면 Postgres)
-  const previousMessages = await loadConversationWithCache({
-    documentId,
-    userId,
-    repository,
-  });
+  // 1. 문서 소유자 및 AI 채팅 문서 여부 검증
+  await repository.assertAiDocumentOwner({ documentId, userId });
 
-  const allMessages: UIMessage[] = [...previousMessages, ...newMessages];
+  // 2. 클라이언트에서 전달된 전체 UIMessage[]를 기반으로 스트리밍 수행
+  const allMessages: UIMessage[] = messages;
 
   if (allMessages.length === 0) {
     throwApi('BAD_REQUEST', '유효한 메시지가 없습니다.');
   }
 
-  // 2. AI SDK의 validateUIMessages로 메시지 검증
+  // 3. AI SDK의 validateUIMessages로 메시지 검증
   let validatedMessages: UIMessage[];
   try {
     validatedMessages = await validateUIMessages({
@@ -61,7 +58,7 @@ export async function createDocumentChatStream(params: CreateChatStreamParams) {
     throwApi('BAD_REQUEST', '유효한 메시지가 없습니다.');
   }
 
-  // 3. AI 스트리밍 생성
+  // 4. AI 스트리밍 생성
   const result = streamText({
     model: openai('gpt-5.1'),
     system: SYSTEM_PROMPT,
@@ -79,7 +76,7 @@ export async function createDocumentChatStream(params: CreateChatStreamParams) {
     size: 16,
   });
 
-  // 4. 스트림 응답 생성 및 반환
+  // 5. 스트림 응답 생성 및 반환
   return result.toUIMessageStreamResponse({
     originalMessages: allMessages,
     generateMessageId: idGenerator,
@@ -136,18 +133,6 @@ export async function createDocumentChatStream(params: CreateChatStreamParams) {
           documentId,
           messages: completedMessages,
         });
-
-        const lastUserMessage = [...completedMessages]
-          .filter((msg) => msg.role === 'user')
-          .at(-1);
-
-        if (lastUserMessage) {
-          await saveLastAiUserMessage({
-            userId,
-            documentId,
-            message: lastUserMessage,
-          });
-        }
       } catch (err) {
         console.error('[DocumentAiService] 대화 저장/캐시 중 오류:', err);
       }

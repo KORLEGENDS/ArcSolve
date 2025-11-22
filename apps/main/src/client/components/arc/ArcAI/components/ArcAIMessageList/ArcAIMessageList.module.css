@@ -53,3 +53,15 @@
   margin-bottom: 160px;
 }
 
+.editTextarea {
+  width: 100%;
+  min-height: 3rem;
+  resize: vertical;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in oklab, var(--color-border) 70%, transparent);
+  background-color: transparent;
+  color: var(--color-foreground);
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+}
+

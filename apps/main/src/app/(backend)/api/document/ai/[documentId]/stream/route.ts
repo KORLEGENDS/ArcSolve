@@ -51,12 +51,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
-    const { messages: newMessages } = parsed.data;
+    // 클라이언트(useChat)가 관리 중인 전체 UIMessage[]를 그대로 전달합니다.
+    const { messages } = parsed.data;
 
     return createDocumentChatStream({
       documentId: idResult.data,
       userId,
-      newMessages,
+      messages,
     });
   } catch (err) {
     // eslint-disable-next-line no-console

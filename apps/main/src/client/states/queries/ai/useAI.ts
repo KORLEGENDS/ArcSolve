@@ -70,21 +70,6 @@ export function useAIChat(options: UseAIChatOptions) {
     resume: resume ?? false,
     transport: new DefaultChatTransport({
       api: `/api/document/ai/${encodeURIComponent(documentId)}/stream`,
-      /**
-       * ArcSolve 서버의 /api/document/ai/[documentId]/stream POST 스펙에 맞게
-       * 새 메시지(마지막 메시지 1개)만 전송합니다.
-       *
-       * 나머지 이전 히스토리는 서버에서 Redis/PG 를 통해 복원합니다.
-       */
-      prepareSendMessagesRequest: ({ messages }) => {
-        const last = messages[messages.length - 1];
-
-        return {
-          body: {
-            messages: last ? [last] : [],
-          },
-        };
-      },
     }),
   });
 

@@ -4,39 +4,9 @@ import { getRedis } from '@/server/database/redis/connection/client-redis';
 import { CACHE_TTL, CacheKey } from '@/share/configs/constants';
 import type { DocumentAiRepository } from '@/share/schema/repositories/document-ai-repository';
 
-const LAST_USER_TTL_SEC: number = CACHE_TTL.AI.LAST_USER_MESSAGE;
 const CONVERSATION_TTL_SEC: number = CACHE_TTL.AI.CONVERSATION;
 
 export type DocumentAiConversation = UIMessage[];
-
-/**
- * AI 문서(document 기반 세션)의 "직전 사용자 메시지"를
- * Redis 에 짧게 캐시하기 위한 헬퍼입니다.
- *
- * - 정합성의 소스는 항상 Postgres(document_ai_*) 이고,
- *   이 모듈은 단순 캐시 역할만 수행합니다.
- */
-export async function saveLastAiUserMessage(params: {
-  userId: string;
-  documentId: string;
-  message: UIMessage;
-  ttlSec?: number;
-}): Promise<void> {
-  const redis = getRedis();
-  const { userId, documentId, message, ttlSec = LAST_USER_TTL_SEC } = params;
-
-  try {
-    const payload = JSON.stringify(message);
-    await redis.set(
-      CacheKey.ai.lastUserMessage(userId, documentId),
-      payload,
-      'EX',
-      ttlSec,
-    );
-  } catch (error) {
-    console.warn('[document-ai-cache] saveLastAiUserMessage failed:', error);
-  }
-}
 
 /**
  * 전체 대화(UIMessage[]) 스냅샷을 Redis 에 저장합니다.

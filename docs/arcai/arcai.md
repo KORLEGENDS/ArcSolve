@@ -457,8 +457,8 @@ if (component === 'arcai-session') {
    - 세션은 이미 생성되었으므로, 서버는 빈 메시지 배열을 반환 (대화 없음)
    - 클라이언트는 이를 **히스토리 없는 새 세션**으로 취급
 4. 사용자가 첫 질문을 입력하고 전송:
-   - `useAIChat` 이 `POST /api/document/ai/[documentId]/stream` 로 `{ messages: [lastUserMessage] }` 전송
-   - 서버는 이미 존재하는 문서를 사용해 대화 저장/스트리밍 수행
+   - `useAIChat` 이 `POST /api/document/ai/[documentId]/stream` 로 현재까지의 전체 `messages: UIMessage[]` 를 전송
+   - 서버는 이미 존재하는 문서를 사용해 전체 대화를 기준으로 저장/스트리밍 수행
 5. 첫 요청 시:
    - **응답 모델(streaming)**: 사용자가 바로 볼 수 있는 챗 응답
    - **제목 생성 모델(non-streaming, 배후 실행)**: 대화 내용을 바탕으로 문서/탭 이름을 생성하여 나중에 `document.name` + ArcWork 탭 이름을 갱신

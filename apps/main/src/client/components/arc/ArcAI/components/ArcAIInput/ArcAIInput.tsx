@@ -2,6 +2,7 @@
 
 import { Button } from '@/client/components/ui/button';
 import { cn } from '@/client/components/ui/utils';
+import { ArrowUp } from 'lucide-react';
 import {
   Children,
   useCallback,
@@ -38,6 +39,14 @@ export type ArcAIInputProps = Omit<HTMLAttributes<HTMLFormElement>, 'onChange'> 
   submitIcon?: ReactNode;
   submitVariant?: ComponentProps<typeof Button>['variant'];
   submitSize?: ComponentProps<typeof Button>['size'];
+  /**
+   * 전송 버튼 동작 모드
+   * - 'send': 폼 submit (기본)
+   * - 'stop': onClickSubmitButton 핸들러만 호출
+   */
+  submitMode?: 'send' | 'stop';
+  /** submitMode === 'stop' 일 때 클릭 핸들러 */
+  onClickSubmitButton?: () => void;
 };
 
 export const ArcAIInput = ({
@@ -54,9 +63,13 @@ export const ArcAIInput = ({
   submitIcon,
   submitVariant = 'ghost',
   submitSize = 'icon',
+  submitMode = 'send',
+  onClickSubmitButton,
   ...props
 }: ArcAIInputProps): React.ReactElement => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const isStopMode = submitMode === 'stop';
 
   const setExpanded = useCallback((expanded: boolean) => {
     const el = textareaRef.current;
@@ -101,6 +114,9 @@ export const ArcAIInput = ({
   }, [value, updateExpandedState]);
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+    // 중단 모드에서는 Enter로 새로운 전송을 발생시키지 않습니다.
+    if (isStopMode) return;
+
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       // Enter 전송 (Shift 미사용, 한글 조합 입력 아님)
       e.preventDefault();
@@ -116,13 +132,8 @@ export const ArcAIInput = ({
     updateExpandedState();
   };
 
-  // 전송 아이콘 기본값
-  const defaultSubmitIcon = (
-    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className='size-5'>
-      <path d='m22 2-7 20-4-9-9-4Z'/>
-      <path d='M22 2 11 13'/>
-    </svg>
-  );
+  // 전송 아이콘 기본값 (lucide-react)
+  const defaultSubmitIcon = <ArrowUp className="size-6" />;
 
   return (
     <form
@@ -184,9 +195,10 @@ export const ArcAIInput = ({
           <Button
             className={cn(styles.button, styles.trailing)}
             size={submitSize}
-            type='submit'
+            type={isStopMode ? 'button' : 'submit'}
             variant={submitVariant}
             disabled={submitDisabled}
+            onClick={isStopMode ? onClickSubmitButton : undefined}
           >
             {submitIcon || defaultSubmitIcon}
           </Button>

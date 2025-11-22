@@ -46,7 +46,7 @@ type PartRow = {
 export class DocumentAiRepository {
   constructor(private readonly database: DB = defaultDb) {}
 
-  private async assertAiDocumentOwner(params: {
+  async assertAiDocumentOwner(params: {
     documentId: string;
     userId: string;
   }): Promise<void> {
