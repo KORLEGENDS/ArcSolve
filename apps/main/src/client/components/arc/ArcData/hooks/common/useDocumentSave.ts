@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { documentQueryOptions } from '@/share/libs/react-query/query-options';
 import { useArcWorkTabStore } from '@/client/states/stores/arcwork-tab-store';
+import { useArcWorkActiveTabId } from '@/client/states/stores/arcwork-store';
 
 export interface UseDocumentSaveReturn<TContents = unknown> {
   saveContent: (contents: TContents) => Promise<void>;
@@ -20,9 +21,14 @@ export function useDocumentSave<TContents = unknown>(
   const mutation = useMutation(documentQueryOptions.updateContent);
   const markSaved = useArcWorkTabStore((state) => state.markSaved);
   const setCurrentHash = useArcWorkTabStore((state) => state.setCurrentHash);
+  const activeTabId = useArcWorkActiveTabId();
 
   const saveContent = React.useCallback(
     async (contents: TContents) => {
+      // ArcWork 활성 탭이 존재하고, 현재 문서 탭이 아니면 저장하지 않음
+      if (activeTabId && activeTabId !== documentId) {
+        return;
+      }
       const serialized = serializeContents(contents);
       await mutation.mutateAsync({
         documentId,
@@ -34,7 +40,7 @@ export function useDocumentSave<TContents = unknown>(
       });
       markSaved(documentId, serialized);
     },
-    [documentId, markSaved, mutation],
+    [activeTabId, documentId, markSaved, mutation],
   );
 
   const updateCurrentHash = React.useCallback(

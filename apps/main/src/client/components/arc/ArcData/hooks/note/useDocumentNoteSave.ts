@@ -4,8 +4,8 @@ import * as React from 'react';
 
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';
 
-import { useDocumentSave, useSaveShortcut } from '../common/useDocumentSave';
 import { useArcWorkTabStore } from '@/client/states/stores/arcwork-tab-store';
+import { useDocumentSave, useSaveShortcut } from '../common/useDocumentSave';
 
 export interface UseDocumentNoteSaveOptions {
   documentId: string;

@@ -17,7 +17,7 @@ ArcWork는 ArcSolve의 **작업 공간(Workspace) 레이아웃 시스템**입니
   - Drag & Drop을 통해 탭을 열거나 재배치
 - 핵심 구성 요소:
   - **문서 스키마**: `document`/`document_content`/`document_relation`/`document_chunk`
-  - **레이아웃 스토어**: `arcwork-layout-store.ts` (zustand 기반)
+  - **레이아웃 스토어**: `arcwork-store.ts` (zustand 기반)
   - **React 컴포넌트**: `ArcWork`, `ArcWorkContent`, 도메인 컴포넌트(factory로 매핑)
 
 이하에서는 **문서 시스템 → 탭 메타데이터 → 레이아웃 스토어 API → React 통합 → 도메인 연동 레시피** 순서로 설명합니다.
@@ -218,10 +218,10 @@ ArcWork 레이아웃 스토어는 `{ id, name, type }`을 flexlayout JSON에 다
 
 ---
 
-## 4. ArcWork 레이아웃 스토어 API (`arcwork-layout-store.ts`)
+## 4. ArcWork 레이아웃 스토어 API (`arcwork-store.ts`)
 
-파일 경로:  
-`apps/main/src/client/states/stores/arcwork-layout-store.ts`
+파일 경로:
+`apps/main/src/client/states/stores/arcwork-store.ts`
 
 이 스토어는 ArcWork 레이아웃과 탭 상태를 전역에서 관리합니다.
 
@@ -233,6 +233,7 @@ export interface ArcWorkLayoutState {
   lastSavedLayout: IJsonModel | null;
   storageKey: string;
   layoutRef: FlexLayoutView | null;
+  activeTabId: string | null; // 현재 활성 flexlayout 탭 ID
 }
 ```
 
@@ -268,6 +269,11 @@ export interface ArcWorkLayoutActions {
   activate(id: string): boolean;
   close(id: string): boolean;
   ensureOpen(input: ArcWorkTabInput): boolean;
+
+  /**
+   * flexlayout 모델에서 활성 탭 정보를 읽어 activeTabId에 반영
+   */
+  syncActiveTab(): void;
 
   // DnD helpers
   makeExternalDragHandler(): (
@@ -421,11 +427,78 @@ export const useArcWorkOpenTab =
 
 export const useArcWorkEnsureOpenTab =
   (): ArcWorkLayoutActions['ensureOpen'] => useArcWorkLayoutStore((s) => s.ensureOpen);
+
+export const useArcWorkActiveTabId = (): string | null =>
+  useArcWorkLayoutStore((s) => s.activeTabId);
+
+export const useArcWorkSyncActiveTab =
+  (): ArcWorkLayoutActions['syncActiveTab'] =>
+    useArcWorkLayoutStore((s) => s.syncActiveTab);
 ```
+
+### 4.8. activeTabId와 ArcData mod+s 저장 연동
+
+ArcWork의 `activeTabId`는 ArcData의 mod+s 저장 동작과 긴밀하게 연동됩니다.
+
+- ArcWork 컴포넌트(`ArcWork.tsx`)는
+  - 마운트 시 `setModel(model)` 호출과 동시에 `syncActiveTab()`을 한 번 호출하고,
+  - `onModelChange`(즉, 탭 선택/이동/닫기 등 액션 발생) 때마다 `syncActiveTab()`을 다시 호출합니다.
+- `activeTabId`는 flexlayout `getActiveTabset().getSelectedNode().getId()`를 기반으로 결정됩니다.
+- ArcData 쪽의 `useDocumentSave(documentId)`는 내부에서 `useArcWorkActiveTabId()`를 사용해:
+  - `activeTabId && activeTabId !== documentId` 이면 **저장 로직을 실행하지 않고 조용히 종료**합니다.
+  - 이로써 `mod+s` 시 **현재 ArcWork에서 포커스된 ArcData 탭 하나만** 실제 서버 저장을 수행합니다.
+- 이 패턴은 추후 ArcAI/ArcYou 등 다른 도메인의 "포커스 기반 단축키 동작"에도 재사용 가능합니다.
 
 ---
 
-## 5. ArcWork React 컴포넌트 통합
+## 5. ArcWork 탭 dirty 상태 스토어 (`arcwork-tab-store.ts`)
+
+파일: `apps/main/src/client/states/stores/arcwork-tab-store.ts`
+
+역할: 각 탭별로 **콘텐츠 해시와 dirty 플래그**를 관리하는 경량 zustand 스토어.
+ArcData(노트/드로우) 등이 `useDocumentSave`를 통해 이 스토어에 해시를 기록하고,
+`ArcWorkTab` 컴포넌트가 `useArcWorkTabDirty(tabId)`로 dirty 여부를 읽어 탭 아이콘 색상을 변경합니다.
+
+### 5.1. 상태 및 액션 타입 요약
+
+```ts
+type TabDirtyState = {
+  hash: string | null;
+  originalHash: string | null;
+  isDirty: boolean;
+};
+
+interface ArcWorkTabStoreState {
+  tabs: Record<string, TabDirtyState>;
+  setCurrentHash: (tabId: string, hash: string | null) => void;
+  markSaved: (tabId: string, hash: string | null) => void;
+  clearTab: (tabId: string) => void;
+}
+```
+
+- `setCurrentHash`:
+  - 처음 호출 시 `originalHash`가 비어 있으면 **현재 hash를 originalHash로도 사용**
+  - 이후 호출에서는 `isDirty = !!hash && hash !== originalHash`
+- `markSaved`:
+  - 저장 직후 호출 → `originalHash = hash`, `isDirty = false`
+- `clearTab`:
+  - 탭 언마운트 시(`useDocumentNoteSave`/`useDocumentDrawSave`의 cleanup) 탭 엔트리 삭제
+
+### 5.2. 탭 UI 반영
+
+- `ArcWorkTab.tsx`에서:
+  - `const isDirty = useArcWorkTabDirty(node.getId())`
+  - leading 아이콘에 `flexlayout__tab_leading_icon--dirty` 클래스를 추가하여 **색상만 변경**
+    (아이콘 자체는 그대로, dirty 상태일 때만 경고색 계열)
+
+- CSS (`ArcWork.css`)에서:
+  - `.flexlayout__tab_leading_icon--dirty`에 포인트 컬러 적용
+  - `.flexlayout__tab_button_close`는 기본 비가시 상태, 탭 hover 시에만 나타나게 설정
+    → 평상시에는 close 버튼이 안 보이고, dirty 여부만 아이콘 색상으로 표시.
+
+ArcData 노트/드로우는 `useDocumentSave` → `updateCurrentHash`를 통해 이 스토어를 사용하며,
+내용 변경 여부에 따라 ArcWork 탭 아이콘 색상(dirty)을 자동으로 갱신합니다.
+저장(`mod+s`) 성공 시에는 `markSaved` 호출로 dirty 상태를 해제합니다.
 
 ### 5.1. `ArcWork` 컴포넌트 (순수 레이아웃)
 
@@ -512,7 +585,7 @@ const defaultLayout = useMemo(() => {
 
 ```13:27:apps/main/src/client/components/arc/ArcYou/ArcYouChat/ArcYouChatRoomList.tsx
 import { useArcyouChat } from '@/client/states/queries/arcyou/useArcyouChat';
-import { useArcWorkEnsureOpenTab, useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-layout-store';
+import { useArcWorkEnsureOpenTab, useArcWorkStartAddTabDrag } from '@/client/states/stores/arcwork-store';
 
 export function ArcYouChatRoomList({ type, className }: ArcYouChatRoomListProps) {
   const ensureOpen = useArcWorkEnsureOpenTab();
@@ -657,7 +730,7 @@ export type DocumentDTO = {
   - `id`: 리소스 ID + 중복/존재 여부 판단 기준  
   - `name`: 탭 제목(필수, fallback 없음)  
   - `type`: factory에서 사용할 컴포넌트 키
-- 전역 스토어 `arcwork-layout-store.ts`는:
+- 전역 스토어 `arcwork-store.ts`는:
   - 레이아웃 저장/복원
   - 탭 열기/활성화/닫기
   - DnD(내부/외부) 통합 처리를 담당하며  

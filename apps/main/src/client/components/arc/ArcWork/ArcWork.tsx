@@ -5,6 +5,7 @@ import {
   useArcWorkSaveLayout,
   useArcWorkSetLayoutRef,
   useArcWorkSetModel,
+  useArcWorkSyncActiveTab,
 } from '@/client/states/stores/arcwork-store';
 import type {
   Action,
@@ -214,6 +215,7 @@ export function ArcWork({
   const setArcWorkModel = useArcWorkSetModel();
   const setLayoutRef = useArcWorkSetLayoutRef();
   const saveLayout = useArcWorkSaveLayout();
+  const syncActiveTab = useArcWorkSyncActiveTab();
   
   // 디바운스 타이머 ref
   const saveTimerRef = React.useRef<number | null>(null);
@@ -257,7 +259,8 @@ export function ArcWork({
   // 모델을 스토어에 등록 (마운트 시 및 model 변경 시)
   React.useEffect(() => {
     setArcWorkModel(model);
-  }, [model, setArcWorkModel]);
+    syncActiveTab();
+  }, [model, setArcWorkModel, syncActiveTab]);
 
   // 자동 저장 스케줄링 함수
   const scheduleSave = React.useCallback(() => {
@@ -281,10 +284,13 @@ export function ArcWork({
       // 외부 콜백 호출
       onModelChange?.(changedModel, action);
 
+      // 활성 탭 동기화
+      syncActiveTab();
+
       // 자동 저장 스케줄링
       scheduleSave();
     },
-    [onModelChange, scheduleSave]
+    [onModelChange, scheduleSave, syncActiveTab]
   );
 
   // 언마운트 시 타이머 정리

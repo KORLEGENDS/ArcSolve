@@ -17,6 +17,12 @@ export interface ArcWorkLayoutState {
   lastSavedLayout: IJsonModel | null;
   storageKey: string;
   layoutRef: FlexLayoutView | null;
+  /**
+   * 현재 활성화된 탭 ID
+   * - FlexLayout 모델의 activeTabset → selectedNode 기준
+   * - ArcData/ArcAI/ArcYou 등 모든 탭 공통으로 사용
+   */
+  activeTabId: string | null;
 }
 
 export interface ArcWorkTabInput {
@@ -40,6 +46,10 @@ export interface ArcWorkLayoutActions {
   activate: (id: string) => boolean;
   close: (id: string) => boolean;
   ensureOpen: (input: ArcWorkTabInput) => boolean;
+  /**
+   * FlexLayout 모델로부터 activeTabId를 동기화
+   */
+  syncActiveTab: () => void;
 
   /**
    * ArcWork Layout 외부에서 시작된 드래그 이벤트를 해석하기 위한 핸들러 생성 함수입니다.
@@ -77,6 +87,20 @@ const initialState: ArcWorkLayoutState = {
   lastSavedLayout: null,
   storageKey: DEFAULT_STORAGE_KEY,
   layoutRef: null,
+  activeTabId: null,
+};
+
+const getActiveTabIdFromModel = (model: Model | null): string | null => {
+  if (!model) return null;
+  try {
+    const activeTabSet = model.getActiveTabset() as TabSetNode | undefined;
+    if (!activeTabSet) return null;
+    const selectedNode = activeTabSet.getSelectedNode?.() as { getId?: () => string } | undefined;
+    const id = selectedNode?.getId?.();
+    return typeof id === 'string' ? id : null;
+  } catch {
+    return null;
+  }
 };
 
 const isBrowser = (): boolean =>
@@ -88,7 +112,11 @@ export const useArcWorkLayoutStore = create<ArcWorkLayoutStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
-    setModel: (model) => set(() => ({ model })),
+    setModel: (model) =>
+      set(() => ({
+        model,
+        activeTabId: getActiveTabIdFromModel(model),
+      })),
     setLayoutRef: (layout) => set(() => ({ layoutRef: layout })),
 
     setStorageKey: (key) =>
@@ -220,6 +248,11 @@ export const useArcWorkLayoutStore = create<ArcWorkLayoutStore>()(
       return get().open(input);
     },
 
+    syncActiveTab: () =>
+      set((state) => ({
+        activeTabId: getActiveTabIdFromModel(state.model),
+      })),
+
     makeExternalDragHandler: () => {
       return (event: React.DragEvent<HTMLElement>) => {
         // 1) Drop sink 탐색: data-arcwork-drop-sink="true" 인 요소 위에서는
@@ -346,6 +379,13 @@ export const useArcWorkEnsureOpenTab =
 export const useArcWorkMakeExternalDragHandler =
   (): ArcWorkLayoutActions['makeExternalDragHandler'] =>
     useArcWorkLayoutStore((s) => s.makeExternalDragHandler);
+
+export const useArcWorkActiveTabId = (): string | null =>
+  useArcWorkLayoutStore((s) => s.activeTabId);
+
+export const useArcWorkSyncActiveTab =
+  (): ArcWorkLayoutActions['syncActiveTab'] =>
+    useArcWorkLayoutStore((s) => s.syncActiveTab);
 
 /**
  * ArcWork 탭으로 열릴 수 있는 항목을 드래그 시작할 때,

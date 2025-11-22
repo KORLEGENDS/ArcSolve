@@ -412,16 +412,8 @@
   pointer-events: auto;
 }
 
-.flexlayout__tab_dirty_indicator {
-  display: inline-flex;
-  align-items: center;
+.flexlayout__tab_leading_icon--dirty {
   color: var(--color-warning, #f97316);
-  opacity: 1;
-  transition: opacity 0.12s ease;
-}
-
-.flexlayout__tab_button:hover .flexlayout__tab_dirty_indicator {
-  opacity: 0;
 }
 .flexlayout__tab_button_stretch {
   background-color: transparent;
@@ -487,10 +479,6 @@
     visibility: visible;
   }
 }
-.flexlayout__tab_button--selected .flexlayout__tab_button_trailing {
-  visibility: visible;
-}
-
 /* ArcWork 커스텀: 탭 닫기 버튼을 탭 추가 버튼과 동일한 스타일로 맞춤 */
 .flexlayout__tab_button_trailing button {
   /* Button 컴포넌트의 variant="ghost" 스타일 + size="sm" + 명시적 크기 (h-7 w-7 p-0 text-2xl) */

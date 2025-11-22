@@ -56,15 +56,6 @@ ArcData의 기본 동작 흐름은 다음과 같습니다.
 
 PDF 세부 구조는 [`arcdata-pdf.md`](./arcdata-pdf.md)에, 이미지 뷰어 요약은 아래 2.3 절에 정리되어 있습니다.
 
-### 2.3. ArcDataImage (이미지 뷰어)
-
-- MIME이 `image/`로 시작하면 `ArcDataImageHost`가 동작합니다.
-- 호스트는 `storageKey`가 외부 URL인지 확인한 뒤
-  - 외부 URL이면 그대로 전달하고
-  - 내부 스토리지(R2 등)라면 `useDocumentDownloadUrl(documentId, { inline: true })`로 서명 URL을 발급합니다.
-- `ArcDataImage` 컴포넌트는 Next.js `Image`만으로 화면 전체에 이미지를 렌더링하며, 추가 툴바나 버튼/스피너 없이 즉시 표시합니다.
-- 보기 전용이므로 저장/편집 로직은 없습니다.
-
 ---
 
 ## 3. 저장/편집 공통 로직
@@ -77,21 +68,38 @@ ArcData의 노트/드로우 편집기는 동일한 저장 파이프라인을 공
    - 저장 성공 시 해당 document content 쿼리만 무효화
    - `useSaveShortcut`을 함께 제공해 `Cmd/Ctrl + S` 입력을 감지 후 전달된 핸들러 실행
 
+   **ArcWork 활성 탭 가드**
+   - `useDocumentSave` 내부에서 `useArcWorkActiveTabId()`를 사용해 현재 ArcWork의 활성 탭 ID를 읽습니다.
+   - `saveContent(contents)` 호출 시,
+     - `activeTabId`가 존재하고
+     - `activeTabId !== documentId` 인 경우에는 **아무 것도 저장하지 않고 바로 return** 합니다.
+   - 따라서 `mod+s`를 눌러도 **현재 활성 ArcData 탭 하나만** 서버로 저장 요청을 보냅니다.
+
+   **dirty 상태 연동**
+   - `updateCurrentHash(contents)` 호출 시, `JSON.stringify(contents)` 결과를 기준으로 `arcwork-tab-store`에 해시를 저장합니다.
+   - 각 탭은 `originalHash`(처음 값 또는 마지막 저장 값)과 현재 `hash`를 비교해 `isDirty` 여부를 계산합니다.
+   - `saveContent`가 성공하면 `markSaved(documentId, serialized)`를 호출해
+     - `originalHash`를 현재 해시로 갱신하고
+     - `isDirty`를 `false`로 되돌립니다.
+
 2. **드로우 저장 훅 `useDocumentDrawSave`**
    - 최신 Excalidraw 씬(`DrawContent`)을 ref에 보관
    - `ArcDataDraw`의 `onChange`에서 ref를 업데이트
    - mod+s 또는 외부에서 `save()` 호출 시 ref의 씬을 `useDocumentSave`에 전달
    - 파일 업로드/다운로드는 아직 구현하지 않고 `files` 맵을 그대로 JSON에 포함해 저장
+   - 이 훅 역시 `updateCurrentHash`를 사용해 Excalidraw 씬 변경을 해시 기반으로 추적하고, ArcWork 탭 dirty 상태와 동기화합니다.
 
 3. **노트 저장 훅 `useDocumentNoteSave`**
    - Plate 에디터의 `EditorContent`를 ref로 유지
    - `ArcDataNote`의 `onChange`를 통해 ref를 갱신
    - mod+s 시 ref 값을 `useDocumentSave`로 전달하여 저장
+   - 이 훅은 `updateCurrentHash`를 통해 Plate 에디터 변경 시마다 `arcwork-tab-store`의 해시를 갱신하여 탭의 dirty 상태를 관리합니다.
 
 4. **호스트 연동 규칙**
    - `ArcDataNoteHost`와 `ArcDataDrawHost`는 항상 `useDocumentContent(documentId)`와 저장 훅을 함께 호출해 React 훅 순서를 일정하게 유지
    - 로딩/에러 상태에서도 훅이 먼저 실행된 뒤 조건부 렌더링으로 분기
    - 저장은 자동으로 실행되지 않고, mod+s 시점 또는 다른 명시적 트리거에서만 수행
+   - `mod+s`는 ArcWork의 활성 탭 기준으로만 동작하므로, 같은 문서를 여러 탭에서 중복으로 렌더링하는 패턴은 피하는 것을 권장합니다.
 
 이 구조 덕분에 향후 이미지 등 새로운 편집기를 추가하더라도 `useDocumentSave` + `useSaveShortcut` 조합을 재사용할 수 있습니다.
 
