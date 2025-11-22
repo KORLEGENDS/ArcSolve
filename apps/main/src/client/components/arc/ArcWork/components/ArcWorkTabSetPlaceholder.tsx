@@ -3,7 +3,7 @@
 import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabCreateAdapter';
 import { Button } from '@/client/components/ui/button';
 import {
-  documentQueryOptions,
+  aiQueryOptions,
   type DocumentDTO,
 } from '@/share/libs/react-query/query-options';
 import { useMutation } from '@tanstack/react-query';
@@ -25,8 +25,7 @@ export function ArcWorkTabSetPlaceholder({ node }: ArcWorkTabSetPlaceholderProps
   const { ensureOpenTab } = useArcWorkTabCreateAdapter();
   const createAiSessionMutation = useMutation<DocumentDTO, unknown, { name: string; parentPath: string }>({
     mutationFn: (variables) =>
-      documentQueryOptions.create.mutationFn({
-        kind: 'ai',
+      aiQueryOptions.createSession.mutationFn({
         name: variables.name,
         parentPath: variables.parentPath,
       }),

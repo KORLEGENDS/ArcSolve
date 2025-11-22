@@ -21,8 +21,7 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
   const { messages, sendMessage, status } = useAIChat({
     documentId,
     initialMessages,
-    // 현재는 스트림 재개(GET /api/document/ai/[id]/stream) 엔드포인트를
-    // 구현하지 않았으므로 resume 기능은 비활성화합니다.
+    // 현재는 스트림 재개(resume) 기능을 사용하지 않습니다.
     // 필요 시 resumable-stream 패턴을 도입한 뒤 true로 전환합니다.
     resume: false,
   });

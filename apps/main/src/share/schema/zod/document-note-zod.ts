@@ -117,7 +117,6 @@ export type DocumentContentResponse = z.infer<typeof documentContentResponseSche
  *
  * 현재 지원:
  * - 'note' : 노트 문서 (contents 포함)
- * - 'ai'   : AI 세션 문서 (contents 없음, ArcAI 전용)
  */
 const documentNoteCreateRequestSchema = z.object({
   kind: z.literal('note'),
@@ -126,16 +125,7 @@ const documentNoteCreateRequestSchema = z.object({
   contents: noteContentSchema.optional(),
 });
 
-const documentAiCreateRequestSchema = z.object({
-  kind: z.literal('ai'),
-  name: documentNameSchema,
-  parentPath: documentParentPathSchema,
-});
-
-export const documentCreateRequestSchema = z.discriminatedUnion('kind', [
-  documentNoteCreateRequestSchema,
-  documentAiCreateRequestSchema,
-]);
+export const documentCreateRequestSchema = documentNoteCreateRequestSchema;
 
 export type DocumentCreateRequest = z.infer<typeof documentCreateRequestSchema>;
 

@@ -384,6 +384,21 @@ export function setArcWorkTabDragData(
        - flexlayout 탭 JSON `{ type: 'tab', id, name, component: type }` 를 반환합니다.
        - ArcWork `Layout` 이 이 JSON을 사용해 드롭 위치에 탭을 생성/이동합니다.
 
+#### 4.6.3. 탭 이름 변경과 도메인 연동
+
+- flexlayout 의 기본 동작으로, 탭 헤더 **더블클릭 시 이름 편집 모드**로 전환되고,  
+  편집이 완료되면 `RENAME_TAB` 액션이 발생합니다.
+- ArcWork 쪽에서는 `useArcWorkTab().onAction` 이 이 액션을 가로채서  
+  `useArcWorkTabNameUpdateAdapter().handleRename` 에 `{ id, type, oldName, newName }` 을 전달합니다.
+- `type` 값에 따라 실제 도메인 rename 은 다음과 같이 라우팅됩니다.
+  - `type === 'arcyou-chat-room'`  
+    → `useRenameChatRoom` 훅을 통해 **채팅방 이름 수정 API** 호출
+  - `type ∈ { 'arcdata-document', 'arcai-session' }`  
+    → `useDocumentUpdate({ mode: 'meta', documentId: id, name: newName })` 를 통해  
+      **단일 Document 메타(name) 업데이트 API (`PATCH /api/document/[documentId]`)** 호출
+- 이로써 **ArcYou를 제외한 모든 문서 기반 탭의 이름은 Document 한 곳에서만 관리**되며,  
+  ArcManager/ArcData/ArcAI 등 문서 트리/뷰는 Document React Query 캐시 무효화를 통해 최신 이름을 공유합니다.
+
 ### 4.7. 셀렉터 훅 요약
 
 ```ts

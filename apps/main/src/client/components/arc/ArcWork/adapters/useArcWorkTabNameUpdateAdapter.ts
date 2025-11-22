@@ -1,4 +1,5 @@
 import { useRenameChatRoom } from '@/client/states/queries/arcyou/useArcyouChat';
+import { useDocumentUpdate } from '@/client/states/queries/document/useDocument';
 import { useArcWorkModel } from '@/client/states/stores/arcwork-layout-store';
 import type { TabNode } from 'flexlayout-react';
 import { Actions } from 'flexlayout-react';
@@ -27,6 +28,15 @@ export interface ArcWorkTabNameUpdateAdapter {
 }
 
 /**
+ * ArcWork에서 문서 기반 탭으로 취급하는 component 타입 목록
+ * - id는 documentId로 간주되어 Document 메타 업데이트로 라우팅됩니다.
+ */
+const DOCUMENT_COMPONENT_TYPES = new Set<string>([
+  'arcdata-document',
+  'arcai-session',
+]);
+
+/**
  * ArcWork 탭 이름 변경 → 도메인 데이터 rename 어댑터
  *
  * - 현재는 'arcyou-chat-room' 타입만 지원합니다.
@@ -34,6 +44,7 @@ export interface ArcWorkTabNameUpdateAdapter {
  */
 export function useArcWorkTabNameUpdateAdapter(): ArcWorkTabNameUpdateAdapter {
   const renameChatRoom = useRenameChatRoom();
+  const { updateDocument } = useDocumentUpdate();
   const model = useArcWorkModel();
 
   const handleRename = useCallback(
@@ -46,6 +57,14 @@ export function useArcWorkTabNameUpdateAdapter(): ArcWorkTabNameUpdateAdapter {
       if (type === 'arcyou-chat-room') {
         renameChatRoom.mutate({
           roomId: id,
+          name: trimmed,
+        });
+      } else if (DOCUMENT_COMPONENT_TYPES.has(type)) {
+        // ArcWork에서 문서 기반 탭으로 취급하는 경우,
+        // 탭 id는 documentId로 간주하고 Document 메타(name)를 업데이트합니다.
+        void updateDocument({
+          mode: 'meta',
+          documentId: id,
           name: trimmed,
         });
       }
@@ -63,7 +82,7 @@ export function useArcWorkTabNameUpdateAdapter(): ArcWorkTabNameUpdateAdapter {
         }
       }
     },
-    [renameChatRoom, model]
+    [renameChatRoom, updateDocument, model]
   );
 
   const syncTabNameFromRemote = useCallback(

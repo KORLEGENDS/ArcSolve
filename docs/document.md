@@ -574,6 +574,7 @@ export const documentQueryOptions = {
     (data) => data.document,
     { method: 'POST', bodyExtractor: … },
   ),
+  ),
 
   // 단일 문서 메타 조회
   detail: (documentId) => queryOptions({
@@ -597,6 +598,13 @@ export const documentQueryOptions = {
   updateMeta: createApiMutation(…PATCH '/api/document/{id}'…),
   updateContent: createApiMutation(…POST '/api/document/{id}/content'…),
   delete: createApiMutation(…DELETE '/api/document/{id}'…),
+
+  // AI 세션 생성
+  createAi: createApiMutation<DocumentDTO, DocumentDetailResponse, DocumentAiSessionCreateRequest>(
+    () => '/api/document/ai',
+    (data) => data.document,
+    { method: 'POST', bodyExtractor: … },
+  ),
 
   // YouTube 문서 생성
   createYoutube: createApiMutation(…'/api/document/youtube'…),
@@ -663,6 +671,7 @@ export function useDocumentDownloadUrl(
 - `useDocumentFolderCreate()` – 폴더 생성
 - `useDocumentYoutubeCreate()` – YouTube 문서 생성
 - `useDocumentCreate()` – 노트 문서 생성 (kind='note')
+- `useDocumentAiCreate()` – AI 세션 문서 생성 (kind='ai')
 
 ---
 

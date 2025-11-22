@@ -7,7 +7,10 @@ ArcData가 `documentId`를 기반으로 파일/노트를 렌더링하는 것처�
   - ArcAI는 ArcWork의 하나의 탭 타입으로 동작합니다. (예: `type = 'arcai-session'`)
   - 각 ArcAI 탭은 **하나의 `document` 행(= AI 세션 문서)**와 1:1로 매핑됩니다.
   - 대화 히스토리는 `document_ai_message` / `document_ai_part` 테이블에 정규화된 형태로 저장됩니다.
-  - API는 `GET /api/document/ai`(이전 대화 로드) / `POST /api/document/ai`(요청 + 스트리밍 응답) 두 개만 사용합니다.
+  - API는 세 개의 라우트를 사용합니다:
+    - `POST /api/document/ai` – 새로운 ArcAI 세션 문서 생성
+    - `GET /api/document/ai/[documentId]` – 해당 세션의 이전 대화(UIMessage[]) 로드
+    - `POST /api/document/ai/[documentId]/stream` – 일반적인 AI 요청 + 스트리밍 응답
   - 클라이언트는 `useAIConversation` + `useAIChat` 훅, 그리고 `ArcAI` 컴포넌트로 이 흐름을 캡슐화합니다.
 
 ---
@@ -79,29 +82,74 @@ ArcAI 세션은 `document` 테이블의 한 행으로 표현됩니다.
 
 ### 3.1 공통 개요
 
-- 파일: `apps/main/src/app/(backend)/api/document/ai/route.ts`
+- 파일:
+  - `apps/main/src/app/(backend)/api/document/ai/route.ts` – ArcAI 세션 문서 생성
+  - `apps/main/src/app/(backend)/api/document/ai/[documentId]/route.ts` – 대화 히스토리 조회
+  - `apps/main/src/app/(backend)/api/document/ai/[documentId]/stream/route.ts` – 채팅 스트리밍
 - 인증: `auth()` 세션 기반 – 로그인 사용자만 접근 가능
 - 엔드포인트:
-  - **GET** `/api/document/ai?documentId=...`
-  - **POST** `/api/document/ai`
+  - **POST** `/api/document/ai` – 새로운 ArcAI 세션 문서 생성
+  - **GET** `/api/document/ai/[documentId]` – 해당 세션의 전체 대화(UIMessage[]) 조회
+  - **POST** `/api/document/ai/[documentId]/stream` – 새 메시지를 받아 스트리밍 응답 생성
 - 내부에서:
-  - `DocumentAiRepository` + `loadConversationWithCache` 로 **Redis → Postgres** 순으로 대화 로드
-  - AI SDK `streamText` + `toUIMessageStreamResponse` 로 스트리밍 응답 생성
-  - RAG 도구: `embedSearch` / `textSearch` / `treeList` (`sidecar-tools.ts`)
+  - 세션 생성: `DocumentRepository.createAiSessionForOwner` + `mapDocumentToDTO`
+  - 히스토리 조회: `DocumentAiRepository` + `loadConversationWithCache` 로 **Redis → Postgres** 순으로 대화 로드
+  - 스트리밍:
+    - `document-ai-service.ts` 의 `createDocumentChatStream` 이 AI SDK `streamText` 를 호출
+    - RAG 도구: `embedSearch` / `textSearch` / `treeList` (`sidecar-tools.ts`)
+    - `toUIMessageStreamResponse` 로 UIMessage 스트림 응답 생성
 
-### 3.2 GET /api/document/ai – 대화 히스토리 조회
+### 3.2 POST /api/document/ai – ArcAI 세션 문서 생성
+
+**요청 Body**
+
+```ts
+{
+  name: string;       // 세션 이름 (예: '새 채팅')
+  parentPath: string; // '' = 루트, 그 외 ltree 경로 (예: 'ai', 'ai.project1')
+}
+```
+
+**동작**
+
+1. `auth()` 로 사용자 인증 → `userId`
+2. `documentAiSessionCreateRequestSchema` 로 `name` / `parentPath` 검증
+3. `DocumentRepository.createAiSessionForOwner({ userId, parentPath, name })` 호출
+   - `documents.kind = 'document'`
+   - `mimeType = 'application/vnd.arc.ai-chat+json'`
+   - `uploadStatus = 'uploaded'`, `processingStatus = 'processed'`
+4. 생성된 `document` 를 `mapDocumentToDTO` 로 변환해 응답
+
+**응답**
+
+```ts
+type DocumentDTO = {
+  documentId: string;
+  name: string;
+  path: string;
+  mimeType: string | null;
+  // ...
+};
+
+type DocumentDetailResponse = {
+  document: DocumentDTO;
+};
+```
+
+### 3.3 GET /api/document/ai/[documentId] – 대화 히스토리 조회
 
 **요청**
 
-- 쿼리 파라미터:
-  - `documentId: string (uuid)` – AI 세션 문서 ID
+- 경로 파라미터:
+  - `documentId: string (uuid)` – ArcAI 세션 문서 ID
 
 **동작**
 
 1. `auth()`로 사용자 인증 → `userId`
-2. `DocumentAiRepository` 인스턴스 생성
-3. `loadConversationWithCache({ documentId, userId, repository })` 호출
-   - Redis `ai:conversation:<userId>:<documentId>` → 파싱 성공 시 바로 반환
+2. `uuidSchema` 로 `documentId` 형식 검증
+3. `loadDocumentConversation({ documentId, userId })` 호출
+   - 내부에서 `loadConversationWithCache({ documentId, userId, repository })` 실행
+   - Redis `ai:conversation:<userId>:<documentId>` 에 스냅샷이 있으면 그대로 사용
    - 없거나 손상된 경우:
      - `DocumentAiRepository.loadConversationForOwner` 로 Postgres 조회
      - 결과를 Redis 에 스냅샷으로 저장 후 반환
@@ -116,80 +164,32 @@ ArcAI 세션은 `document` 테이블의 한 행으로 표현됩니다.
 }
 ```
 
-**문서가 아직 없는 경우(의도된 UX)**
-
-- 현재 구현에서는 `DocumentAiRepository`에서 `NOT_FOUND` 가 발생하여 404 에러를 반환합니다.
-- 클라이언트 `useAIConversation` 훅은 이 에러를 **표면에 노출하지 않고**, 단순히 `messages = []` 상태로 시작합니다.
-- ArcAI UI는 “기록이 없는 새 세션”으로 인식하고 빈 화면에서 바로 입력을 받을 수 있습니다.
-
-> **향후 개선 방향(설계)**  
-> - 장기적으로는 `GET /api/document/ai`가 **존재하지 않는 documentId에 대해서도 200 + 빈 메시지**를 반환하도록 완화하여,  
->   새 UUID 기반 세션일 때 서버/클라이언트 모두에서 에러를 전혀 발생시키지 않는 방향을 고려합니다.
-
-### 3.3 POST /api/document/ai – 요청 처리 + 스트리밍 응답
+### 3.4 POST /api/document/ai/[documentId]/stream – 요청 처리 + 스트리밍 응답
 
 **요청 Body**
 
 ```ts
 {
-  documentId: string;   // ArcWork 탭 id 로 사용되는 세션 ID
-  messages: UIMessage[] // 이번 턴에서 추가된 메시지들 (보통 마지막 user 메시지 1개)
+  messages: UIMessage[]; // 이번 턴에서 추가된 메시지들 (보통 마지막 user 메시지 1개)
 }
 ```
 
 **서버 동작(요약)**
 
 1. `auth()` → `userId`
-2. `requestBodySchema`로 `documentId` / `messages` 검증
-3. `DocumentAiRepository` 인스턴스 생성
-4. `loadConversationWithCache({ documentId, userId, repository })` 로 이전 히스토리 복원
-5. `allMessages = [...previousMessages, ...newMessages]`
-6. AI SDK:
+2. 경로 파라미터의 `documentId` 를 `uuidSchema` 로 검증
+3. `requestBodySchema` 로 `messages` 검증
+4. `DocumentAiRepository` 인스턴스 생성
+5. `loadConversationWithCache({ documentId, userId, repository })` 로 이전 히스토리 복원
+6. `allMessages = [...previousMessages, ...newMessages]`
+7. AI SDK:
    - `validateUIMessages({ messages: allMessages })`
-   - `streamText({ model: openai('gpt-4o'), system: SYSTEM_PROMPT, messages: convertToModelMessages(validatedMessages), tools: { ... } })`
+   - `streamText({ model: openai('gpt-5.1'), system: SYSTEM_PROMPT, messages: convertToModelMessages(validatedMessages), tools: createDocumentAiTools(userId), stopWhen: stepCountIs(8) })`
    - `toUIMessageStreamResponse(...)` 로 UIMessage 스트림으로 래핑
-7. `onFinish` 훅에서:
+8. `onFinish` 훅에서:
    - `DocumentAiRepository.replaceConversationForOwner` 로 전체 대화 히스토리를 Postgres에 저장
    - `saveConversationSnapshot` 으로 Redis `ai:conversation:*` 갱신
    - 마지막 user 메시지를 `saveLastAiUserMessage` 로 별도 캐시
-
-**첫 요청에서 문서가 없는 경우 (의도된 설계)**
-
-사용자 플로우 상, ArcAI 탭은 **미리 생성한 UUID(documentId)** 를 들고 있지만, 실제 DB에는 아직 문서가 없을 수 있습니다.
-
-의도된 흐름:
-
-1. ArcAI 탭 생성 시:
-   - 클라이언트에서 `documentId = crypto.randomUUID()` 로 세션 ID 생성
-   - ArcWork 탭 메타: `{ id: documentId, name: '새 채팅', type: 'arcai-session' }`
-   - 즉시 `GET /api/document/ai?documentId=...` 를 호출
-     - 문서가 없으므로 404 → 클라이언트는 이를 “빈 히스토리”로 취급
-2. 사용자가 첫 질문을 전송 (`POST /api/document/ai`):
-   - **목표 동작(설계)**:
-     - `DocumentRepository`를 통해 `documentId` 를 PK로 갖는 **AI 문서(document)** 를 lazy 생성
-       - `kind = 'document'`
-       - `mimeType = 'application/vnd.arc.ai-chat+json'`
-       - `name = '(임시) 새 채팅'` 등
-     - 그 뒤 `DocumentAiRepository.replaceConversationForOwner` 를 호출해 대화 저장
-   - 현재 구현은 아직 “문서가 없으면 생성” 로직이 들어가 있지 않으며,  
-     이 부분은 후속 단계에서 **`DocumentAiRepository` + `DocumentRepository`를 조합한 lazy-create 트랜잭션**으로 확장할 예정입니다.
-
-**첫 요청 시 제목 생성 모델 + 응답 모델 병렬 구동(설계)**
-
-첫 질문에 대해서는 다음과 같은 **이중 모델 패턴**을 사용하는 것을 목표로 합니다.
-
-- **응답 모델(streaming)**:
-  - 현재 구현되어 있는 `streamText` 기반 RAG 응답
-  - 클라이언트에는 스트리밍으로 바로 표시
-- **제목 생성 모델(non-streaming)**:
-  - 별도의 `generateText` 또는 `streamText`(비스트리밍 사용) 호출로 “채팅 제목” 후보 생성
-  - 응답 예: `"파일 전처리 파이프라인 설계 논의"`
-  - 완료 후:
-    - `document.name` 을 해당 제목으로 업데이트
-    - ArcWork 탭 이름도 동기화 예정 (ArcWork store + ArcManager 연동 필요)
-
-> 이 제목 생성 로직은 RAG 응답과 **병렬로 수행**되며,  
-> 사용자는 스트리밍 응답을 기다리는 동안 탭 제목이 나중에 자연스럽게 바뀌는 경험을 하게 됩니다.
 
 ---
 
@@ -200,7 +200,7 @@ ArcAI 세션은 `document` 테이블의 한 행으로 표현됩니다.
 파일: `apps/main/src/client/states/queries/ai/useAI.ts`
 
 - **역할**
-  - `GET /api/document/ai?documentId=...` 를 호출하여 **이전 대화 전체(UIMessage[])** 를 가져옵니다.
+  - `GET /api/document/ai/[documentId]` 를 호출하여 **이전 대화 전체(UIMessage[])** 를 가져옵니다.
   - 서버 측에서는 Redis → Postgres 순으로 복원.
 
 - **타입/반환값(요약)**
@@ -217,19 +217,41 @@ export function useAIConversation(documentId: string) {
   // messages: UIMessage[]
   // isLoading / isError / error / refetch ...
 }
+
+### 4.2 React Query 훅: `useAISessionCreate`
+
+파일: `apps/main/src/share/libs/react-query/query-options/ai.ts`
+
+- **역할**
+  - `POST /api/document/ai` 를 호출하여 새로운 ArcAI 세션 문서를 생성합니다.
+  - 생성된 `DocumentDTO` 에서 `documentId`를 추출하여 탭/세션 ID로 사용합니다.
+
+```ts
+export const aiQueryOptions = {
+  createSession: createApiMutation<DocumentDTO, DocumentDetailResponse, DocumentAiSessionCreateRequest>(
+    () => '/api/document/ai',
+    (data) => data.document,
+    {
+      method: 'POST',
+      bodyExtractor: (variables) => documentAiSessionCreateRequestSchema.parse(variables),
+    }
+  ),
+  // ... conversation, stream 등 기존 옵션들
+};
+```
 ```
 
 - **404 처리**
   - 서버가 `NOT_FOUND` 를 반환해도, 훅은 단순히 `messages = []` 로 동작할 수 있도록 설계되어 있습니다.
   - ArcAI UI에서는 이를 “새 세션”으로 간주하고 빈 화면에서 입력만 받습니다.
 
-### 4.2 AI SDK 훅: `useAIChat` (`useChat` 래핑)
+### 4.3 AI SDK 훅: `useAIChat` (`useChat` 래핑)
 
 파일: `apps/main/src/client/states/queries/ai/useAI.ts`
 
 - **역할**
   - AI SDK `useChat` + `DefaultChatTransport` 를 프로젝트에 맞게 포장
-  - `/api/document/ai` POST 스펙에 맞춰, **항상 마지막 메시지 1개만 서버로 전송**
+  - `POST /api/document/ai/[documentId]/stream` 에 맞춰, **항상 마지막 메시지 1개만 서버로 전송**
   - `initialMessages`가 준비되면 `useEffect`로 `chat.setMessages`에 반영하여 히스토리 동기화
 
 ```ts
@@ -247,12 +269,11 @@ export function useAIChat(options: UseAIChatOptions) {
     messages: initialMessages ?? [],
     resume: resume ?? false,
     transport: new DefaultChatTransport({
-      api: '/api/document/ai',
-      prepareSendMessagesRequest: ({ id, messages }) => {
+      api: `/api/document/ai/${encodeURIComponent(id)}/stream`,
+      prepareSendMessagesRequest: ({ messages }) => {
         const last = messages[messages.length - 1];
         return {
           body: {
-            documentId: id,
             messages: last ? [last] : [],
           },
         };
@@ -423,22 +444,22 @@ if (component === 'arcai-session') {
 }
 ```
 
-### 5.2 “새 채팅” 생성 UX (ArcWork 기본 탭)
+### 5.2 "새 채팅" 생성 UX (ArcWork 기본 탭)
 
 사용자 플로우(의도된 동작)는 다음과 같습니다.
 
 1. **새 채팅 버튼 없이, ArcWork 기본 탭에서 ArcAI 열기 버튼만 제공**
-   - 예: “AI 세션 열기” 버튼
+   - 예: "AI 채팅 시작하기" 버튼
 2. 버튼 클릭 시:
-   - `const documentId = crypto.randomUUID();`
-   - `ensureOpen({ id: documentId, name: '새 채팅', type: 'arcai-session' })`
-   - ArcAI 탭이 열리고, 내부에서 `useAIConversation(documentId)` 가 호출됩니다.
-3. **초기 GET /api/document/ai**
-   - 아직 DB에 문서/대화가 없으므로, 서버는 `NOT_FOUND` 또는 빈 대화를 반환
-   - 클라이언트는 이를 오류로 보지 않고 **히스토리 없는 새 세션**으로 취급
+   - `createAiSessionMutation.mutateAsync({ name: '새 채팅', parentPath: '' })` 로 세션 생성
+   - 생성된 `document.documentId`를 탭 ID로 사용
+   - `ensureOpen({ id: documentId, name: '새 채팅', type: 'arcai-session' })`으로 탭 열기
+3. **초기 GET /api/document/ai/[documentId]**
+   - 세션은 이미 생성되었으므로, 서버는 빈 메시지 배열을 반환 (대화 없음)
+   - 클라이언트는 이를 **히스토리 없는 새 세션**으로 취급
 4. 사용자가 첫 질문을 입력하고 전송:
-   - `useAIChat` 이 `POST /api/document/ai` 로 `{ documentId, messages: [lastUserMessage] }` 전송
-   - 서버는 (설계상) 문서가 없으면 `documentId` 를 PK로 갖는 AI 문서를 생성한 뒤, 대화 저장
+   - `useAIChat` 이 `POST /api/document/ai/[documentId]/stream` 로 `{ messages: [lastUserMessage] }` 전송
+   - 서버는 이미 존재하는 문서를 사용해 대화 저장/스트리밍 수행
 5. 첫 요청 시:
    - **응답 모델(streaming)**: 사용자가 바로 볼 수 있는 챗 응답
    - **제목 생성 모델(non-streaming, 배후 실행)**: 대화 내용을 바탕으로 문서/탭 이름을 생성하여 나중에 `document.name` + ArcWork 탭 이름을 갱신
@@ -462,14 +483,14 @@ if (component === 'arcai-session') {
 - ArcAI는 ArcData와 동일한 철학을 가진 **문서 기반 AI 세션 탭 타입**입니다.
   - ArcData: `documentId` → 파일/노트 뷰어
   - ArcAI: `documentId` → AI 대화 세션
-- 백엔드는 `document` + `document_ai_message` + `document_ai_part` 스키마와 `DocumentAiRepository` 를 통해  
+- 백엔드는 `document` + `document_ai_message` + `document_ai_part` 스키마와 `DocumentAiRepository` 를 통해
   **타입 안전한 대화 저장/조회와 Redis 캐싱**을 제공합니다.
-- API는 `GET /api/document/ai` / `POST /api/document/ai` 두 개만으로:
-  - 이전 대화 로드
-  - 새 요청 + 스트리밍 응답 + 히스토리 저장/캐시
-  를 모두 처리합니다.
-- 클라이언트는 `useAIConversation` + `useAIChat` + `ArcAI` 조합으로:
-  - 문서 ID만 주입받으면
+- API는 세 개의 라우트로 역할을 분리:
+  - `POST /api/document/ai` – 세션 문서 생성
+  - `GET /api/document/ai/[documentId]` – 이전 대화 로드
+  - `POST /api/document/ai/[documentId]/stream` – 새 요청 + 스트리밍 응답 + 히스토리 저장/캐시
+- 클라이언트는 `useAISessionCreate` + `useAIConversation` + `useAIChat` + `ArcAI` 조합으로:
+  - 세션 생성 후 문서 ID를 주입받으면
   - 기존 히스토리 + 스트리밍 응답까지 포함한 **완전한 AI 채팅 UI**를 ArcWork 탭 안에서 구현할 수 있습니다.
 - 클라이언트 UI는 `ArcAIMessageList` + `ArcAIInput` 조합으로,
   **사용자 메시지를 섹션 헤더로 올리고 마지막 섹션에만 min-height를 주는 sticky 레이아웃**을 사용해

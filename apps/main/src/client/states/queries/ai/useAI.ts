@@ -21,7 +21,7 @@ export interface UseAIConversationResult {
 
 /**
  * 특정 documentId에 대한 AI 대화 히스토리를 불러오는 훅
- * - GET /api/document/ai?documentId=... 호출
+ * - GET /api/document/ai/[documentId] 호출
  * - 서버에서는 Redis → Postgres 순으로 로드
  */
 export function useAIConversation(documentId: string): UseAIConversationResult {
@@ -69,19 +69,18 @@ export function useAIChat(options: UseAIChatOptions) {
     // 기본값은 false 로 두고, 필요 시 명시적으로 true 로 넘깁니다.
     resume: resume ?? false,
     transport: new DefaultChatTransport({
-      api: '/api/document/ai',
+      api: `/api/document/ai/${encodeURIComponent(documentId)}/stream`,
       /**
-       * ArcSolve 서버의 /api/document/ai POST 스펙에 맞게
-       * documentId + 새 메시지(마지막 메시지 1개)만 전송합니다.
+       * ArcSolve 서버의 /api/document/ai/[documentId]/stream POST 스펙에 맞게
+       * 새 메시지(마지막 메시지 1개)만 전송합니다.
        *
        * 나머지 이전 히스토리는 서버에서 Redis/PG 를 통해 복원합니다.
        */
-      prepareSendMessagesRequest: ({ id, messages }) => {
+      prepareSendMessagesRequest: ({ messages }) => {
         const last = messages[messages.length - 1];
 
         return {
           body: {
-            documentId: id,
             messages: last ? [last] : [],
           },
         };
