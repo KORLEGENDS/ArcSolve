@@ -109,11 +109,16 @@ export interface UseDocumentMoveReturn {
 type DocumentsListQueryKey =
   | ReturnType<typeof queryKeys.documents.listFiles>
   | ReturnType<typeof queryKeys.documents.listNotes>
+  | ReturnType<typeof queryKeys.documents.listDocumentsDomain>
   | ReturnType<typeof queryKeys.documents.listAi>
   | ReturnType<typeof queryKeys.documents.listAll>;
 
 export interface UseDocumentFolderCreateReturn {
-  createFolder: (input: { name: string; parentPath: string }) => Promise<DocumentDTO>;
+  createFolder: (input: {
+    name: string;
+    parentPath: string;
+    domain: 'document' | 'ai';
+  }) => Promise<DocumentDTO>;
   isCreating: boolean;
   createError: unknown;
 }
@@ -193,6 +198,9 @@ export function useDocumentCreate(): UseDocumentCreateReturn {
         await Promise.all([
           queryClient.invalidateQueries({
             queryKey: queryKeys.documents.listNotes(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listDocumentsDomain(),
           }),
           queryClient.invalidateQueries({
             queryKey: queryKeys.documents.listAll(),
@@ -279,6 +287,8 @@ export function useDocumentMove(): UseDocumentMoveReturn {
   const listQueryKeys: DocumentsListQueryKey[] = [
     queryKeys.documents.listFiles(),
     queryKeys.documents.listNotes(),
+    queryKeys.documents.listDocumentsDomain(),
+    queryKeys.documents.listAi(),
     queryKeys.documents.listAll(),
   ];
 
@@ -330,7 +340,14 @@ export function useDocumentFolderCreate(): UseDocumentFolderCreateReturn {
   const createMutation = useMutation(documentQueryOptions.createFolder);
 
   return {
-    createFolder: createMutation.mutateAsync,
+    createFolder: async (input) => {
+      const { name, parentPath, domain } = input;
+      return createMutation.mutateAsync({
+        name,
+        parentPath,
+        folderDomain: domain,
+      });
+    },
     isCreating: createMutation.isPending,
     createError: createMutation.error,
   };
@@ -389,6 +406,9 @@ export function useDocumentUpdate(): UseDocumentUpdateReturn {
             queryKey: queryKeys.documents.listNotes(),
           }),
           queryClient.invalidateQueries({
+            queryKey: queryKeys.documents.listDocumentsDomain(),
+          }),
+          queryClient.invalidateQueries({
             queryKey: queryKeys.documents.listAll(),
           }),
         ]);
@@ -434,7 +454,12 @@ export function useDocumentYoutubeCreate(): UseDocumentYoutubeCreateReturn {
 }
 
 function createDocumentListHook(
-  getOptions: () => ReturnType<typeof documentQueryOptions.listFiles>,
+  getOptions: () =>
+    | ReturnType<typeof documentQueryOptions.listFiles>
+    | ReturnType<typeof documentQueryOptions.listNotes>
+    | ReturnType<typeof documentQueryOptions.listDocumentsDomain>
+    | ReturnType<typeof documentQueryOptions.listAi>
+    | ReturnType<typeof documentQueryOptions.listAll>,
 ) {
   return function useDocumentList(): UseDocumentFilesReturn {
     const query = useQuery(getOptions());
@@ -459,17 +484,25 @@ function createDocumentListHook(
 }
 
 /**
- * 현재 사용자 기준 file 문서 목록 조회 훅
+ * 현재 사용자 기준 file 문서 목록 조회 훅 (호환용)
  */
 export const useDocumentFiles = createDocumentListHook(
   documentQueryOptions.listFiles,
 );
 
 /**
- * 현재 사용자 기준 note 문서 목록 조회 훅
+ * 현재 사용자 기준 note 문서 목록 조회 훅 (호환용)
  */
 export const useDocumentNotes = createDocumentListHook(
   documentQueryOptions.listNotes,
+);
+
+/**
+ * 현재 사용자 기준 노트/파일 도메인(document) 문서 목록 조회 훅
+ * - ArcManager documents 탭 등에서 사용
+ */
+export const useDocumentDocumentsDomain = createDocumentListHook(
+  documentQueryOptions.listDocumentsDomain,
 );
 
 /**
@@ -509,6 +542,12 @@ export function useDocumentDelete(): UseDocumentDeleteReturn {
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.documents.listNotes(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.listDocumentsDomain(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.documents.listAi(),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.documents.listAll(),

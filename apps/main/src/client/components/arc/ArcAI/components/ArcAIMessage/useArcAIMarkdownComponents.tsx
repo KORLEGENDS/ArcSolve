@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { isValidElement } from "react";
 import type { Options } from "react-markdown";
 import { CodeBlock, CodeBlockCopyButton } from "../ArcAIElements/code-block";
+import styles from "./useArcAIMarkdownComponents.module.css";
 
 // React 엘리먼트로부터 string child 를 안전하게 추출
 function getStringChildFromElement(element: unknown): string | null {
@@ -20,36 +21,54 @@ function getStringChildFromElement(element: unknown): string | null {
 
 const components: Options["components"] = {
   p: ({ node: _node, children, className, ...props }) => (
-    <p className={cn("my-2", className)} {...props}>
+    <p
+      className={cn(styles.markdownParagraph, className)}
+      {...props}
+    >
       {children}
     </p>
   ),
   ol: ({ node: _node, children, className, ...props }) => (
-    <ol className={cn("pl-8 list-decimal", className)} {...props}>
+    <ol
+      className={cn(styles.markdownOrderedList, className)}
+      {...props}
+    >
       {children}
     </ol>
   ),
   li: ({ node: _node, children, className, ...props }) => (
-    <li className={cn("py-1", className)} {...props}>
+    <li
+      className={cn(styles.markdownListItem, className)}
+      {...props}
+    >
       {children}
     </li>
   ),
   ul: ({ node: _node, children, className, ...props }) => (
-    <ul className={cn("pl-8 list-disc", className)} {...props}>
+    <ul
+      className={cn(styles.markdownUnorderedList, className)}
+      {...props}
+    >
       {children}
     </ul>
   ),
   hr: ({ node: _node, className, ...props }) => (
-    <hr className={cn("my-6 border-border", className)} {...props} />
+    <hr
+      className={cn(styles.markdownHr, className)}
+      {...props}
+    />
   ),
   strong: ({ node: _node, children, className, ...props }) => (
-    <span className={cn("font-semibold", className)} {...props}>
+    <span
+      className={cn(styles.markdownStrong, className)}
+      {...props}
+    >
       {children}
     </span>
   ),
   a: ({ node: _node, children, className, ...props }) => (
     <a
-      className={cn("font-medium text-foreground underline", className)}
+      className={cn(styles.markdownLink, className)}
       rel="noreferrer"
       target="_blank"
       {...props}
@@ -59,7 +78,7 @@ const components: Options["components"] = {
   ),
   h1: ({ node: _node, children, className, ...props }) => (
     <h1
-      className={cn("mt-6 mb-2 font-semibold text-3xl", className)}
+      className={cn(styles.markdownHeading1, className)}
       {...props}
     >
       {children}
@@ -67,7 +86,7 @@ const components: Options["components"] = {
   ),
   h2: ({ node: _node, children, className, ...props }) => (
     <h2
-      className={cn("mt-6 mb-2 font-semibold text-2xl", className)}
+      className={cn(styles.markdownHeading2, className)}
       {...props}
     >
       {children}
@@ -75,7 +94,7 @@ const components: Options["components"] = {
   ),
   h3: ({ node: _node, children, className, ...props }) => (
     <h3
-      className={cn("mt-6 mb-2 font-semibold text-xl", className)}
+      className={cn(styles.markdownHeading3, className)}
       {...props}
     >
       {children}
@@ -83,7 +102,7 @@ const components: Options["components"] = {
   ),
   h4: ({ node: _node, children, className, ...props }) => (
     <h4
-      className={cn("mt-6 mb-2 font-semibold text-lg", className)}
+      className={cn(styles.markdownHeading4, className)}
       {...props}
     >
       {children}
@@ -91,7 +110,7 @@ const components: Options["components"] = {
   ),
   h5: ({ node: _node, children, className, ...props }) => (
     <h5
-      className={cn("mt-6 mb-2 font-semibold text-base", className)}
+      className={cn(styles.markdownHeading5, className)}
       {...props}
     >
       {children}
@@ -99,16 +118,16 @@ const components: Options["components"] = {
   ),
   h6: ({ node: _node, children, className, ...props }) => (
     <h6
-      className={cn("mt-6 mb-2 font-semibold text-sm", className)}
+      className={cn(styles.markdownHeading6, className)}
       {...props}
     >
       {children}
     </h6>
   ),
   table: ({ node: _node, children, className, ...props }) => (
-    <div className="my-4 overflow-x-auto">
+    <div className={styles.markdownTableWrapper}>
       <table
-        className={cn("w-full border-collapse border border-border", className)}
+        className={cn(styles.markdownTable, className)}
         {...props}
       >
         {children}
@@ -116,39 +135,48 @@ const components: Options["components"] = {
     </div>
   ),
   thead: ({ node: _node, children, className, ...props }) => (
-    <thead className={cn("bg-muted/50", className)} {...props}>
+    <thead
+      className={cn(styles.markdownThead, className)}
+      {...props}
+    >
       {children}
     </thead>
   ),
   tbody: ({ node: _node, children, className, ...props }) => (
-    <tbody className={cn("divide-y divide-border", className)} {...props}>
+    <tbody
+      className={cn(styles.markdownTbody, className)}
+      {...props}
+    >
       {children}
     </tbody>
   ),
   tr: ({ node: _node, children, className, ...props }) => (
-    <tr className={cn("border-border border-b", className)} {...props}>
+    <tr
+      className={cn(styles.markdownTr, className)}
+      {...props}
+    >
       {children}
     </tr>
   ),
   th: ({ node: _node, children, className, ...props }) => (
     <th
-      className={cn("px-4 py-2 text-left font-semibold text-base", className)}
+      className={cn(styles.markdownTh, className)}
       {...props}
     >
       {children}
     </th>
   ),
   td: ({ node: _node, children, className, ...props }) => (
-    <td className={cn("px-4 py-2 text-base", className)} {...props}>
+    <td
+      className={cn(styles.markdownTd, className)}
+      {...props}
+    >
       {children}
     </td>
   ),
   blockquote: ({ node: _node, children, className, ...props }) => (
     <blockquote
-      className={cn(
-        "my-4 border-muted-foreground/30 border-l-4 pl-4 text-foreground italic",
-        className
-      )}
+      className={cn(styles.markdownBlockquote, className)}
       {...props}
     >
       {children}
@@ -164,10 +192,7 @@ const components: Options["components"] = {
 
     return (
       <code
-        className={cn(
-          "rounded bg-muted px-1.5 py-0.5 font-mono text-base",
-          className
-        )}
+        className={cn(styles.markdownCodeInline, className)}
         {...props}
       />
     );
@@ -193,7 +218,7 @@ const components: Options["components"] = {
 
     return (
       <CodeBlock
-        className={cn("my-4 h-auto", className)}
+        className={cn(styles.markdownCodeBlock, className)}
         code={code}
         // Shiki 의 BundledLanguage 타입과 호환되도록 런타임 문자열을 단언
         language={language as any}

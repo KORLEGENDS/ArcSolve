@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       userId,
       parentPath: body.parentPath,
       name: body.name,
+      domain: body.folderDomain,
     });
 
     return ok(

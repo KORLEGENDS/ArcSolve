@@ -4,6 +4,8 @@ import {
   documentAiMessages,
   documentAiParts,
   documents,
+  type DocumentAiMessage,
+  type DocumentAiPart,
 } from '@/share/schema/drizzles';
 import type { UIMessage } from 'ai';
 import {
@@ -22,7 +24,7 @@ export type DocumentAiConversation = UIMessage[];
 type MessageRow = {
   documentAiMessageId: string;
   uiMessageId: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
+  role: DocumentAiMessage['role'];
   index: number;
   metadata: unknown | null;
 };
@@ -134,7 +136,7 @@ export class DocumentAiRepository {
       partsByMessageId.set(part.documentAiMessageId, list);
     }
 
-    const messages: UIMessage[] = messageRows.map((row: MessageRow) => {
+    const messages: UIMessage[] = messageRows.map((row) => {
       const partList = partsByMessageId.get(row.documentAiMessageId) ?? [];
       const sorted = partList
         .slice()
@@ -144,7 +146,8 @@ export class DocumentAiRepository {
 
       const base: UIMessage = {
         id: row.uiMessageId,
-        role: row.role,
+        // UIMessage.role 타입은 'user' | 'assistant' | 'system' (tool role 은 상위 레이어에서 필터링)
+        role: (row.role === 'tool' ? 'assistant' : row.role) as UIMessage['role'],
         parts,
       };
 
@@ -199,12 +202,13 @@ export class DocumentAiRepository {
           .values({
             documentId,
             uiMessageId: message.id,
-            role: message.role as MessageRow['role'],
+            // UIMessage.role 타입과 document_ai_message_role_enum 타입을 정렬된 문자열 기반으로 매핑
+            role: message.role as DocumentAiMessage['role'],
             index: i,
             // metadata 필드는 선택 사항이므로 any 캐스팅으로 유연하게 처리
             metadata:
               (message as any).metadata != null
-                ? ((message as any).metadata as unknown)
+                ? ((message as any).metadata as DocumentAiMessage['metadata'])
                 : null,
           })
           .returning({
@@ -224,7 +228,8 @@ export class DocumentAiRepository {
         }
 
         await tx.insert(documentAiParts).values(
-          parts.map((part, partIndex) => ({
+          parts.map((part, partIndex): DocumentAiPart => ({
+            documentAiPartId: crypto.randomUUID(),
             documentAiMessageId: inserted.documentAiMessageId,
             index: partIndex,
             // 타입 필드는 payload 내부에도 포함되므로 여기서는 주로 인덱싱/디버깅용
@@ -232,7 +237,7 @@ export class DocumentAiRepository {
               typeof (part as any).type === 'string'
                 ? ((part as any).type as string)
                 : 'unknown',
-            payload: part as unknown,
+            payload: part as DocumentAiPart['payload'],
           })),
         );
       }

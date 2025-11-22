@@ -61,7 +61,11 @@ export type DocumentDTO = {
    * MIME 타입
    * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
    * - note 문서: 노트 타입 구분 (예: 'application/vnd.arc.note+plate', 'application/vnd.arc.note+draw')
-   * - folder 문서: null
+   * - folder 문서:
+   *   - 기존 데이터: null (도메인 정보 없음, 기본적으로 document 도메인으로 취급)
+   *   - 신규 데이터:
+   *     - 노트/파일 트리용 폴더: 'application/vnd.arc.folder+document'
+   *     - AI 트리용 폴더: 'application/vnd.arc.folder+ai'
    */
   mimeType: string | null;
   /**
@@ -100,6 +104,13 @@ export type DocumentMoveResponse = {
 export type DocumentFolderCreateRequest = {
   name: string;
   parentPath: string;
+  /**
+   * 폴더 도메인
+   * - 'document' : 노트/파일 트리용 폴더
+   * - 'ai'       : AI 트리용 폴더
+   * 기본값은 서버에서 'document' 로 처리합니다.
+   */
+  folderDomain?: 'document' | 'ai';
 };
 
 export type DocumentFolderCreateResponse = {
@@ -117,12 +128,13 @@ export type DocumentDetailResponse = {
 };
 
 const createDocumentListQueryOptions = (params: {
-  kind: 'file' | 'note' | 'ai' | 'all';
+  kind: 'file' | 'note' | 'document' | 'ai' | 'all';
   queryKey:
     | ReturnType<typeof queryKeys.documents.listFiles>
     | ReturnType<typeof queryKeys.documents.listNotes>
     | ReturnType<typeof queryKeys.documents.listAi>
-    | ReturnType<typeof queryKeys.documents.listAll>;
+    | ReturnType<typeof queryKeys.documents.listAll>
+    | ReturnType<typeof queryKeys.documents.listDocumentsDomain>;
 }) =>
   queryOptions({
     queryKey: params.queryKey,
@@ -255,6 +267,16 @@ export const documentQueryOptions = {
     createDocumentListQueryOptions({
       kind: 'note',
       queryKey: queryKeys.documents.listNotes(),
+    }),
+
+  /**
+   * 현재 사용자 기준 노트/파일 도메인(document) 문서 목록 조회
+   * - note + file + document 폴더
+   */
+  listDocumentsDomain: () =>
+    createDocumentListQueryOptions({
+      kind: 'document',
+      queryKey: queryKeys.documents.listDocumentsDomain(),
     }),
 
   /**

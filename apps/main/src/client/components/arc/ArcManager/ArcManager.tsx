@@ -18,13 +18,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/client/components/ui/custom/tabs';
 import { Input } from '@/client/components/ui/input';
 import {
+  useDocumentAiSessions,
   useDocumentCreate,
   useDocumentDelete,
-  useDocumentFiles,
+  useDocumentDocumentsDomain,
   useDocumentFolderCreate,
   useDocumentMove,
-  useDocumentNotes,
-  useDocumentAiSessions,
   useDocumentYoutubeCreate,
 } from '@/client/states/queries/document/useDocument';
 import { setArcWorkTabDragData, useArcWorkEnsureOpenTab } from '@/client/states/stores/arcwork-layout-store';
@@ -47,7 +46,7 @@ import {
 import * as React from 'react';
 import s from './ArcManager.module.css';
 
-export type ArcDataType = 'notes' | 'files' | 'ai';
+export type ArcDataType = 'documents' | 'ai';
 
 export interface ArcManagerTabConfig {
   value: ArcDataType;
@@ -88,8 +87,7 @@ interface ArcManagerItemAction {
 }
 
 const DEFAULT_TABS: ArcManagerTabConfig[] = [
-  { value: 'notes', icon: Notebook, label: '노트' },
-  { value: 'files', icon: FolderOpenDot, label: '파일' },
+  { value: 'documents', icon: FolderOpenDot, label: '문서' },
   { value: 'ai', icon: MessageSquare, label: 'AI' },
 ];
 
@@ -169,86 +167,69 @@ function parseArcManagerDragSource(
 
 export function ArcManager(): React.ReactElement {
   // 1. 현재 탭 상태 (내부 관리)
-  const [currentTab, setCurrentTab] = React.useState<ArcDataType>(DEFAULT_TABS[0]?.value ?? 'notes');
+  const [currentTab, setCurrentTab] = React.useState<ArcDataType>(
+    DEFAULT_TABS[0]?.value ?? 'documents',
+  );
 
   // 2. 탭별 뷰 상태 (검색어 / 현재 경로 / 접힘 여부)
-  const [tabStates, setTabStates] = React.useState<Record<ArcDataType, ArcManagerTabViewState>>({
-    notes: {
-      searchQuery: '',
-      currentPath: '',
-      isCollapsed: true,
-      creatingFolder: false,
-      newFolderName: '',
-      creatingNoteType: null,
-      newNoteName: '',
-      creatingYoutube: false,
-      newYoutubeUrl: '',
-    },
-    files: {
-      searchQuery: '',
-      currentPath: '',
-      isCollapsed: true,
-      creatingFolder: false,
-      newFolderName: '',
-      creatingNoteType: null,
-      newNoteName: '',
-      creatingYoutube: false,
-      newYoutubeUrl: '',
-    },
-    ai: {
-      searchQuery: '',
-      currentPath: '',
-      isCollapsed: true,
-      creatingFolder: false,
-      newFolderName: '',
-      creatingNoteType: null,
-      newNoteName: '',
-      creatingYoutube: false,
-      newYoutubeUrl: '',
-    },
-  });
+  const [tabStates, setTabStates] =
+    React.useState<Record<ArcDataType, ArcManagerTabViewState>>({
+      documents: {
+        searchQuery: '',
+        currentPath: '',
+        isCollapsed: true,
+        creatingFolder: false,
+        newFolderName: '',
+        creatingNoteType: null,
+        newNoteName: '',
+        creatingYoutube: false,
+        newYoutubeUrl: '',
+      },
+      ai: {
+        searchQuery: '',
+        currentPath: '',
+        isCollapsed: true,
+        creatingFolder: false,
+        newFolderName: '',
+        creatingNoteType: null,
+        newNoteName: '',
+        creatingYoutube: false,
+        newYoutubeUrl: '',
+      },
+    });
 
-  // 3. 파일 탭용 업로드 훅 (다른 탭은 사용하지 않음)
-  const filesTabState = tabStates.files;
-  const { fileInputRef, handleUploadClick, handleFileChange } = useFileUpload(filesTabState.currentPath);
+  // 3. documents 탭용 업로드 훅 (다른 탭은 사용하지 않음)
+  const documentsTabState = tabStates.documents;
+  const { fileInputRef, handleUploadClick, handleFileChange } = useFileUpload(
+    documentsTabState.currentPath,
+  );
 
-  // 4. 파일 문서 목록 조회 (mimeType 기준 파일형 문서)
-  const { data: fileDocuments, refetch: refetchFiles } = useDocumentFiles();
-  // 노트 문서 목록 조회 (mimeType 기준 노트형 문서)
-  const { data: noteDocuments, refetch: refetchNotes } = useDocumentNotes();
-  // AI 세션 문서 목록 조회 (mimeType 기준 AI 세션 문서)
+  // 4. 노트/파일 도메인(document) + AI 세션 문서 목록 조회
+  const {
+    data: documentDomainDocuments,
+    refetch: refetchDocumentsDomain,
+  } = useDocumentDocumentsDomain();
   const { data: aiDocuments, refetch: refetchAi } = useDocumentAiSessions();
 
-  const fileNameMap = React.useMemo(() => {
+  const documentNameMap = React.useMemo(() => {
     const map = new Map<string, string>();
-    if (!fileDocuments) return map;
-    for (const doc of fileDocuments) {
+    if (!documentDomainDocuments) return map;
+    for (const doc of documentDomainDocuments) {
       if (doc.path && doc.name) {
         map.set(doc.path, doc.name);
       }
     }
     return map;
-  }, [fileDocuments]);
+  }, [documentDomainDocuments]);
 
-  const fileDocumentMap = React.useMemo(() => {
+  const documentMetaMap = React.useMemo(() => {
     const map = new Map<string, DocumentDTO>();
-    if (!fileDocuments) return map;
-    for (const doc of fileDocuments) {
+    if (!documentDomainDocuments) return map;
+    for (const doc of documentDomainDocuments) {
       map.set(doc.documentId, doc);
     }
     return map;
-  }, [fileDocuments]);
-
-  const noteNameMap = React.useMemo(() => {
-    const map = new Map<string, string>();
-    if (!noteDocuments) return map;
-    for (const doc of noteDocuments) {
-      if (doc.path && doc.name) {
-        map.set(doc.path, doc.name);
-      }
-    }
-    return map;
-  }, [noteDocuments]);
+  }, [documentDomainDocuments]);
 
   const aiNameMap = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -353,9 +334,7 @@ export function ArcManager(): React.ReactElement {
       // 2) ArcManager 전용 payload: 트리 내부 이동 및 DropZone에서 사용
       let docMeta: DocumentDTO | undefined;
       if (kind === 'file') {
-        docMeta = fileDocumentMap.get(item.id);
-      } else if (kind === 'note') {
-        docMeta = noteDocuments?.find((d) => d.documentId === item.id);
+        docMeta = documentMetaMap.get(item.id);
       } else if (kind === 'ai') {
         docMeta = aiDocumentMap.get(item.id);
       }
@@ -382,53 +361,52 @@ export function ArcManager(): React.ReactElement {
         // ignore
       }
     },
-    [fileDocumentMap, noteDocuments, aiDocumentMap],
+    [documentMetaMap, aiDocumentMap],
   );
 
-  type FolderCreateHandler = (params: { parentPath: string; name: string }) => Promise<void>;
+  type FolderCreateHandler = (params: {
+    parentPath: string;
+    name: string;
+  }) => Promise<void>;
 
-  const folderCreateHandlers = React.useMemo<Record<ArcDataType, FolderCreateHandler | null>>(
-    () => ({
-      // files 탭: DocumentRepository 기반 폴더 생성 후 파일 문서 목록 갱신
-      files: async ({ parentPath, name }) => {
-        await createFolder({ parentPath, name });
-        await refetchFiles();
-      },
-      // notes 탭: DocumentRepository 기반 폴더 생성 후 노트 문서 목록 갱신
-      notes: async ({ parentPath, name }) => {
-        await createFolder({ parentPath, name });
-        await refetchNotes();
-      },
-      // ai 탭: DocumentRepository 기반 폴더 생성 후 AI 세션 문서 목록 갱신
-      ai: async ({ parentPath, name }) => {
-        await createFolder({ parentPath, name });
-        await refetchAi();
-      },
-    }),
-    [createFolder, refetchFiles, refetchNotes, refetchAi],
-  );
+  const folderCreateHandlers =
+    React.useMemo<Record<ArcDataType, FolderCreateHandler | null>>(
+      () => ({
+        // documents 탭: document 도메인 폴더 생성 후 문서 도메인 목록 갱신
+        documents: async ({ parentPath, name }) => {
+          await createFolder({ parentPath, name, domain: 'document' });
+          await refetchDocumentsDomain();
+        },
+        // ai 탭: AI 도메인 폴더 생성 후 AI 세션 목록 갱신
+        ai: async ({ parentPath, name }) => {
+          await createFolder({ parentPath, name, domain: 'ai' });
+          await refetchAi();
+        },
+      }),
+      [createFolder, refetchDocumentsDomain, refetchAi],
+    );
 
   // 폴더 생성 중복 실행 방지를 위한 ref (탭별 1회만 동작)
   const folderCreatingRef = React.useRef<Record<ArcDataType, boolean>>({
-    notes: false,
-    files: false,
+    documents: false,
     ai: false,
   });
 
-  // 파일/폴더 문서 목록을 ArcManagerTreeItem[] 트리 구조로 변환
+  // 노트/파일 도메인(document) 문서 목록을 ArcManagerTreeItem[] 트리 구조로 변환
   // - itemType은 doc.kind를 기준으로 절대적으로 결정합니다.
-  const fileTreeItems = React.useMemo<ArcManagerTreeItem[]>(() => {
-    if (!fileDocuments || fileDocuments.length === 0) return [];
+  const documentTreeItems = React.useMemo<ArcManagerTreeItem[]>(() => {
+    if (!documentDomainDocuments || documentDomainDocuments.length === 0) return [];
 
     type TreeNode = ArcManagerTreeItem & { children?: ArcManagerTreeItem[] };
     const nodeMap = new Map<string, TreeNode>();
     const roots: TreeNode[] = [];
 
     // 1. 모든 문서를 노드로 생성 (kind 기준으로 folder/item 결정)
-    for (const doc of fileDocuments) {
+    for (const doc of documentDomainDocuments) {
       const createdAt = new Date(doc.createdAt);
       const updatedAt = new Date(doc.updatedAt);
-      const itemType: 'folder' | 'item' = doc.kind === 'folder' ? 'folder' : 'item';
+      const itemType: 'folder' | 'item' =
+        doc.kind === 'folder' ? 'folder' : 'item';
 
       const node: TreeNode = {
         id: doc.documentId,
@@ -463,52 +441,7 @@ export function ArcManager(): React.ReactElement {
     }
 
     return roots;
-  }, [fileDocuments]);
-
-  const noteTreeItems = React.useMemo<ArcManagerTreeItem[]>(() => {
-    if (!noteDocuments || noteDocuments.length === 0) return [];
-
-    type TreeNode = ArcManagerTreeItem & { children?: ArcManagerTreeItem[] };
-    const nodeMap = new Map<string, TreeNode>();
-    const roots: TreeNode[] = [];
-
-    for (const doc of noteDocuments) {
-      const createdAt = new Date(doc.createdAt);
-      const updatedAt = new Date(doc.updatedAt);
-      const itemType: 'folder' | 'item' = doc.kind === 'folder' ? 'folder' : 'item';
-
-      const node: TreeNode = {
-        id: doc.documentId,
-        path: doc.path,
-        name: doc.name,
-        itemType,
-        tags: [],
-        createdAt,
-        updatedAt,
-        children: itemType === 'folder' ? [] : undefined,
-      };
-
-      nodeMap.set(doc.path, node);
-    }
-
-    for (const node of nodeMap.values()) {
-      const parentPath = getParentPath(node.path);
-      if (!parentPath) {
-        roots.push(node);
-        continue;
-      }
-
-      const parentNode = nodeMap.get(parentPath);
-      if (!parentNode) {
-        roots.push(node);
-      } else {
-        if (!parentNode.children) parentNode.children = [];
-        parentNode.children.push(node);
-      }
-    }
-
-    return roots;
-  }, [noteDocuments]);
+  }, [documentDomainDocuments]);
 
   const aiTreeItems = React.useMemo<ArcManagerTreeItem[]>(() => {
     if (!aiDocuments || aiDocuments.length === 0) return [];
@@ -576,14 +509,14 @@ export function ArcManager(): React.ReactElement {
 
   const handleNoteCreateConfirm = React.useCallback(
     async () => {
-      const state = getTabState('notes');
+      const state = getTabState('documents');
       const name = (state.newNoteName ?? '').trim();
       const parentPath = state.currentPath;
       const noteType = state.creatingNoteType;
 
       // 입력 없거나 타입이 없는 경우: 생성 취소
       if (!noteType || !name) {
-        patchTabState('notes', { creatingNoteType: null, newNoteName: '' });
+        patchTabState('documents', { creatingNoteType: null, newNoteName: '' });
         return;
       }
 
@@ -598,7 +531,7 @@ export function ArcManager(): React.ReactElement {
           contents,
         });
 
-        await refetchNotes().catch(() => {
+        await refetchDocumentsDomain().catch(() => {
           // 목록 갱신 실패는 치명적이지 않으므로 콘솔만 남깁니다.
           // eslint-disable-next-line no-console
           console.error('노트 목록 갱신 실패');
@@ -607,10 +540,10 @@ export function ArcManager(): React.ReactElement {
         // eslint-disable-next-line no-console
         console.error('노트 생성 실패:', error);
       } finally {
-        patchTabState('notes', { creatingNoteType: null, newNoteName: '' });
+        patchTabState('documents', { creatingNoteType: null, newNoteName: '' });
       }
     },
-    [createDocument, getTabState, patchTabState, refetchNotes],
+    [createDocument, getTabState, patchTabState, refetchDocumentsDomain],
   );
 
   const handleFolderCreateConfirm = React.useCallback(
@@ -682,8 +615,8 @@ export function ArcManager(): React.ReactElement {
 
       try {
         await createYoutube({ url, parentPath });
-        if (tabValue === 'files') {
-          await refetchFiles();
+        if (tabValue === 'documents') {
+          await refetchDocumentsDomain();
         }
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -692,7 +625,7 @@ export function ArcManager(): React.ReactElement {
         patchTabState(tabValue, { creatingYoutube: false, newYoutubeUrl: '' });
       }
     },
-    [createYoutube, getTabState, patchTabState, refetchFiles],
+    [createYoutube, getTabState, patchTabState, refetchDocumentsDomain],
   );
 
   return (
@@ -720,8 +653,7 @@ export function ArcManager(): React.ReactElement {
 
         {/* 탭별 동일 레이아웃: 검색창 + 우측 버튼(폴더 추가 / 업로드) + 트리 */}
         {DEFAULT_TABS.map((tab) => {
-          const isFileTab = tab.value === 'files';
-          const isNotesTab = tab.value === 'notes';
+          const isDocumentsTab = tab.value === 'documents';
           const isAiTab = tab.value === 'ai';
           const tabState = getTabState(tab.value);
           const {
@@ -737,21 +669,13 @@ export function ArcManager(): React.ReactElement {
           } = tabState;
 
           const treeItems: ArcManagerTreeItem[] = (() => {
-            if (isFileTab) {
+            if (isDocumentsTab) {
               if (!currentPath) {
                 // 루트에서는 전체 트리 루트를 그대로 보여줍니다.
-                return fileTreeItems;
+                return documentTreeItems;
               }
               // 특정 폴더로 이동한 경우, 해당 폴더의 자식들을 루트처럼 보여줍니다.
-              const node = findTreeNodeByPath(fileTreeItems, currentPath);
-              return node?.children ?? [];
-            }
-
-            if (isNotesTab) {
-              if (!currentPath) {
-                return noteTreeItems;
-              }
-              const node = findTreeNodeByPath(noteTreeItems, currentPath);
+              const node = findTreeNodeByPath(documentTreeItems, currentPath);
               return node?.children ?? [];
             }
 
@@ -766,13 +690,11 @@ export function ArcManager(): React.ReactElement {
             return [];
           })();
 
-          const dragKind: 'file' | 'note' | 'ai' | null = isFileTab
+          const dragKind: 'file' | 'note' | 'ai' | null = isDocumentsTab
             ? 'file'
-            : isNotesTab
-              ? 'note'
-              : isAiTab
-                ? 'ai'
-                : null;
+            : isAiTab
+              ? 'ai'
+              : null;
 
           const treeInteractionProps: Partial<ArcManagerTreeProps> = dragKind
             ? {
@@ -861,15 +783,15 @@ export function ArcManager(): React.ReactElement {
                 <FolderPlus className="h-4 w-4" />
               </Button>
 
-              {/* notes 탭 전용: 노트 추가 버튼 (텍스트 / 그림) */}
-              {isNotesTab && (
+              {/* documents 탭 전용: 노트 추가 버튼 (텍스트 / 그림) */}
+              {isDocumentsTab && (
                 <>
                   <Button
                     variant="outline"
                     size="icon"
                     disabled={isCreatingDocument}
                     onClick={() => {
-                      patchTabState('notes', {
+                      patchTabState('documents', {
                         creatingNoteType: 'text',
                         newNoteName: '',
                       });
@@ -883,7 +805,7 @@ export function ArcManager(): React.ReactElement {
                     size="icon"
                     disabled={isCreatingDocument}
                     onClick={() => {
-                      patchTabState('notes', {
+                      patchTabState('documents', {
                         creatingNoteType: 'draw',
                         newNoteName: '',
                       });
@@ -895,8 +817,8 @@ export function ArcManager(): React.ReactElement {
                 </>
               )}
 
-              {/* files 탭 전용: 파일 업로드 버튼 */}
-              {isFileTab && (
+              {/* documents 탭 전용: 파일 업로드 / YouTube 추가 버튼 */}
+              {isDocumentsTab && (
                 <>
                   <input
                     ref={fileInputRef}
@@ -918,7 +840,7 @@ export function ArcManager(): React.ReactElement {
                     variant="outline"
                     size="icon"
                     onClick={() =>
-                      patchTabState('files', {
+                      patchTabState('documents', {
                         creatingYoutube: true,
                         newYoutubeUrl: '',
                       })
@@ -975,8 +897,8 @@ export function ArcManager(): React.ReactElement {
                   />
                 )}
 
-                {/* 새 노트 인라인 생성 행 (notes 탭 전용) */}
-                {isNotesTab && creatingNoteType && (
+                {/* 새 노트 인라인 생성 행 (documents 탭 전용) */}
+                {isDocumentsTab && creatingNoteType && (
                   <ArcManagerListItemComponent
                     id={`__new-note-${tab.value}__`}
                     path={
@@ -1031,8 +953,8 @@ export function ArcManager(): React.ReactElement {
                   />
                 )}
 
-                {/* 새 YouTube 문서 인라인 생성 행 (files 탭 전용) */}
-                {isFileTab && creatingYoutube && (
+                {/* 새 YouTube 문서 인라인 생성 행 (documents 탭 전용) */}
+                {isDocumentsTab && creatingYoutube && (
                   <ArcManagerListItemComponent
                     id={`__new-youtube-${tab.value}__`}
                     path={
@@ -1076,18 +998,19 @@ export function ArcManager(): React.ReactElement {
                   />
                 )}
 
-                {isFileTab && (
+                {isDocumentsTab && (
                   <Collapsible open={!isCollapsed}>
                     <CollapsibleContent>
                       <div className="px-2 pb-1 text-xs text-muted-foreground flex flex-wrap gap-1">
-                        {buildBreadcrumbItems(currentPath, fileNameMap).map((crumb, index) => (
+                        {buildBreadcrumbItems(currentPath, documentNameMap).map(
+                          (crumb, index) => (
                           <span key={crumb.path} className="flex items-center gap-1">
                             {index > 0 && <span>/</span>}
                             <button
                               type="button"
                               className="hover:underline"
                               onClick={() =>
-                                patchTabState('files', {
+                                patchTabState('documents', {
                                   currentPath: crumb.path,
                                   ...(crumb.path ? { isCollapsed: false } : {}),
                                 })
@@ -1096,34 +1019,7 @@ export function ArcManager(): React.ReactElement {
                               {crumb.label}
                             </button>
                           </span>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
-
-                {isNotesTab && (
-                  <Collapsible open={!isCollapsed}>
-                    <CollapsibleContent>
-                      <div className="px-2 pb-1 text-xs text-muted-foreground flex flex-wrap gap-1">
-                        {buildBreadcrumbItems(currentPath, noteNameMap).map(
-                          (crumb, index) => (
-                            <span key={crumb.path} className="flex items-center gap-1">
-                              {index > 0 && <span>/</span>}
-                              <button
-                                type="button"
-                                className="hover:underline"
-                                onClick={() =>
-                                  patchTabState('notes', {
-                                    currentPath: crumb.path,
-                                    ...(crumb.path ? { isCollapsed: false } : {}),
-                                  })
-                                }
-                              >
-                                {crumb.label}
-                              </button>
-                            </span>
-                          ),
+                        ),
                         )}
                       </div>
                     </CollapsibleContent>

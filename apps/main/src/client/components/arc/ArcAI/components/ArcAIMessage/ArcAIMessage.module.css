@@ -12,8 +12,10 @@
   flex-direction: column;
   gap: 0.5rem;
   overflow: hidden;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: var(--text-body-regular);
+  line-height: var(--text-body-regular--line-height);
+  letter-spacing: var(--text-body-regular--letter-spacing);
+  font-weight: var(--text-body-regular--font-weight);
   color: var(--color-foreground);
 }
 

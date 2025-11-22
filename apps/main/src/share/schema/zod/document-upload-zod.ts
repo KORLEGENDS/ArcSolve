@@ -97,10 +97,14 @@ export type DocumentMoveRequest = z.infer<typeof documentMoveRequestSchema>;
  * 폴더 생성 요청 스키마
  * - name: 폴더 이름
  * - parentPath: 상위 경로 ('' = 루트)
+ * - folderDomain:
+ *   - 'document' : 노트/파일 트리용 폴더 (기본값)
+ *   - 'ai'       : AI 트리용 폴더
  */
 export const documentFolderCreateRequestSchema = z.object({
   name: documentNameSchema,
   parentPath: documentParentPathSchema,
+  folderDomain: z.enum(['document', 'ai']).default('document'),
 });
 
 export type DocumentFolderCreateRequest = z.infer<

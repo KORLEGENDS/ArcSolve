@@ -67,6 +67,20 @@ function toLtreeLabel(name: string): string {
 }
 
 /**
+ * 폴더 도메인
+ * - 'document' : 노트/파일 트리용 폴더
+ * - 'ai'       : AI 트리용 폴더
+ */
+export type FolderDomain = 'document' | 'ai';
+
+const FOLDER_MIME_DOCUMENT = 'application/vnd.arc.folder+document' as const;
+const FOLDER_MIME_AI = 'application/vnd.arc.folder+ai' as const;
+
+function getFolderMimeTypeForDomain(domain: FolderDomain): string {
+  return domain === 'ai' ? FOLDER_MIME_AI : FOLDER_MIME_DOCUMENT;
+}
+
+/**
  * 클라이언트에서 전달된 경로 문자열을 ltree 경로로 정규화합니다.
  *
  * - 입력은 이미 ltree 스타일(`segment.segment2`)을 가정하지만,
@@ -170,7 +184,8 @@ export class DocumentRepository {
   private async ensureFolderForOwner(
     database: DB,
     userId: string,
-    rawPath: string
+    rawPath: string,
+    domain: FolderDomain = 'document',
   ): Promise<Document | null> {
     const normalizedPath = normalizeLtreePath(rawPath);
     if (!normalizedPath) return null;
@@ -202,7 +217,7 @@ export class DocumentRepository {
           kind: 'folder',
           uploadStatus: 'uploaded',
           processingStatus: 'processed',
-          mimeType: null,
+          mimeType: getFolderMimeTypeForDomain(domain),
           fileSize: null,
           storageKey: null,
         })
@@ -236,7 +251,9 @@ export class DocumentRepository {
     userId: string;
     parentPath: string;
     name: string;
+    domain?: FolderDomain;
   }): Promise<Document> {
+    const domain: FolderDomain = input.domain ?? 'document';
     const label = toLtreeLabel(input.name);
     const parentLtreePath = normalizeLtreePath(input.parentPath);
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
@@ -250,7 +267,7 @@ export class DocumentRepository {
         kind: 'folder',
         uploadStatus: 'uploaded',
         processingStatus: 'processed',
-        mimeType: null,
+        mimeType: getFolderMimeTypeForDomain(domain),
         fileSize: null,
         storageKey: null,
       })
@@ -270,7 +287,12 @@ export class DocumentRepository {
 
     // onConflictDoNothing으로 인해 행이 생성되지 않았다면,
     // 동일 경로의 기존 폴더를 조회하여 존재하면 그대로 반환합니다.
-    const folder = await this.ensureFolderForOwner(this.database, input.userId, path);
+    const folder = await this.ensureFolderForOwner(
+      this.database,
+      input.userId,
+      path,
+      domain,
+    );
     if (folder) {
       return folder;
     }
@@ -296,8 +318,9 @@ export class DocumentRepository {
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+    // 업로드 파일은 노트/파일 트리(document 도메인)에 속합니다.
     if (parentLtreePath) {
-      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
+      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath, 'document');
     }
 
     try {
@@ -347,8 +370,9 @@ export class DocumentRepository {
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+    // 외부 리소스 파일도 노트/파일 트리(document 도메인)에 속합니다.
     if (parentLtreePath) {
-      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
+      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath, 'document');
     }
 
     try {
@@ -400,8 +424,9 @@ export class DocumentRepository {
     const path = parentLtreePath ? `${parentLtreePath}.${label}` : label;
 
     // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+    // AI 세션은 AI 트리(ai 도메인)에 속합니다.
     if (parentLtreePath) {
-      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath);
+      await this.ensureFolderForOwner(this.database, input.userId, parentLtreePath, 'ai');
     }
 
     try {
@@ -458,8 +483,9 @@ export class DocumentRepository {
 
     return this.database.transaction(async (tx) => {
       // 부모 경로가 있는 경우, 해당 경로에 folder 문서를 보장합니다.
+      // 노트는 노트/파일 트리(document 도메인)에 속합니다.
       if (parentLtreePath) {
-        await this.ensureFolderForOwner(tx, input.userId, parentLtreePath);
+        await this.ensureFolderForOwner(tx, input.userId, parentLtreePath, 'document');
       }
 
       const noteMimeType = inferNoteMimeTypeFromContents(input.initialContents);

@@ -79,7 +79,11 @@ export const documents = pgTable(
      * MIME 타입
      * - file 문서: 실제 파일 MIME (예: 'application/pdf', 'video/youtube')
      * - note 문서: 노트 타입 구분 (예: 'application/vnd.arc.note+plate', 'application/vnd.arc.note+draw')
-     * - folder 문서: null
+   * - folder 문서:
+   *   - 기존 데이터: null (도메인 정보 없음, 기본적으로 document 도메인으로 취급)
+   *   - 신규 데이터:
+   *     - 노트/파일 트리용 폴더: 'application/vnd.arc.folder+document'
+   *     - AI 트리용 폴더: 'application/vnd.arc.folder+ai'
      */
     mimeType: text('mime_type'),
 

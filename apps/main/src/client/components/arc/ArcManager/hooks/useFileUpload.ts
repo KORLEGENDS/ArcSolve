@@ -98,9 +98,9 @@ export function useFileUpload(parentPath: string) {
         // 6. 문서 관련 캐시 무효화
         // - 단일 문서 상세 캐시
         await documentHook.invalidateDocument(confirmedDocument.documentId);
-        // - 파일 목록 캐시 (ArcManager 트리 등)
+        // - 문서 도메인(document) 목록 캐시 (ArcManager documents 탭 등)
         await queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.listFiles(),
+          queryKey: queryKeys.documents.listDocumentsDomain(),
         });
       } catch (error) {
         const errorMessage =

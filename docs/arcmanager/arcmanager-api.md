@@ -1,7 +1,7 @@
 ## 1. ArcManager 개요
 
-ArcManager는 ArcSolve 내에서 **문서(파일/폴더/AI 세션) 트리를 탐색하고 관리하는 파일 매니저**입니다.  
-현재 구현은 `document` 도메인(ArcData, ArcWork와 연동되는 파일/폴더/AI 세션) 중심이며, 구조적으로는 노트/AI 탭까지 확장 가능하도록 설계되어 있습니다.
+ArcManager는 ArcSolve 내에서 **문서(파일/노트/AI 세션/폴더) 트리를 탐색하고 관리하는 파일 매니저**입니다.  
+현재 구현은 `document` 도메인(ArcData, ArcWork와 연동되는 파일/노트/AI 세션/폴더) 중심이며, **문서/AI 두 개의 탭**으로 구성됩니다.
 
 - **주요 역할**
   - `document` 테이블 기반 **트리 구조(ltree)**를 좌측 패널에서 탐색
@@ -83,15 +83,24 @@ export const documents = pgTable(
 
 ## 3. 서버 API 레이어
 
-### 3.1 문서 목록 조회 (ArcManager 트리용)
+### 3.1 문서/AI 목록 조회 (ArcManager 트리용)
 
-- **엔드포인트**: `GET /api/document?kind=file`
-- **핵심 정책**
-  - 현재 구현에서는 ArcManager **파일 탭(view=files)과 노트 탭(view=notes) 모두** `GET /api/document` 를 사용합니다.
-    - `files` 탭: `kind=file`
-    - `notes` 탭: `kind=note`
-  - 내부에서는 `DocumentRepository.listByOwner(userId)`로 전체 문서를 가져온 뒤,
-    **폴더(`kind='folder'`) + note 계열이 아닌 문서(`mimeType`으로 판별)**만 필터링해서 반환합니다.
+- **엔드포인트**: `GET /api/document?kind={kind}`
+- **kind 값**
+  - `kind=document` : **문서 탭용 트리**
+    - 노트/파일 + **document 도메인 폴더**
+  - `kind=ai` : **AI 탭용 트리**
+    - AI 세션 + **AI 도메인 폴더**
+  - `kind=file` / `kind=note` : 과거 호환용 (기존 파일/노트 전용 뷰)
+  - `kind=all` : 모든 문서(kind) 반환
+
+폴더는 `kind='folder'` 이고, `mimeType` 으로 도메인을 구분합니다.
+
+- **document 도메인 폴더**
+  - `mimeType IS NULL` (기존 데이터)
+  - 또는 `mimeType = 'application/vnd.arc.folder+document'`
+- **AI 도메인 폴더**
+  - `mimeType = 'application/vnd.arc.folder+ai'`
 
 ```ts
 // apps/main/src/app/(backend)/api/document/route.ts 중 GET 일부
@@ -100,23 +109,49 @@ const allDocuments = await repository.listByOwner(userId);
 const documents = allDocuments.filter((doc) => {
   const mimeType = doc.mimeType ?? undefined;
   const isFolder = doc.kind === 'folder';
+
   const isNote =
     typeof mimeType === 'string' &&
     mimeType.startsWith('application/vnd.arc.note+');
+  const isAiSession =
+    typeof mimeType === 'string' &&
+    mimeType === 'application/vnd.arc.ai-chat+json';
+
+  const isDocumentFolder =
+    isFolder &&
+    (mimeType === null ||
+      mimeType === 'application/vnd.arc.folder+document');
+  const isAiFolder =
+    isFolder && mimeType === 'application/vnd.arc.folder+ai';
+
   const isFileLike =
     typeof mimeType === 'string' &&
-    !mimeType.startsWith('application/vnd.arc.note+');
+    !isNote &&
+    !isAiSession &&
+    !mimeType.startsWith('application/vnd.arc.folder+');
 
+  // 기본값(null) 또는 'file' : 기존 파일 트리 호환용
   if (kindParam === null || kindParam === 'file') {
-    // ArcManager 파일 트리: fileLike + folder
-    return isFolder || isFileLike;
+    // 일반 파일 + document 폴더만 반환 (AI 세션/AI 폴더 제외)
+    return isDocumentFolder || isFileLike;
   }
 
   if (kindParam === 'note') {
-    // (향후) 노트 트리: note + folder
-    return isFolder || isNote;
+    // 노트 뷰(호환용): note + document 폴더만 반환
+    return isDocumentFolder || isNote;
   }
 
+  if (kindParam === 'document') {
+    // 통합 노트/파일 트리: note + fileLike + document 폴더
+    return isDocumentFolder || isNote || isFileLike;
+  }
+
+  if (kindParam === 'ai') {
+    // AI 트리: AI 세션 + AI 폴더만 반환
+    return isAiFolder || isAiSession;
+  }
+
+  // kind = 'all' → 모든 kind 허용
   return true;
 });
 ```

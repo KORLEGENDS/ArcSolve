@@ -26,15 +26,17 @@ export async function GET(request: NextRequest) {
     const kindParam = searchParams.get('kind');
 
     // kind 파라미터:
-    // - null 또는 'file'   : file + folder 트리 (ArcManager files 탭)
-    // - 'note'             : note + folder 트리 (ArcManager notes 탭)
-    // - 'ai'               : ai 세션 + folder 트리 (ArcManager ai 탭)
+    // - null 또는 'file'   : (호환용) file + folder 트리
+    // - 'note'             : (호환용) note + folder 트리
+    // - 'document'         : 노트/파일 트리 (note + file + document 폴더)
+    // - 'ai'               : AI 트리 (AI 세션 + AI 폴더)
     // - 'all'              : 모든 kind (note/file/ai/folder)
     if (
       !(
         kindParam === null ||
         kindParam === 'file' ||
         kindParam === 'note' ||
+        kindParam === 'document' ||
         kindParam === 'ai' ||
         kindParam === 'all'
       )
@@ -50,28 +52,46 @@ export async function GET(request: NextRequest) {
     const documents = allDocuments.filter((doc) => {
       const mimeType = doc.mimeType ?? undefined;
       const isFolder = doc.kind === 'folder';
+
       const isNote =
         typeof mimeType === 'string' &&
         mimeType.startsWith('application/vnd.arc.note+');
       const isAiSession =
         typeof mimeType === 'string' &&
         mimeType === 'application/vnd.arc.ai-chat+json';
-      const isFileLike =
-        typeof mimeType === 'string' && !isNote && !isAiSession;
 
+      const isDocumentFolder =
+        isFolder &&
+        (mimeType === null ||
+          mimeType === 'application/vnd.arc.folder+document');
+      const isAiFolder =
+        isFolder && mimeType === 'application/vnd.arc.folder+ai';
+
+      const isFileLike =
+        typeof mimeType === 'string' &&
+        !isNote &&
+        !isAiSession &&
+        !mimeType.startsWith('application/vnd.arc.folder+');
+
+      // 기본값(null) 또는 'file' : 기존 파일 트리 호환용
       if (kindParam === null || kindParam === 'file') {
-        // 파일 뷰: 일반 파일 + folder 문서만 반환 (AI 세션 제외)
-        return isFolder || isFileLike;
+        // 일반 파일 + document 폴더만 반환 (AI 세션/AI 폴더 제외)
+        return isDocumentFolder || isFileLike;
       }
 
       if (kindParam === 'note') {
-        // 노트 뷰: note + folder 문서만 반환
-        return isFolder || isNote;
+        // 노트 뷰(호환용): note + document 폴더만 반환
+        return isDocumentFolder || isNote;
+      }
+
+      if (kindParam === 'document') {
+        // 통합 노트/파일 트리: note + fileLike + document 폴더
+        return isDocumentFolder || isNote || isFileLike;
       }
 
       if (kindParam === 'ai') {
-        // AI 뷰: AI 세션 + folder 문서만 반환
-        return isFolder || isAiSession;
+        // AI 트리: AI 세션 + AI 폴더만 반환
+        return isAiFolder || isAiSession;
       }
 
       // kind = 'all' → 모든 kind 허용
