@@ -6,12 +6,12 @@ import { Badge } from '@/client/components/ui/badge';
 import {
   Card,
   CardContent,
-  CardHeader
+  CardHeader,
 } from '@/client/components/ui/card';
 import { Link } from '@/share/libs/i18n/routing';
+import { authClient } from '@/share/libs/auth/auth-client';
 import { assetUrl } from '@/share/share-utils/asset-url';
 import { AlertCircle } from 'lucide-react';
-import { signIn } from 'next-auth/react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { type JSX, useCallback, useState } from 'react';
@@ -37,11 +37,16 @@ export default function LoginPage(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSocialLogin = useCallback(async (provider: string): Promise<void> => {
+  const handleSocialLogin = useCallback(
+    async (provider: 'kakao' | 'naver'): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
-      await signIn(provider, { callbackUrl, redirect: true });
+        await authClient.signIn.social({
+          provider,
+          callbackURL: callbackUrl,
+          errorCallbackURL: '/login?error=oauth',
+        });
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Login error:', error);
@@ -50,7 +55,9 @@ export default function LoginPage(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  }, [callbackUrl]);
+    },
+    [callbackUrl]
+  );
 
   return (
     <main className="min-h-screen w-full flex items-center justify-center p-6">

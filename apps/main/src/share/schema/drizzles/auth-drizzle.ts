@@ -1,47 +1,94 @@
-import type { AdapterAccountType } from '@auth/core/adapters';
-import {
-  integer,
-  pgSchema,
-  primaryKey,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
-// Auth.js DrizzleAdapter용 테이블을 auth 스키마로 격리
-const auth = pgSchema('auth');
+// Better Auth DrizzleAdapter용 테이블 (public 스키마, auth_* 접두사)
+// - 실제 테이블 이름: auth_user, auth_account, auth_session, auth_verification
 
-// 어댑터가 기대하는 최소 컬럼만 유지 (id, name, email, emailVerified, image)
-export const authUsers = auth.table('user', {
+// 공식 Better Auth PG 스키마에 맞춘 user 테이블
+export const authUsers = pgTable('auth_user', {
   id: text('id')
     .primaryKey()
     .notNull()
     .$defaultFn(() => crypto.randomUUID()),
-  name: text('name'),
-  email: text('email').unique(),
-  emailVerified: timestamp('emailVerified', { mode: 'date' }),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
 });
 
-// 계정 테이블도 어댑터 필수 컬럼만 유지 (userId, type, provider, providerAccountId)
-// 토큰 관련 컬럼은 선택 사항이므로 필요한 것만 남김
-export const authAccounts = auth.table(
-  'account',
+// 공식 Better Auth PG 스키마에 맞춘 account 테이블
+export const authAccounts = pgTable(
+  'auth_account',
   {
-    userId: text('userId')
+    id: text('id')
+      .primaryKey()
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: text('user_id')
       .notNull()
       .references(() => authUsers.id, { onDelete: 'cascade' }),
-    type: text('type').$type<AdapterAccountType>().notNull(),
-    provider: text('provider').notNull(),
-    providerAccountId: text('providerAccountId').notNull(),
-    refresh_token: text('refresh_token'),
-    access_token: text('access_token'),
-    expires_at: integer('expires_at'),
-    token_type: text('token_type'),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: timestamp('access_token_expires_at', {
+      mode: 'date',
+    }),
+    refreshTokenExpiresAt: timestamp('refresh_token_expires_at', {
+      mode: 'date',
+    }),
     scope: text('scope'),
-    id_token: text('id_token'),
-    session_state: text('session_state'),
+    password: text('password'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
-  (account) => [
-    primaryKey({ columns: [account.provider, account.providerAccountId] }),
+  (account) => [index('auth_account_user_id_idx').on(account.userId)]
+);
+
+// 공식 Better Auth PG 스키마에 맞춘 session 테이블
+export const authSessions = pgTable(
+  'auth_session',
+  {
+    id: text('id').primaryKey().notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+    token: text('token').notNull().unique(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+  },
+  (session) => [index('auth_session_user_id_idx').on(session.userId)]
+);
+
+// 공식 Better Auth PG 스키마에 맞춘 verification 테이블
+export const authVerifications = pgTable(
+  'auth_verification',
+  {
+    id: text('id').primaryKey().notNull(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (verification) => [
+    index('auth_verification_identifier_idx').on(verification.identifier),
   ]
 );

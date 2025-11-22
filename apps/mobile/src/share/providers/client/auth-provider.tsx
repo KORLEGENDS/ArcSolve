@@ -201,7 +201,7 @@ export async function logoutWithCacheClear(
   queryClient: ReturnType<typeof useQueryClient>
 ): Promise<void> {
   try {
-    await authQueryOptions.signOut.mutationFn(undefined as void);
+    await authQueryOptions.signOut.mutationFn();
   } catch (error) {
     // 로그아웃 실패해도 세션은 삭제
     console.error('Logout failed:', error);

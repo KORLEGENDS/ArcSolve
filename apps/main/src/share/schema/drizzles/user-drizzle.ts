@@ -11,6 +11,9 @@ export const users = pgTable('users', {
     .notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 
+  // Better Auth auth.user.id 매핑용 컬럼 (텍스트, 고유)
+  authUserId: text('auth_user_id').unique(),
+
   email: varchar('email', { length: 255 }).notNull().unique(),
   name: varchar('name', { length: 100 }).notNull(),
   imageUrl: text('image_url'),

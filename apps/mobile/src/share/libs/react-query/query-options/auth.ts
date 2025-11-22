@@ -3,7 +3,8 @@
  */
 
 import { queryOptions } from '@tanstack/react-query';
-import { createApiQueryOptions, createApiMutation } from '../query-builder';
+
+import { authClient } from '@/share/libs/auth/better-auth-client';
 import { queryKeys } from '../query-keys';
 
 export interface SessionResponse {
@@ -18,31 +19,40 @@ export interface SessionResponse {
 
 export const authQueryOptions = {
   /**
-   * 현재 세션 조회
-   * GET /api/auth/session
+   * 현재 세션 조회 (Better Auth)
    */
   session: queryOptions({
     queryKey: queryKeys.auth.session(),
-    ...createApiQueryOptions<SessionResponse, SessionResponse>(
-      '/api/auth/session',
-      (data) => data,
-      {
-        staleTime: 5 * 60 * 1000, // 5분
-        gcTime: 10 * 60 * 1000, // 10분
-      },
-    ),
+    queryFn: async (): Promise<SessionResponse> => {
+      const { data, error } = await authClient.getSession();
+      if (error) {
+        throw error;
+      }
+      if (!data?.user) {
+        throw new Error('세션 정보가 없습니다.');
+      }
+      return {
+        user: {
+          id: data.user.id,
+          email: data.user.email ?? undefined,
+          name: data.user.name ?? undefined,
+          image: data.user.image ?? undefined,
+        },
+        expires: undefined,
+      };
+    },
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 10 * 60 * 1000, // 10분
   }),
 
   /**
    * 로그아웃
-   * POST /api/auth/signout
+   * Better Auth signOut
    */
-  signOut: createApiMutation<void, void, void>(
-    () => '/api/auth/signout',
-    () => undefined,
-    {
-      method: 'POST',
+  signOut: {
+    mutationFn: async (): Promise<void> => {
+      await authClient.signOut();
     },
-  ),
+  },
 } as const;
 

@@ -5,22 +5,19 @@
 import { useAuthStore } from '@/client/states/stores/auth-store';
 import { API_BASE_URL } from '@/share/configs/environments/client-constants';
 import type { OAuthProvider } from '@/share/libs/auth/oauth-config';
-import { getAuthUrl } from '@/share/libs/auth/oauth-config';
 import { queryKeys } from '@/share/libs/react-query/query-keys';
 import { authQueryOptions } from '@/share/libs/react-query/query-options/auth';
 import { logoutWithCacheClear } from '@/share/providers/client/auth-provider';
 import {
-    clearRefreshToken,
-    saveRefreshToken,
-    saveSession
+  clearRefreshToken,
+  saveRefreshToken,
+  saveSession,
 } from '@/share/share-utils/session-utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { useCallback } from 'react';
 
-// WebBrowser 완료 후 인증 상태를 올바르게 처리하기 위해 설정
-WebBrowser.maybeCompleteAuthSession();
+import { authClient } from '@/share/libs/auth/better-auth-client';
 
 /**
  * 현재 세션 조회 훅
@@ -40,74 +37,55 @@ export function useSocialLogin() {
 
   const mutation = useMutation({
     mutationFn: async (provider: OAuthProvider) => {
-      const authUrl = getAuthUrl(provider);
-      
-      // WebView를 통해 로그인 페이지 열기
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
-        `${API_BASE_URL}/api/auth/callback/${provider}`
-      );
+      // 1. Better Auth를 통한 소셜 로그인 (Expo 플러그인이 WebBrowser + 딥링크 처리)
+      await authClient.signIn.social({
+        provider,
+        callbackURL: '/(app)', // arcsolve:///(app) 딥링크로 변환됨
+      });
 
-      if (result.type === 'success') {
-        // 로그인 성공 후 세션 확인 및 토큰 발급
-        try {
-          // 1. 모바일 앱용 토큰 발급 (Access Token + Refresh Token)
-          // 참고: 서버 측에서 `/api/auth/mobile/token` 엔드포인트를 구현해야 합니다.
-          const tokenResponse = await fetch(`${API_BASE_URL}/api/auth/mobile/token`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+      // 2. Better Auth 세션 쿠키를 포함하여 모바일 전용 토큰 발급
+      const cookies = authClient.getCookie?.();
 
-          if (!tokenResponse.ok) {
-            throw new Error('토큰 발급에 실패했습니다.');
-          }
+      const tokenResponse = await fetch(`${API_BASE_URL}/api/auth/mobile/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cookies ? { Cookie: cookies } : {}),
+        },
+      });
 
-          const tokenData = await tokenResponse.json();
-          
-          // 2. Refresh Token을 SecureStore에 저장
-          if (tokenData.refreshToken) {
-            await saveRefreshToken(tokenData.refreshToken);
-          }
-          
-          // 3. 세션 정보 조회 (Access Token 사용)
-          const sessionResponse = await fetch(`${API_BASE_URL}/api/auth/session`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${tokenData.accessToken}`,
-            },
-          });
-
-          if (!sessionResponse.ok) {
-            throw new Error('세션 조회에 실패했습니다.');
-          }
-
-          const sessionData = await sessionResponse.json();
-          const session = sessionData.data || sessionData;
-          
-          // 4. Access Token과 사용자 정보를 전역 상태에 저장 (메모리)
-          setAuth(session.user, tokenData.accessToken);
-          
-          // 5. 세션 정보도 SecureStore에 저장 (선택사항, 호환성 유지)
-          await saveSession(session);
-          
-          queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
-          
-          // 6. Expo Router로 홈 화면 이동
-          router.replace('/(app)');
-          
-          return session;
-        } catch (error) {
-          console.error('Login error:', error);
-          // 에러 발생 시 Refresh Token도 삭제
-          await clearRefreshToken();
-          throw new Error('로그인 처리에 실패했습니다. 다시 시도해주세요.');
-        }
+      if (!tokenResponse.ok) {
+        throw new Error('토큰 발급에 실패했습니다.');
       }
 
-      throw new Error('로그인이 취소되었거나 실패했습니다.');
+      const tokenData = await tokenResponse.json();
+
+      // 3. Refresh Token을 SecureStore에 저장
+      if (tokenData.refreshToken) {
+        await saveRefreshToken(tokenData.refreshToken);
+      }
+
+      // 4. Better Auth 세션 조회 (선택) 및 사용자 정보 결정
+      const { data: session } = await authClient.getSession();
+      const user = session?.user ?? tokenData.user;
+
+      if (!user || !tokenData.accessToken) {
+        await clearRefreshToken();
+        throw new Error('로그인 처리에 실패했습니다. 다시 시도해주세요.');
+      }
+
+      // 5. Access Token과 사용자 정보를 전역 상태에 저장 (메모리)
+      setAuth(user, tokenData.accessToken);
+
+      // 6. 세션 정보도 SecureStore에 저장 (호환성 유지)
+      await saveSession({ user });
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
+
+      // 7. Expo Router로 홈 화면 이동
+      router.replace('/(app)');
+
+      return { user };
     },
   });
 

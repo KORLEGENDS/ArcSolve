@@ -37,8 +37,8 @@
 
 import { isDevelopment } from '@/share/configs/environments/client-constants';
 import { extractLocaleFromPathname, getLocalizedPath, usePathname } from '@/share/libs/i18n/routing';
+import { authClient } from '@/share/libs/auth/auth-client';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
-import { signOut } from 'next-auth/react';
 import { useLocale } from 'next-intl';
 import { usePathname as useNextPathname, useSearchParams } from 'next/navigation';
 import { type ReactNode, useEffect, useMemo } from 'react';
@@ -63,17 +63,20 @@ export async function logoutWithCacheClear(
   try {
     queryClient.clear();
     // cleanupArcWorkLayout 유틸리티 제거됨
-
-    if (options?.redirect === false) {
-      await signOut({
-        callbackUrl: finalCallbackUrl,
-        redirect: false,
+    await authClient.signOut({
+      fetchOptions: options?.redirect === false
+        ? {
+            onSuccess: () => {
+              // redirect=false 인 경우에는 클라이언트에서 직접 이동
+              window.location.href = finalCallbackUrl;
+            },
+          }
+        : {
+            onSuccess: () => {
+              window.location.href = finalCallbackUrl;
+            },
+          },
       });
-    } else {
-      await signOut({
-        callbackUrl: finalCallbackUrl,
-      });
-    }
   } catch (error) {
     if (isDevelopment) {
       console.error('Failed to logout:', error);

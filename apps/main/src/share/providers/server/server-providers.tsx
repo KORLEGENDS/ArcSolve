@@ -1,5 +1,3 @@
-import { SessionProvider } from '@/share/providers/client/session-provider';
-import { auth } from '@auth';
 import type React from 'react';
 
 interface InitProvidersProps {
@@ -9,8 +7,7 @@ interface InitProvidersProps {
 export async function InitProviders({
   children,
 }: InitProvidersProps): Promise<React.ReactElement> {
-  // 서버에서 세션만 가져와 클라이언트 SessionProvider로 하이드레이션
-  const session = await auth();
-
-  return <SessionProvider session={session}>{children}</SessionProvider>;
+  // Better Auth 전환 이후에는 별도 세션 하이드레이션 없이
+  // 클라이언트 authClient가 자체적으로 세션을 관리합니다.
+  return <>{children}</>;
 }

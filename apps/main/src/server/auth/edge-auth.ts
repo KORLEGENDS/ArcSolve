@@ -5,7 +5,6 @@ import {
   getLocalizedPath,
   removeLocaleFromPathname,
 } from '@/share/libs/i18n/routing';
-import NextAuth, { type NextAuthConfig, type Session } from 'next-auth';
 import { type NextRequest, NextResponse } from 'next/server';
 
 // ==================== 공개 경로 / 공개 API 경로 ====================
@@ -29,12 +28,16 @@ function isPublicApiPath(pathname: string): boolean {
   return PUBLIC_API_PATHS.some((path) => pathname.startsWith(path));
 }
 
-// ==================== 인증 미들웨어 핵심 로직 (Edge-safe) ====================
+export interface AuthMiddlewareOptions {
+  isLoggedIn: boolean;
+}
+
+// ==================== 인증 미들웨어 핵심 로직 (세션 판별은 호출자가 수행) ====================
 export async function authMiddleware(
-  req: NextRequest & { auth: Session | null }
+  req: NextRequest,
+  { isLoggedIn }: AuthMiddlewareOptions
 ): Promise<NextResponse | Response> {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
   const pathnameWithoutLocale = removeLocaleFromPathname(pathname);
 
   // API 경로 보호 (먼저 처리하여 페이지 리다이렉트와 구분)
@@ -104,14 +107,3 @@ export async function authMiddleware(
 
   return NextResponse.next();
 }
-
-// ==================== Edge 전용 NextAuth 래퍼 (Node 의존성 금지) ====================
-export const edgeAuthConfig = {
-  session: { strategy: 'jwt' },
-  trustHost: true,
-  // Edge 런타임에서는 서버 환경 모듈을 import하지 않고 ENV로 직접 주입합니다.
-  secret: process.env.AUTH_SECRET,
-  providers: [],
-} satisfies NextAuthConfig;
-
-export const { auth: edgeAuth } = NextAuth(edgeAuthConfig);

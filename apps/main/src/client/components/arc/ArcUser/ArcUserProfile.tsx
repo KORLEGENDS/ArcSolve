@@ -1,7 +1,6 @@
 'use client';
 
 import { ChevronDown, HelpCircle, LogOut, Settings } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 import * as React from 'react';
 
 import {
@@ -12,6 +11,7 @@ import {
 } from '@/client/components/ui/dropdown-menu';
 import { cn } from '@/client/components/ui/utils';
 import { useLogoutWithCacheClear } from '@/client/states/queries/useAuth';
+import { authClient } from '@/share/libs/auth/auth-client';
 
 import { ArcUserItem } from './components/ArcUserItem';
 
@@ -60,7 +60,9 @@ export function ArcUserProfile({
   menuItems = DEFAULT_MENU_ITEMS,
   onMenuItemSelect,
 }: ArcUserProfileProps) {
-  const { data: session } = useSession();
+  const {
+    data: session,
+  } = authClient.useSession();
   const logout = useLogoutWithCacheClear();
 
   const handleMenuItemClick = React.useCallback(

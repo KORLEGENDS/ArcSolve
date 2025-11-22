@@ -2,31 +2,32 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import React, { type ReactNode, useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { useSession } from '@/client/states/queries/auth/useAuth';
+import {
+  useAuthIsAuthenticated,
+  useAuthIsLoading,
+} from '@/client/states/stores/auth-store';
 import { AppProviders } from '@/share/providers/client/client-providers';
 
 function AuthRedirectBoundary({ children }: { children: ReactNode }) {
-  const { data, isLoading, error } = useSession();
+  const isAuthenticated = useAuthIsAuthenticated();
+  const isLoading = useAuthIsLoading();
   const router = useRouter();
   const segments = useSegments();
 
-  const isLoggedIn = Boolean(data?.user);
   const authSegment = segments[0];
   const isInAuthGroup = authSegment === '(auth)';
-  const sessionResolved = !isLoading;
-  const hasSessionError = Boolean(error);
 
   useEffect(() => {
-    if (!sessionResolved && !hasSessionError) return;
+    if (isLoading) return;
 
-    if (!isLoggedIn && !isInAuthGroup) {
+    if (!isAuthenticated && !isInAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (isLoggedIn && isInAuthGroup) {
+    } else if (isAuthenticated && isInAuthGroup) {
       router.replace('/(app)');
     }
-  }, [sessionResolved, hasSessionError, isLoggedIn, isInAuthGroup, router]);
+  }, [isLoading, isAuthenticated, isInAuthGroup, router]);
 
-  if (!sessionResolved && !hasSessionError) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -34,7 +35,7 @@ function AuthRedirectBoundary({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isLoggedIn && !isInAuthGroup) {
+  if (!isAuthenticated && !isInAuthGroup) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color="#007AFF" />
