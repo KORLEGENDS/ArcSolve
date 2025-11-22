@@ -147,8 +147,7 @@ type DocumentDetailResponse = {
 
 1. `auth()`로 사용자 인증 → `userId`
 2. `uuidSchema` 로 `documentId` 형식 검증
-3. `loadDocumentConversation({ documentId, userId })` 호출
-   - 내부에서 `loadConversationWithCache({ documentId, userId, repository })` 실행
+3. `DocumentAiRepository` 인스턴스를 생성하고 `loadConversationWithCache({ documentId, userId, repository })` 호출
    - Redis `ai:conversation:<userId>:<documentId>` 에 스냅샷이 있으면 그대로 사용
    - 없거나 손상된 경우:
      - `DocumentAiRepository.loadConversationForOwner` 로 Postgres 조회

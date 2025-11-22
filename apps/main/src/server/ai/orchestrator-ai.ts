@@ -2,9 +2,9 @@ import {
   loadConversationWithCache,
   saveConversationSnapshot,
   saveLastAiUserMessage,
-} from '@/server/ai/document-ai-cache';
-import { SYSTEM_PROMPT } from '@/server/ai/prompt';
-import { createDocumentAiTools } from '@/server/ai/tools';
+} from '@/server/ai/io-ai';
+import { SYSTEM_PROMPT } from '@/server/ai/prompt-ai';
+import { createDocumentAiTools } from '@/server/ai/tools-ai';
 import { throwApi } from '@/server/api/errors';
 import { DocumentAiRepository } from '@/share/schema/repositories/document-ai-repository';
 import { openai } from '@ai-sdk/openai';
@@ -17,37 +17,10 @@ import {
   validateUIMessages,
 } from 'ai';
 
-const AI_CHAT_MIME_TYPE = 'application/vnd.arc.ai-chat+json';
-
-interface LoadConversationParams {
-  documentId: string;
-  userId: string;
-}
-
 interface CreateChatStreamParams {
   documentId: string;
   userId: string;
   newMessages: UIMessage[];
-}
-
-/**
- * 문서 AI 대화 히스토리 조회
- */
-export async function loadDocumentConversation(params: LoadConversationParams) {
-  const { documentId, userId } = params;
-  const repository = new DocumentAiRepository();
-
-  const messages = await loadConversationWithCache({
-    documentId,
-    userId,
-    repository,
-  });
-
-  return {
-    documentId,
-    mimeType: AI_CHAT_MIME_TYPE,
-    messages,
-  };
 }
 
 /**

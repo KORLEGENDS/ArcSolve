@@ -1,4 +1,4 @@
-import { createDocumentChatStream } from '@/server/ai/document-ai-service';
+import { createDocumentChatStream } from '@/server/ai/orchestrator-ai';
 import { ApiException, throwApi } from '@/server/api/errors';
 import { error } from '@/server/api/response';
 import { uuidSchema } from '@/share/schema/zod/base-zod';

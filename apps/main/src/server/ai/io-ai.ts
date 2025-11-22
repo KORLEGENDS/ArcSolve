@@ -1,7 +1,7 @@
 import type { UIMessage } from 'ai';
 
-import { CACHE_TTL, CacheKey } from '@/share/configs/constants';
 import { getRedis } from '@/server/database/redis/connection/client-redis';
+import { CACHE_TTL, CacheKey } from '@/share/configs/constants';
 import type { DocumentAiRepository } from '@/share/schema/repositories/document-ai-repository';
 
 const LAST_USER_TTL_SEC: number = CACHE_TTL.AI.LAST_USER_MESSAGE;
@@ -35,46 +35,6 @@ export async function saveLastAiUserMessage(params: {
     );
   } catch (error) {
     console.warn('[document-ai-cache] saveLastAiUserMessage failed:', error);
-  }
-}
-
-export async function loadLastAiUserMessage(params: {
-  userId: string;
-  documentId: string;
-}): Promise<UIMessage | null> {
-  const redis = getRedis();
-  const { userId, documentId } = params;
-
-  try {
-    const raw = await redis.get(
-      CacheKey.ai.lastUserMessage(userId, documentId),
-    );
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (parsed.role !== 'user') return null;
-    if (!Array.isArray(parsed.parts)) return null;
-
-    return parsed as UIMessage;
-  } catch (error) {
-    console.warn('[document-ai-cache] loadLastAiUserMessage failed:', error);
-    return null;
-  }
-}
-
-export async function deleteLastAiUserMessage(params: {
-  userId: string;
-  documentId: string;
-}): Promise<void> {
-  const redis = getRedis();
-  const { userId, documentId } = params;
-
-  try {
-    await redis.del(CacheKey.ai.lastUserMessage(userId, documentId));
-  } catch (error) {
-    console.warn('[document-ai-cache] deleteLastAiUserMessage failed:', error);
   }
 }
 

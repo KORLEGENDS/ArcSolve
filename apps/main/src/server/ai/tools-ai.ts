@@ -1,6 +1,6 @@
-import { callEmbedSearchTool, callTextSearchTool, callTreeListTool } from '@/server/ai/sidecar-tools';
+import { callEmbedSearchTool, callTextSearchTool, callTreeListTool } from '@/server/ai/sidecar';
 import { z } from 'zod';
-import { TOOL_DESCRIPTIONS } from './prompt';
+import { TOOL_DESCRIPTIONS } from './prompt-ai';
 
 /**
  * AI 도구 입력 스키마 정의

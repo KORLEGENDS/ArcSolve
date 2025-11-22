@@ -1,6 +1,7 @@
-import { loadDocumentConversation } from '@/server/ai/document-ai-service';
+import { loadConversationWithCache } from '@/server/ai/io-ai';
 import { ApiException } from '@/server/api/errors';
 import { error, ok } from '@/server/api/response';
+import { DocumentAiRepository } from '@/share/schema/repositories/document-ai-repository';
 import { uuidSchema } from '@/share/schema/zod/base-zod';
 import { auth } from '@auth';
 import type { NextRequest } from 'next/server';
@@ -10,6 +11,8 @@ type RouteContext = {
     documentId: string;
   }>;
 };
+
+const AI_CHAT_MIME_TYPE = 'application/vnd.arc.ai-chat+json';
 
 /**
  * 문서 기반 AI 대화 히스토리 조회
@@ -38,10 +41,19 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       });
     }
 
-    const data = await loadDocumentConversation({
+    const repository = new DocumentAiRepository();
+
+    const messages = await loadConversationWithCache({
       documentId: idResult.data,
       userId,
+      repository,
     });
+
+    const data = {
+      documentId: idResult.data,
+      mimeType: AI_CHAT_MIME_TYPE,
+      messages,
+    };
 
     return ok(data, {
       user: { id: userId, email: session.user.email || undefined },
