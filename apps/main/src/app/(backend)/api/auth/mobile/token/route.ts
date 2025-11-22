@@ -3,15 +3,16 @@
  *
  * POST /api/auth/mobile/token
  *
- * NextAuth 세션을 검증하고 모바일 앱용 Access Token과 Refresh Token을 발급합니다.
+ * Better Auth 세션(→ 도메인 사용자 ID 매핑)을 검증하고
+ * 모바일 앱용 Access Token과 Refresh Token을 발급합니다.
  */
 
 import { error, ok } from '@/server/api/response';
 import { getSessionConfig } from '@/server/auth/auth-config';
-import { betterAuth } from '@/server/auth/better-auth';
 import { saveRefreshTokenByToken } from '@/server/database/redis/session/refresh-store-mobile-redis';
 import { env } from '@/share/configs/environments/server-constants';
 import { encode } from '@auth/core/jwt';
+import { auth } from '@auth';
 import crypto from 'crypto';
 import type { NextRequest } from 'next/server';
 
@@ -37,10 +38,9 @@ import type { NextRequest } from 'next/server';
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Better Auth 세션 확인 (Expo + 웹 공통)
-    const session = await betterAuth.api.getSession({
-      headers: Object.fromEntries(request.headers),
-    });
+    // 1. Better Auth 세션 확인 (Expo + 웹 공통) + 도메인 사용자 ID 매핑
+    //    - @auth.auth() 헬퍼는 Better Auth user.id → users.id 로 매핑해 줍니다.
+    const session = await auth();
 
     if (!session?.user?.id) {
       return error('UNAUTHORIZED', '인증이 필요합니다.', {
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 도메인 users.id (uuid)
     const userId = session.user.id;
     const userEmail = session.user.email;
     const userName = session.user.name;

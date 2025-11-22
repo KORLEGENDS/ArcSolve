@@ -18,6 +18,9 @@ import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
 
 import { authClient } from '@/share/libs/auth/better-auth-client';
+import { extractApiData } from '@/share/libs/api/client';
+import type { StandardApiErrorResponse } from '@/share/types/api/error-types';
+import type { StandardApiResponse } from '@/share/types/api/response-types';
 
 /**
  * 현재 세션 조회 훅
@@ -58,7 +61,20 @@ export function useSocialLogin() {
         throw new Error('토큰 발급에 실패했습니다.');
       }
 
-      const tokenData = await tokenResponse.json();
+      const tokenResult = (await tokenResponse.json()) as StandardApiResponse<{
+        accessToken: string;
+        refreshToken?: string;
+        expiresIn: string;
+        expiresAt: number;
+        user: {
+          id: string;
+          email?: string;
+          name?: string;
+          image?: string;
+        };
+      }> | StandardApiErrorResponse;
+
+      const tokenData = extractApiData(tokenResult);
 
       // 3. Refresh Token을 SecureStore에 저장
       if (tokenData.refreshToken) {
