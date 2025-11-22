@@ -400,6 +400,29 @@
   border: 1px solid var(--color-border);
   border-bottom: none;
 }
+
+.flexlayout__tab_button_close {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.flexlayout__tab_button:hover .flexlayout__tab_button_close {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.flexlayout__tab_dirty_indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-warning, #f97316);
+  opacity: 1;
+  transition: opacity 0.12s ease;
+}
+
+.flexlayout__tab_button:hover .flexlayout__tab_dirty_indicator {
+  opacity: 0;
+}
 .flexlayout__tab_button_stretch {
   background-color: transparent;
   color: var(--color-tab-selected);

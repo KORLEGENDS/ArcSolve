@@ -5,9 +5,9 @@ import * as React from 'react';
 import { cn } from '@/client/components/ui/utils';
 import { useArcyouChat } from '@/client/states/queries/arcyou/useArcyouChat';
 import {
-  useArcWorkEnsureOpenTab,
   setArcWorkTabDragData,
-} from '@/client/states/stores/arcwork-layout-store';
+  useArcWorkEnsureOpenTab,
+} from '@/client/states/stores/arcwork-store';
 
 import {
   ArcYouChatRoomListItem,

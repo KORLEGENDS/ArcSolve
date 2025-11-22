@@ -10,6 +10,9 @@ import { authQueryOptions } from '@/share/libs/react-query/query-options/auth';
 import { queryKeys } from '@/share/libs/react-query/query-keys';
 import { useAuthStore } from '@/client/states/stores/auth-store';
 import { API_BASE_URL } from '@/share/configs/environments/client-constants';
+import { extractApiData } from '@/share/libs/api/client';
+import type { StandardApiErrorResponse } from '@/share/types/api/error-types';
+import type { StandardApiResponse } from '@/share/types/api/response-types';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -41,7 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps): ReactNode {
 
         // 2. Refresh Token으로 Access Token 갱신 시도
         try {
-          const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/mobile/token/refresh`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -60,7 +63,20 @@ export function AuthProvider({ children }: AuthProviderProps): ReactNode {
           }
 
           // 3. 새 Access Token 및 사용자 정보 받기
-          const refreshData = await refreshResponse.json();
+          const result = (await refreshResponse.json()) as StandardApiResponse<{
+            accessToken: string;
+            refreshToken?: string;
+            expiresIn: string;
+            expiresAt: number;
+            user: {
+              id: string;
+              email?: string;
+              name?: string;
+              image?: string;
+            };
+          }> | StandardApiErrorResponse;
+          
+          const refreshData = extractApiData(result);
           const { accessToken, refreshToken: newRefreshToken, user } = refreshData;
 
           if (!accessToken || !user) {
@@ -76,9 +92,9 @@ export function AuthProvider({ children }: AuthProviderProps): ReactNode {
           setAuth(user, accessToken);
 
           // 6. 세션 정보도 SecureStore에 저장 (호환성 유지)
+          // expires는 refreshData에 없으므로 expiresAt을 기반으로 계산하거나 생략
           await saveSession({
             user,
-            expires: refreshData.expires,
           });
 
           // 7. React Query 캐시 무효화
@@ -185,7 +201,7 @@ export async function logoutWithCacheClear(
   queryClient: ReturnType<typeof useQueryClient>
 ): Promise<void> {
   try {
-    await queryClient.mutateAsync(authQueryOptions.signOut);
+    await authQueryOptions.signOut.mutationFn(undefined as void);
   } catch (error) {
     // 로그아웃 실패해도 세션은 삭제
     console.error('Logout failed:', error);

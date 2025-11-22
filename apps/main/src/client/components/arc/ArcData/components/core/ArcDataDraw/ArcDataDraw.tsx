@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
 import * as React from 'react';
 
+import { isDrawContent, type DrawContent } from '@/client/components/arc/ArcData/hooks/draw/types';
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';
 
 import styles from './ArcDataDraw.module.css';
@@ -15,17 +16,6 @@ const Excalidraw = dynamic<any>(
     ssr: false,
   },
 );
-
-type DrawContent = {
-  type: 'draw';
-  elements?: readonly any[];
-  appState?: Record<string, any>;
-  files?: Record<string, any>;
-};
-
-const isDrawContent = (value: unknown): value is DrawContent => {
-  return !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'draw';
-};
 
 export interface ArcDataDrawProps {
   /** Document 최신 contents (draw 씬 기대) */
@@ -47,11 +37,12 @@ export function ArcDataDraw({ value, onChange }: ArcDataDrawProps): React.ReactE
 
   const initialData = React.useMemo(() => {
     if (isDrawContent(value)) {
+      const elements = Array.isArray(value.elements) ? ([...value.elements] as any[]) : [];
       return {
         // 기존 저장된 appState/files 구조는 Excalidraw 내부 expectations와
         // 버전 차이가 있을 수 있으므로, 안정적으로 렌더링하기 위해
         // 우선 elements 정보만 전달합니다.
-        elements: value.elements ?? [],
+        elements,
       };
     }
 
@@ -65,9 +56,10 @@ export function ArcDataDraw({ value, onChange }: ArcDataDrawProps): React.ReactE
     (elements: readonly any[], appState: any, files: Record<string, any>) => {
       if (!onChange) return;
 
+      const normalizedElements = Array.isArray(elements) ? [...elements] : [];
       const next: DrawContent = {
         type: 'draw',
-        elements,
+        elements: normalizedElements,
         appState,
         files: files ?? {},
       };

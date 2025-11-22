@@ -1,7 +1,7 @@
 ## ArcData 문서 뷰어 API (개요)
 
 ArcData는 ArcSolve 내에서 **문서(특히 파일 기반 문서)를 조회/편집하기 위한 통합 뷰어 레이어**입니다.  
-현재 구현은 **PDF 전용 MVP**에 초점을 맞추고 있지만, 추후 다른 파일 타입까지 확장할 수 있도록 설계되어 있습니다.
+현재 구현은 **PDF + 노트(Plate) + 드로우(Excalidraw) + 이미지(ArcDataImage)**를 지원하며, 추후 다른 파일 타입까지 확장할 수 있도록 설계되어 있습니다.
 
 이 문서는 ArcData의 **전반적인 개념과 ArcWork/ArcManager 연동 방식, 파일 타입 확장 전략**을 다룹니다.  
 PDF 뷰어 내부 구조(툴바, 사이드바, PDFManager, 상태 훅 등)는 [`arcdata-pdf.md`](./arcdata-pdf.md)에 별도로 정리되어 있습니다.
@@ -20,7 +20,7 @@ PDF 뷰어 내부 구조(툴바, 사이드바, PDFManager, 상태 훅 등)는 [`
   - 상단 툴바 + 좌측 패널(예: 썸네일 사이드바) + 우측 메인 뷰어라는 일관된 레이아웃을 제공합니다.
   - 파일 타입별로 내부 뷰어(PDF, 이미지, 텍스트 등)를 교체하는 구조를 목표로 합니다.
 
-현재는 **PDF 파일만 지원**하며, PDF 뷰어에 대한 자세한 API 설명은 [`arcdata-pdf.md`](./arcdata-pdf.md)를 참고하세요.
+현재는 **PDF/노트/드로우/이미지**를 기본으로 지원하며, PDF 뷰어에 대한 자세한 API 설명은 [`arcdata-pdf.md`](./arcdata-pdf.md)를 참고하세요. 노트/드로우 저장 흐름은 아래 “저장/편집 공통 로직”을 참고합니다.
 
 ---
 
@@ -43,14 +43,57 @@ export interface ArcDataProps {
 
 ArcData의 기본 동작 흐름은 다음과 같습니다.
 
-1. `documentId`로 문서 다운로드 URL 조회
-2. 다운로드 URL을 사용해 실제 파일(PDF 등)을 로드
-3. 현재 페이지/총 페이지/뷰어 ref 등 상호작용 상태 관리
-4. 뷰어 줌/뷰 설정 상태 관리
+1. `documentId`로 문서 메타/콘텐츠 조회 (`useDocumentDetail`, `useDocumentContent`)
+2. 문서 kind 및 MIME 정보를 기반으로 적절한 호스트 컴포넌트를 선택
+   - `ArcDataNoteHost`: Plate 기반 노트 (`application/vnd.arc.note+plate` 등)
+   - `ArcDataDrawHost`: Excalidraw 기반 드로우 (`application/vnd.arc.note+draw`)
+   - `ArcDataImageHost`: Next Image 기반 이미지 뷰어 (`image/*`)
+   - `ArcDataPDFHost`: PDF/파일 MIME
+   - `ArcDataPlayerHost`: 오디오/비디오/YouTube
+3. 각 호스트는 공통 저장 훅(`useDocumentSave`)을 통해 mod+s 단축키로만 서버에 POST (자동 저장 없음)
+4. 뷰어 내부 상태(페이지, 툴, 모드 등) 관리
 5. 상단 툴바 + 좌측 패널 + 우측 메인 뷰어 레이아웃 렌더링
 
-현재는 2~5 단계가 **PDF 전용 구현**으로 구성되어 있으며,  
-해당 세부 구조는 [`arcdata-pdf.md`](./arcdata-pdf.md)에서 중복 없이 설명합니다.
+PDF 세부 구조는 [`arcdata-pdf.md`](./arcdata-pdf.md)에, 이미지 뷰어 요약은 아래 2.3 절에 정리되어 있습니다.
+
+### 2.3. ArcDataImage (이미지 뷰어)
+
+- MIME이 `image/`로 시작하면 `ArcDataImageHost`가 동작합니다.
+- 호스트는 `storageKey`가 외부 URL인지 확인한 뒤
+  - 외부 URL이면 그대로 전달하고
+  - 내부 스토리지(R2 등)라면 `useDocumentDownloadUrl(documentId, { inline: true })`로 서명 URL을 발급합니다.
+- `ArcDataImage` 컴포넌트는 Next.js `Image`만으로 화면 전체에 이미지를 렌더링하며, 추가 툴바나 버튼/스피너 없이 즉시 표시합니다.
+- 보기 전용이므로 저장/편집 로직은 없습니다.
+
+---
+
+## 3. 저장/편집 공통 로직
+
+ArcData의 노트/드로우 편집기는 동일한 저장 파이프라인을 공유합니다.
+
+1. **공통 저장 훅 `useDocumentSave`**
+   - 위치: `src/client/components/arc/ArcData/hooks/common/useDocumentSave.ts`
+   - `documentQueryOptions.updateContent`를 감싸며 `saveContent(contents)` 한 번으로 서버에 POST
+   - 저장 성공 시 해당 document content 쿼리만 무효화
+   - `useSaveShortcut`을 함께 제공해 `Cmd/Ctrl + S` 입력을 감지 후 전달된 핸들러 실행
+
+2. **드로우 저장 훅 `useDocumentDrawSave`**
+   - 최신 Excalidraw 씬(`DrawContent`)을 ref에 보관
+   - `ArcDataDraw`의 `onChange`에서 ref를 업데이트
+   - mod+s 또는 외부에서 `save()` 호출 시 ref의 씬을 `useDocumentSave`에 전달
+   - 파일 업로드/다운로드는 아직 구현하지 않고 `files` 맵을 그대로 JSON에 포함해 저장
+
+3. **노트 저장 훅 `useDocumentNoteSave`**
+   - Plate 에디터의 `EditorContent`를 ref로 유지
+   - `ArcDataNote`의 `onChange`를 통해 ref를 갱신
+   - mod+s 시 ref 값을 `useDocumentSave`로 전달하여 저장
+
+4. **호스트 연동 규칙**
+   - `ArcDataNoteHost`와 `ArcDataDrawHost`는 항상 `useDocumentContent(documentId)`와 저장 훅을 함께 호출해 React 훅 순서를 일정하게 유지
+   - 로딩/에러 상태에서도 훅이 먼저 실행된 뒤 조건부 렌더링으로 분기
+   - 저장은 자동으로 실행되지 않고, mod+s 시점 또는 다른 명시적 트리거에서만 수행
+
+이 구조 덕분에 향후 이미지 등 새로운 편집기를 추가하더라도 `useDocumentSave` + `useSaveShortcut` 조합을 재사용할 수 있습니다.
 
 ---
 
@@ -189,10 +232,9 @@ setArcWorkTabDragData(event, {
 
 ## 5. 정리
 
-- ArcData는 **문서 ID → 문서 뷰어**를 매핑해주는 상위 컨테이너로,  
-  ArcWork/ArcManager와의 연동을 통해 탭 기반 문서 뷰잉 경험을 제공합니다.
-- 현재는 PDF 전용이지만, 동일한 패턴으로 다른 파일 타입을 수용할 수 있도록 설계되어 있으며,  
-  새로운 렌더러를 추가할 때는 **탭 메타데이터 / ArcData 내부 분기 / ArcWork factory / 문서화**의 네 축을 함께 고려해야 합니다.
-- PDF 뷰어 구체 구현을 파악하려면 반드시 [`arcdata-pdf.md`](./arcdata-pdf.md)를 함께 참고하세요.
+- ArcData는 **문서 ID → 문서 뷰어**를 매핑해주는 상위 컨테이너로, ArcWork/ArcManager와 연동됩니다.
+- 현재는 PDF/노트/드로우를 지원하며, 저장 로직은 `useDocumentSave`를 중심으로 mod+s 단축키만 허용합니다(자동 저장 없음).
+- 새로운 렌더러를 추가할 때는 **탭 메타데이터 / ArcData 내부 분기 / ArcWork factory / 공통 저장 훅 / 문서화**의 다섯 축을 함께 고려하세요.
+- PDF 뷰어 구체 구현은 [`arcdata-pdf.md`](./arcdata-pdf.md)를 참고하고, 노트/드로우는 위의 저장/편집 공통 로직을 기준으로 확장합니다.
 
 

@@ -21,7 +21,7 @@ export const createIconRegistry = (sources: IconSources) => {
               arcchat: lucideIcons.messageSquare,
             },
             close: lucideIcons.x,
-            dirty: lucideIcons.sparkles,
+            dirty: lucideIcons.circleDot,
           },
           header: {
             prefix: {

@@ -4,11 +4,12 @@
 
 import React from 'react';
 import {
-  View,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 
 export interface ArcAIInputProps {

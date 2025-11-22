@@ -2,10 +2,12 @@
 
 import * as React from 'react';
 
-import { useDocumentContent } from '@/client/states/queries/document/useDocument';
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';
 
 import ArcDataDraw from '../components/core/ArcDataDraw/ArcDataDraw';
+import { isDrawContent } from '../hooks/draw/types';
+import { useDrawContent } from '../hooks/draw/useDrawContent';
+import { useDocumentDrawSave } from '../hooks/draw/useDocumentDrawSave';
 
 export interface ArcDataDrawHostProps {
   /** ArcWork 탭 메타데이터에서 넘어오는 문서 ID (document.documentId) */
@@ -22,22 +24,25 @@ export interface ArcDataDrawHostProps {
 export function ArcDataDrawHost({
   documentId,
 }: ArcDataDrawHostProps): React.ReactElement | null {
-  const { data, isLoading, isError } = useDocumentContent(documentId);
+  const { drawContent, isLoading, isError } = useDrawContent(documentId);
+  const { handleSceneChange } = useDocumentDrawSave({
+    documentId,
+    initialScene: drawContent,
+  });
 
-  const contents = data?.contents ?? null;
+  const handleArcDataDrawChange = React.useCallback(
+    (next: EditorContent) => {
+      if (!isDrawContent(next)) return;
+      handleSceneChange(next);
+    },
+    [handleSceneChange],
+  );
 
   if (isError || isLoading) {
     return null;
   }
 
-  const drawContent =
-    contents && typeof contents === 'object' && (contents as any).type === 'draw'
-      ? contents
-      : null;
-
-  // 현재 시점에서는 저장 로직을 분리하여, draw 콘텐츠는 읽기 전용으로만 렌더링합니다.
-  // onChange 콜백을 전달하지 않으므로 Excalidraw 변경 사항은 서버에 전송되지 않습니다.
-  return <ArcDataDraw value={drawContent as EditorContent | null} />;
+  return <ArcDataDraw value={drawContent} onChange={handleArcDataDrawChange} />;
 }
 
 export default ArcDataDrawHost;

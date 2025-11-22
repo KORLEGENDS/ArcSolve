@@ -1,8 +1,8 @@
-import type { ArcWorkTabInput } from '@/client/states/stores/arcwork-layout-store';
+import type { ArcWorkTabInput } from '@/client/states/stores/arcwork-store';
 import {
   useArcWorkEnsureOpenTab,
   useArcWorkOpenTab,
-} from '@/client/states/stores/arcwork-layout-store';
+} from '@/client/states/stores/arcwork-store';
 import { useCallback } from 'react';
 
 export interface ArcWorkOpenTabInput extends ArcWorkTabInput {}

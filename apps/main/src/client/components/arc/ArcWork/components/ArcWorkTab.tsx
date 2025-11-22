@@ -2,6 +2,7 @@
 
 import { iconFromToken } from '@/share/configs/icons/icon-utils';
 import type { ITabRenderValues, TabNode } from 'flexlayout-react';
+import { useArcWorkTabDirty } from '@/client/states/stores/arcwork-tab-store';
 
 export interface ArcWorkTabProps {
   /**
@@ -42,7 +43,6 @@ function getIconToken(component: string): string {
 export function ArcWorkTab({ node, renderValues }: ArcWorkTabProps) {
   const component = node.getComponent() || 'default-panel';
   const iconToken = getIconToken(component);
-  const isDirty = false; // TODO: store에서 dirty 상태 가져오기
 
   // ============================================
   // leading: 탭 앞쪽 아이콘 설정
@@ -76,17 +76,25 @@ export function ArcWorkTab({ node, renderValues }: ArcWorkTabProps) {
   // 커스터마이징: renderValues.buttons.push()로 버튼 추가 가능
   // 주의: 기본 닫기 버튼은 flexlayout-react가 자동으로 추가하므로
   // 여기서 추가하는 버튼은 그 뒤에 표시됩니다
-  if (isDirty) {
-    renderValues.buttons.push(
-      <span key="dirty" className="flexlayout__tab_dirty_indicator" aria-hidden="true">
-        {iconFromToken('arc.core.arcWork.tab.dirty', {
-          className: 'flexlayout__tab_dirty_icon',
-        })}
-      </span>
-    );
-  }
+  renderValues.buttons = [
+    <ArcWorkDirtyIndicator key="arcwork-dirty-indicator" tabId={node.getId()} />,
+    ...(renderValues.buttons ?? []),
+  ];
 
   return null;
+}
+
+function ArcWorkDirtyIndicator({ tabId }: { tabId: string }) {
+  const isDirty = useArcWorkTabDirty(tabId);
+  if (!isDirty) return null;
+
+  return (
+    <span className="flexlayout__tab_dirty_indicator" aria-hidden="true">
+      {iconFromToken('arc.core.arcWork.tab.dirty', {
+        className: 'flexlayout__tab_dirty_icon',
+      })}
+    </span>
+  );
 }
 
 /**

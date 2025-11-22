@@ -37,7 +37,7 @@ async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/mobile/token/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,7 +52,20 @@ async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
 
-      const data = await response.json();
+      const result = (await response.json()) as StandardApiResponse<{
+        accessToken: string;
+        refreshToken?: string;
+        expiresIn: string;
+        expiresAt: number;
+        user: {
+          id: string;
+          email?: string;
+          name?: string;
+          image?: string;
+        };
+      }> | StandardApiErrorResponse;
+      
+      const data = extractApiData(result);
       const { accessToken, refreshToken: newRefreshToken, user } = data;
 
       if (!accessToken || !user) {

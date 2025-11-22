@@ -26,7 +26,7 @@ import {
   useDocumentMove,
   useDocumentYoutubeCreate,
 } from '@/client/states/queries/document/useDocument';
-import { setArcWorkTabDragData, useArcWorkEnsureOpenTab } from '@/client/states/stores/arcwork-layout-store';
+import { setArcWorkTabDragData, useArcWorkEnsureOpenTab } from '@/client/states/stores/arcwork-store';
 import type { DocumentDTO } from '@/share/libs/react-query/query-options';
 import {
   DEFAULT_NOTE_PARAGRAPH,

@@ -7,6 +7,7 @@ import { ArcDataNoteHost } from './hosts/ArcDataNoteHost';
 import { ArcDataPDFHost } from './hosts/ArcDataPDFHost';
 import { ArcDataPlayerHost } from './hosts/ArcDataPlayerHost';
 import { ArcDataDrawHost } from './hosts/ArcDataDrawHost';
+import { ArcDataImageHost } from './hosts/ArcDataImageHost';
 
 export interface ArcDataProps {
   /** ArcWork 탭 메타데이터에서 넘어오는 문서 ID (document.documentId) */
@@ -37,12 +38,15 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
 
   const mimeType = document.mimeType ?? null;
   const storageKey = document.storageKey ?? null;
+  const documentName = document.name ?? null;
 
   const isPDF = mimeType === 'application/pdf';
   const isVideo =
     typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('video/');
   const isAudio =
     typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('audio/');
+  const isImage =
+    typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('image/');
 
   const isExternalUrl =
     typeof storageKey === 'string' &&
@@ -72,6 +76,17 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
     return <ArcDataNoteHost documentId={documentId} />;
   }
 
+  if (isImage) {
+    return (
+      <ArcDataImageHost
+        documentId={documentId}
+        mimeType={mimeType}
+        storageKey={storageKey}
+        name={documentName}
+      />
+    );
+  }
+
   if (isPDF) {
     return <ArcDataPDFHost documentId={documentId} />;
   }
@@ -86,7 +101,7 @@ export function ArcData({ documentId }: ArcDataProps): React.ReactElement | null
     );
   }
 
-  // TODO: 이미지 / 기타 MIME 타입은 추후 확장
+  // TODO: 기타 특수 MIME 타입은 추후 확장
   return null;
 }
 

@@ -6,7 +6,7 @@ import {
   useArcWorkTabNameUpdateAdapter,
   type ArcWorkTabRenamePayload,
 } from '@/client/components/arc/ArcWork/adapters/useArcWorkTabNameUpdateAdapter';
-import { useArcWorkModel } from '@/client/states/stores/arcwork-layout-store';
+import { useArcWorkModel } from '@/client/states/stores/arcwork-store';
 import type { Action as FlexLayoutAction, TabNode } from 'flexlayout-react';
 import { Actions } from 'flexlayout-react';
 import { useCallback } from 'react';

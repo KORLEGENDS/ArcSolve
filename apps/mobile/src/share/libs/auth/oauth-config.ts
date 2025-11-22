@@ -43,6 +43,9 @@ export const kakaoAuthConfig: AuthSession.AuthRequestConfig = {
   scopes: ['profile_nickname', 'account_email'],
   redirectUri,
   responseType: AuthSession.ResponseType.Code,
+};
+
+export const kakaoDiscovery: AuthSession.DiscoveryDocument = {
   authorizationEndpoint: 'https://kauth.kakao.com/oauth/authorize',
   tokenEndpoint: `${API_BASE_URL}/api/auth/callback/kakao`,
 };
@@ -55,6 +58,9 @@ export const naverAuthConfig: AuthSession.AuthRequestConfig = {
   scopes: ['name', 'email'],
   redirectUri,
   responseType: AuthSession.ResponseType.Code,
+};
+
+export const naverDiscovery: AuthSession.DiscoveryDocument = {
   authorizationEndpoint: 'https://nid.naver.com/oauth2.0/authorize',
   tokenEndpoint: `${API_BASE_URL}/api/auth/callback/naver`,
 };
@@ -62,12 +68,15 @@ export const naverAuthConfig: AuthSession.AuthRequestConfig = {
 /**
  * 프로바이더별 설정 가져오기
  */
-export function getAuthConfig(provider: OAuthProvider): AuthSession.AuthRequestConfig {
+export function getAuthConfig(provider: OAuthProvider): {
+  config: AuthSession.AuthRequestConfig;
+  discovery: AuthSession.DiscoveryDocument;
+} {
   switch (provider) {
     case 'kakao':
-      return kakaoAuthConfig;
+      return { config: kakaoAuthConfig, discovery: kakaoDiscovery };
     case 'naver':
-      return naverAuthConfig;
+      return { config: naverAuthConfig, discovery: naverDiscovery };
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }

@@ -5,12 +5,12 @@
  * - 업로드 3단계(request/presigned/confirm)와 다운로드 URL 발급을 캡슐화
  */
 
-import { useArcWorkCloseTab } from '@/client/states/stores/arcwork-layout-store';
+import { useArcWorkCloseTab } from '@/client/states/stores/arcwork-store';
 import { queryKeys, queryKeyUtils } from '@/share/libs/react-query/query-keys';
 import {
   documentQueryOptions,
-  type DocumentDTO,
   type DocumentContentDTO,
+  type DocumentDTO,
   type DocumentMoveMutationVariables,
 } from '@/share/libs/react-query/query-options';
 import type { EditorContent } from '@/share/schema/zod/document-note-zod';

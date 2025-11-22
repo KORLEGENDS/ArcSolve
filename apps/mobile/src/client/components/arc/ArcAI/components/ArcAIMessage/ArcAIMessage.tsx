@@ -3,10 +3,10 @@
  * 개별 메시지 렌더링
  */
 
+import { isTextUIPart, type UIMessage } from 'ai';
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Markdown from 'react-native-markdown-display';
-import type { UIMessage } from 'ai';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { Markdown, themes, type Theme } from 'react-native-remark';
 
 export interface ArcAIMessageProps {
   message: UIMessage;
@@ -14,7 +14,8 @@ export interface ArcAIMessageProps {
 
 export function ArcAIMessage({ message }: ArcAIMessageProps) {
   const isUser = message.role === 'user';
-  const text = message.parts.find((p: any) => p.type === 'text')?.text || '';
+  const textPart = message.parts.find(isTextUIPart);
+  const text = textPart?.text ?? '';
 
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.assistantContainer]}>
@@ -22,7 +23,17 @@ export function ArcAIMessage({ message }: ArcAIMessageProps) {
         {isUser ? (
           <Text style={styles.userText}>{text}</Text>
         ) : (
-          <Markdown style={markdownStyles}>{text}</Markdown>
+          <Markdown
+            markdown={text}
+            theme={assistantMarkdownTheme}
+            customStyles={assistantMarkdownStyles}
+            onLinkPress={(url) => {
+              if (!url) return;
+              Linking.openURL(url).catch((error) => {
+                console.error('Failed to open markdown link:', error);
+              });
+            }}
+          />
         )}
       </View>
     </View>
@@ -57,25 +68,48 @@ const styles = StyleSheet.create({
   },
 });
 
-const markdownStyles = {
-  body: {
-    color: '#000000',
-    fontSize: 16,
+const monospaceFontFamily =
+  Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) || 'monospace';
+
+const assistantMarkdownTheme: Theme = {
+  ...themes.githubTheme,
+  global: {
+    ...themes.githubTheme.global,
+    container: {
+      ...(themes.githubTheme.global?.container ?? {}),
+      gap: 8,
+    },
   },
+};
+
+const assistantMarkdownStyles = {
   paragraph: {
     marginTop: 0,
     marginBottom: 8,
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#000000',
   },
-  code_inline: {
+  text: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#000000',
+  },
+  inlineCode: {
     backgroundColor: '#E8E8E8',
-    padding: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
     borderRadius: 4,
+    fontFamily: monospaceFontFamily,
   },
-  code_block: {
-    backgroundColor: '#E8E8E8',
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 8,
+  codeBlock: {
+    headerBackgroundColor: '#F0F0F0',
+    contentBackgroundColor: '#E8E8E8',
+    contentTextStyle: {
+      fontFamily: monospaceFontFamily,
+      fontSize: 14,
+      color: '#000000',
+    },
   },
-};
+} as const;
 

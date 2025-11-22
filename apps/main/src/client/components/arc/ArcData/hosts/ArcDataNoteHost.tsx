@@ -2,7 +2,11 @@
 
 import * as React from 'react';
 
+import { useDocumentContent } from '@/client/states/queries/document/useDocument';
+import type { EditorContent } from '@/share/schema/zod/document-note-zod';
+
 import ArcDataNote from '../components/core/ArcDataNote/ArcDataNote';
+import { useDocumentNoteSave } from '../hooks/note/useDocumentNoteSave';
 
 export interface ArcDataNoteHostProps {
   /** ArcWork 탭 메타데이터에서 넘어오는 문서 ID (document.documentId) */
@@ -18,10 +22,24 @@ export interface ArcDataNoteHostProps {
  *   실제 문서 콘텐츠를 불러와 초기 값으로 전달하도록 확장할 수 있습니다.
  */
 export function ArcDataNoteHost({
-  documentId, // eslint-disable-line @typescript-eslint/no-unused-vars
+  documentId,
 }: ArcDataNoteHostProps): React.ReactElement | null {
-  // TODO: documentId를 사용해 노트 콘텐츠를 로드하고 ArcDataNote에 전달합니다.
-  return <ArcDataNote />;
+  const { data, isLoading, isError } = useDocumentContent(documentId);
+  const contents = data?.contents ?? null;
+  const noteContent: EditorContent | null = Array.isArray(contents)
+    ? (contents as EditorContent)
+    : null;
+
+  const { handleContentChange } = useDocumentNoteSave({
+    documentId,
+    initialContent: noteContent,
+  });
+
+  if (isLoading || isError) {
+    return null;
+  }
+
+  return <ArcDataNote value={noteContent} onChange={handleContentChange} />;
 }
 
 export default ArcDataNoteHost;

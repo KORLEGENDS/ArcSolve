@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/client/components/ui/button';
-import { useArcWorkLayoutStore } from '@/client/states/stores/arcwork-layout-store';
+import { useArcWorkLayoutStore } from '@/client/states/stores/arcwork-store';
 import type { BorderNode, ITabSetRenderValues, TabSetNode } from 'flexlayout-react';
 
 export interface ArcWorkTabSetProps {

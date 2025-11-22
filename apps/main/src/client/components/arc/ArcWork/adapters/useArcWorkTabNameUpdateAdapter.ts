@@ -1,6 +1,6 @@
 import { useRenameChatRoom } from '@/client/states/queries/arcyou/useArcyouChat';
 import { useDocumentUpdate } from '@/client/states/queries/document/useDocument';
-import { useArcWorkModel } from '@/client/states/stores/arcwork-layout-store';
+import { useArcWorkModel } from '@/client/states/stores/arcwork-store';
 import type { TabNode } from 'flexlayout-react';
 import { Actions } from 'flexlayout-react';
 import { useCallback } from 'react';

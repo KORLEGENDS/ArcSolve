@@ -4,8 +4,8 @@ import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adap
 import { Button } from '@/client/components/ui/button';
 import { queryKeyUtils } from '@/share/libs/react-query/query-keys';
 import {
-  aiQueryOptions,
-  type DocumentDTO,
+    aiQueryOptions,
+    type DocumentDTO,
 } from '@/share/libs/react-query/query-options';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TabSetPlaceHolderCallback } from 'flexlayout-react';

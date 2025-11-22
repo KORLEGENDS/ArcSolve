@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
     // 🔧 React StrictMode 비활성화 (로깅 중복 방지)
     reactStrictMode: false,
     devIndicators: false,
+    images: {
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: '*.r2.cloudflarestorage.com',
+            },
+        ],
+    },
     
     // standalone 모드 활성화: Docker 러너 경량화
     // output: 'standalone',
