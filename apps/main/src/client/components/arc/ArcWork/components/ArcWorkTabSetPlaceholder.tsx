@@ -4,8 +4,8 @@ import { useArcWorkTabCreateAdapter } from '@/client/components/arc/ArcWork/adap
 import { Button } from '@/client/components/ui/button';
 import { queryKeyUtils } from '@/share/libs/react-query/query-keys';
 import {
-    aiQueryOptions,
-    type DocumentDTO,
+  aiQueryOptions,
+  type DocumentDTO,
 } from '@/share/libs/react-query/query-options';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TabSetPlaceHolderCallback } from 'flexlayout-react';
@@ -16,6 +16,28 @@ export interface ArcWorkTabSetPlaceholderProps {
    * 탭셋 노드
    */
   node: Parameters<TabSetPlaceHolderCallback>[0];
+}
+
+interface ArcWorkPlaceholderContentProps {
+  onStartAiSession: () => void;
+}
+
+function ArcWorkPlaceholderContent({ onStartAiSession }: ArcWorkPlaceholderContentProps) {
+  return (
+    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className="text-sm">탭을 여기로 드래그하세요</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onStartAiSession}
+        >
+          AI 채팅 시작하기
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -59,21 +81,48 @@ export function ArcWorkTabSetPlaceholder({ node }: ArcWorkTabSetPlaceholderProps
     }
   }, [createAiSessionMutation, ensureOpenTab, queryClient]);
 
-  return (
-    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <p className="text-sm">탭을 여기로 드래그하세요</p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleOpenArcAI}
-        >
-          AI 채팅 시작하기
-        </Button>
-      </div>
-    </div>
-  );
+  return <ArcWorkPlaceholderContent onStartAiSession={handleOpenArcAI} />;
+}
+
+/**
+ * 탭 콘텐츠 용 기본 Placeholder 탭
+ * - 헤더의 "새 탭" 버튼 등에서 사용할 수 있습니다.
+ */
+export function ArcWorkPlaceholderTab() {
+  const { ensureOpenTab } = useArcWorkTabCreateAdapter();
+  const queryClient = useQueryClient();
+  const createAiSessionMutation = useMutation<DocumentDTO, unknown, { name: string; parentPath: string }>({
+    mutationFn: (variables) =>
+      aiQueryOptions.createSession.mutationFn({
+        name: variables.name,
+        parentPath: variables.parentPath,
+      }),
+  });
+
+  const handleOpenArcAI = React.useCallback(async () => {
+    try {
+      const doc = await createAiSessionMutation.mutateAsync({
+        name: '새 채팅',
+        parentPath: '',
+      });
+
+      queryKeyUtils.updateDocumentCache(queryClient, {
+        action: 'add',
+        document: doc,
+      });
+
+      ensureOpenTab({
+        id: doc.documentId,
+        name: doc.name,
+        type: 'arcai-session',
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[ArcWorkPlaceholderTab] AI 세션 문서 생성 실패:', error);
+    }
+  }, [createAiSessionMutation, ensureOpenTab, queryClient]);
+
+  return <ArcWorkPlaceholderContent onStartAiSession={handleOpenArcAI} />;
 }
 
 /**

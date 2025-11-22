@@ -458,9 +458,7 @@
   visibility: hidden;
   border-radius: 4px;
 }
-.flexlayout__tab_button_trailing:hover {
-  background-color: var(--color-toolbar-button-hover);
-}
+/* 기존 trailing hover는 버튼 hover와 충돌하므로 제거 (버튼에만 hover 적용) */
 @media (hover: hover) {
   .flexlayout__tab_button:hover .flexlayout__tab_button_trailing {
     visibility: visible;
@@ -468,6 +466,38 @@
 }
 .flexlayout__tab_button--selected .flexlayout__tab_button_trailing {
   visibility: visible;
+}
+
+/* ArcWork 커스텀: 탭 닫기 버튼을 탭 추가 버튼과 동일한 스타일로 맞춤 */
+.flexlayout__tab_button_trailing button {
+  /* Button 컴포넌트의 variant="ghost" 스타일 + size="sm" + 명시적 크기 (h-7 w-7 p-0 text-2xl) */
+  height: 1.75rem !important; /* h-7 */
+  width: 1.75rem !important; /* w-7 */
+  min-width: 1.75rem !important;
+  min-height: 1.75rem !important;
+  padding: 0 !important; /* p-0 */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.375rem !important; /* rounded-md */
+  font-size: 1.5rem !important; /* text-2xl */
+  line-height: 1 !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+  color: var(--color-text) !important;
+}
+
+/* 버튼 hover: 더 구체적인 셀렉터로 우선순위 확보 */
+.flexlayout__tab_button:hover .flexlayout__tab_button_trailing button:hover,
+.flexlayout__tab_button--selected .flexlayout__tab_button_trailing button:hover {
+  background-color: var(--color-3) !important; /* hover:bg-muted와 유사 */
+}
+
+.flexlayout__tab_button_trailing button:active {
+  background-color: var(--color-4) !important; /* active:bg-accent와 유사 */
 }
 .flexlayout__tab_button_overflow {
   display: flex;
@@ -678,7 +708,8 @@
     background-color: var(--color-6);
   }
 }
-.flexlayout__popup_menu_container {
+
+ .flexlayout__popup_menu_container {
   box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--color-popup-border);
   color: var(--color-popup-unselected);

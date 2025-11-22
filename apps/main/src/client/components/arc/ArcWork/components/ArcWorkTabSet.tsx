@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/client/components/ui/button';
 import { useArcWorkLayoutStore } from '@/client/states/stores/arcwork-layout-store';
 import type { BorderNode, ITabSetRenderValues, TabSetNode } from 'flexlayout-react';
 
@@ -87,33 +88,35 @@ export function ArcWorkTabSet({ tabSetNode, renderValues }: ArcWorkTabSetProps) 
   // 현재는 기본값 사용 (변경 필요시 주석 해제)
   // renderValues.overflowPosition = 0; // 맨 앞에 배치
 
-  // ArcWork 헤더: '새 탭 추가' 버튼 (ArcWork 탭 API 사용)
+  // ArcWork 헤더: '새 탭 추가' 버튼
   const nodeType = (tabSetNode as any).getType?.();
   const isTabSet = nodeType === 'tabset';
 
   if (isTabSet) {
     renderValues.stickyButtons.push(
-      <button
+      <Button
         key="arcwork-add-tab"
         type="button"
-        className="flexlayout__tab_toolbar_button"
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0 text-2xl"
         title="새 탭 추가"
         onClick={() => {
           const { open } = useArcWorkLayoutStore.getState();
-          const id = `placeholder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const name = '새 탭';
-          const type = 'placeholder';
+          const id = `arcwork-placeholder-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
 
           open({
             id,
-            name,
-            type,
+            name: '새 탭',
+            type: 'arcwork-placeholder',
             tabsetId: (tabSetNode as TabSetNode).getId(),
           });
         }}
       >
         +
-      </button>,
+      </Button>,
     );
   }
 

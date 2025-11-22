@@ -1,13 +1,14 @@
 {
   "files.exclude": {
-    "**/node_modules": true,
-    "**/next-env.d.ts": true,
-    "**/pnpm-lock.yaml": true,
-    "**/tsconfig.tsbuildinfo": true,
-    "**/postcss.config.mjs": true,
-    "**/dist": true,
-    "**/__pycache__": true,
-    "**/venv": true
+    "*/**/node_modules": true,
+    "*/**/next-env.d.ts": true,
+    "*/**/package-lock.json": true,
+    "*/**/pnpm-lock.yaml": true,
+    "*/**/tsconfig.tsbuildinfo": true,
+    "*/**/postcss.config.mjs": true,
+    "*/**/dist": true,
+    "*/**/__pycache__": true,
+    "*/**/venv": true
   },
   "css.lint.emptyRules": "ignore",
   "scss.lint.emptyRules": "ignore",

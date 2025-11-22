@@ -3,6 +3,7 @@
 import { ArcWorkDynamic, type ArcWorkProps } from '@/client/components/arc/ArcWork';
 import { useArcWorkTab } from '@/client/components/arc/ArcWork/adapters/useArcWorkTab';
 import { createFactory } from '@/client/components/arc/ArcWork/components';
+import { ArcWorkPlaceholderTab } from '@/client/components/arc/ArcWork/components/ArcWorkTabSetPlaceholder';
 import { ArcYouChatRoom } from '@/client/components/arc/ArcYou/ArcYouChat';
 import { ArcData } from '@/client/components/arc/ArcData';
 import ArcAI from '@/client/components/arc/ArcAI/ArcAI';
@@ -46,6 +47,10 @@ export function ArcWorkContent({
           return <div className="p-4">AI 세션 ID 정보가 없습니다.</div>;
         }
         return <ArcAI documentId={documentId} />;
+      }
+
+      if (component === 'arcwork-placeholder') {
+        return <ArcWorkPlaceholderTab />;
       }
 
       return null; // createFactory가 defaultArcWorkFactory를 호출

@@ -169,26 +169,31 @@ type DocumentDetailResponse = {
 
 ```ts
 {
-  messages: UIMessage[]; // 이번 턴에서 추가된 메시지들 (보통 마지막 user 메시지 1개)
+  /**
+   * 클라이언트(useChat)가 현재 보유하고 있는 UIMessage[] 전체 대화
+   * - 편집/재생성을 위해 항상 최신 스냅샷 전체를 전송합니다.
+   */
+  messages: UIMessage[];
 }
 ```
+
+> **중요**  
+> 2024-11 이후 버전에서는 “마지막 user 메시지 1개만 전송” 로직이 제거되었습니다.  
+> 클라이언트가 `messages` 전체를 책임지고 보내며, 서버는 추가 히스토리 조회 없이 이 배열만을 기준으로 스트리밍을 수행합니다. 편집/재시도/취소 후 재실행과 같은 기능을 위해 반드시 최신 상태 전체를 전송해야 합니다.
 
 **서버 동작(요약)**
 
 1. `auth()` → `userId`
 2. 경로 파라미터의 `documentId` 를 `uuidSchema` 로 검증
 3. `requestBodySchema` 로 `messages` 검증
-4. `DocumentAiRepository` 인스턴스 생성
-5. `loadConversationWithCache({ documentId, userId, repository })` 로 이전 히스토리 복원
-6. `allMessages = [...previousMessages, ...newMessages]`
-7. AI SDK:
-   - `validateUIMessages({ messages: allMessages })`
-   - `streamText({ model: openai('gpt-5.1'), system: SYSTEM_PROMPT, messages: convertToModelMessages(validatedMessages), tools: createDocumentAiTools(userId), stopWhen: stepCountIs(8) })`
-   - `toUIMessageStreamResponse(...)` 로 UIMessage 스트림으로 래핑
-8. `onFinish` 훅에서:
-   - `DocumentAiRepository.replaceConversationForOwner` 로 전체 대화 히스토리를 Postgres에 저장
-   - `saveConversationSnapshot` 으로 Redis `ai:conversation:*` 갱신
-   - 마지막 user 메시지를 `saveLastAiUserMessage` 로 별도 캐시
+4. `DocumentAiRepository` 인스턴스를 생성하고 `assertAiDocumentOwner` 로 소유/타입 확인
+5. 전달받은 `messages` 그대로를 대상으로 `validateUIMessages` → `streamText` 실행
+   - `createDocumentAiTools(userId)` 로 정의된 embed/text search 등을 그대로 사용
+   - `stopWhen: stepCountIs(8)` 로 도구 호출 횟수 제한
+6. `toUIMessageStreamResponse` 로 스트림을 감싸고, `messageMetadata` 에 모델/토큰 정보를 남김
+7. `onFinish` 훅에서:
+   - `DocumentAiRepository.replaceConversationForOwner` 로 Postgres에 전체 대화 저장
+   - `saveConversationSnapshot` 으로 Redis `ai:conversation:*` 스냅샷 갱신
 
 ---
 
@@ -250,8 +255,9 @@ export const aiQueryOptions = {
 
 - **역할**
   - AI SDK `useChat` + `DefaultChatTransport` 를 프로젝트에 맞게 포장
-  - `POST /api/document/ai/[documentId]/stream` 에 맞춰, **항상 마지막 메시지 1개만 서버로 전송**
+  - `POST /api/document/ai/[documentId]/stream` 으로 **현재 보유 중인 전체 `UIMessage[]`**를 전송
   - `initialMessages`가 준비되면 `useEffect`로 `chat.setMessages`에 반영하여 히스토리 동기화
+  - `stop`, `regenerate`, `setMessages` 를 그대로 노출하여 중단/재시도/메시지 편집 시나리오에 활용
 
 ```ts
 export interface UseAIChatOptions {
@@ -268,15 +274,8 @@ export function useAIChat(options: UseAIChatOptions) {
     messages: initialMessages ?? [],
     resume: resume ?? false,
     transport: new DefaultChatTransport({
-      api: `/api/document/ai/${encodeURIComponent(id)}/stream`,
-      prepareSendMessagesRequest: ({ messages }) => {
-        const last = messages[messages.length - 1];
-        return {
-          body: {
-            messages: last ? [last] : [],
-          },
-        };
-      },
+      api: `/api/document/ai/${encodeURIComponent(documentId)}/stream`,
+      // 별도 prepareSendMessagesRequest 없이 기본 동작(전체 messages 전송)을 사용
     }),
   });
 
@@ -291,90 +290,33 @@ export function useAIChat(options: UseAIChatOptions) {
 }
 ```
 
+> **편집/재시도 흐름**  
+> ArcAI는 `chat.setMessages` + `regenerate({ messageId })` 조합을 사용합니다.  
+> 1) 편집 버튼 클릭 → 해당 user 메시지를 수정하고 이후 assistant 메시지를 잘라내며 `setMessages` 호출  
+> 2) 즉시 `regenerate({ messageId })` 로 같은 지점부터 재생성  
+> 3) 중단 버튼은 `stop()`을 호출하며 전송 버튼 UI에 통합되어 있습니다.
+
 ### 4.3 ArcAI 컴포넌트
 
 파일: `apps/main/src/client/components/arc/ArcAI/ArcAI.tsx`
 
-```ts
-export interface ArcAIProps {
-  /** ArcWork 탭 메타에서 넘어오는 document.documentId (UUID) */
-  documentId: string;
-}
-
-export const ArcAI = ({ documentId }: ArcAIProps) => {
-  // 서버에 저장된 이전 대화 히스토리 로드 (Redis → Postgres)
-  const { messages: initialMessages, isLoading: isLoadingHistory } =
-    useAIConversation(documentId);
-
-  // AI SDK useChat 기반 스트리밍 훅
-  const { messages, sendMessage, status } = useAIChat({
-    documentId,
-    initialMessages,
-    // 현재는 스트림 재개(GET /api/document/ai/[id]/stream) 엔드포인트를
-    // 구현하지 않았으므로 resume 기능은 비활성화합니다.
-    // 필요 시 resumable-stream 패턴을 도입한 뒤 true로 전환합니다.
-    resume: false,
-  });
-
-  const [draft, setDraft] = useState('');
-  const [scrollTrigger, setScrollTrigger] = useState(0);
-  const [didScrollAfterHistory, setDidScrollAfterHistory] = useState(false);
-
-  const handleSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      const text = draft.trim();
-      if (!text) return;
-
-      // 마지막 메시지 1개를 서버로 전송하면,
-      // 나머지 히스토리는 서버에서 Redis/PG를 통해 복원합니다.
-      void sendMessage({ text });
-      setDraft('');
-    },
-    [draft, sendMessage],
-  );
-
-  // 간단한 로딩 처리: 히스토리 로딩 중에는 빈 상태만 표시
-  return (
-    <div className={styles.container}>
-      <div className={styles.chatArea}>
-        <ArcAIMessageList
-          messages={messages}
-          scrollTrigger={scrollTrigger}
-          emptyTitle={
-            isLoadingHistory ? '대화 히스토리를 불러오는 중입니다.' : undefined
-          }
-        />
-      </div>
-
-      <div className={styles.inputWrapper}>
-        <ArcAIInput
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onSubmit={handleSubmit}
-          submitDisabled={
-            draft.trim().length === 0 ||
-            status === 'streaming'
-          }
-        />
-      </div>
-    </div>
-  );
-};
-```
-
-- **상태 관리**
-  - `draft`: 사용자가 입력 중인 텍스트 상태.
-  - `scrollTrigger`: **이전 대화 히스토리 로딩이 끝난 직후 딱 한 번만** 하단으로 스크롤시키기 위한 트리거. 사용자 메시지 전송 시에는 더 이상 증가시키지 않아, 전송 직후 추가 스크롤 없이 곧바로 목적 상태로 렌더됩니다.
-  - `didScrollAfterHistory`: 히스토리 로딩 후 스크롤이 한 번 실행되었는지 추적하는 플래그.
-
-- **핵심 핸들러**
-  - `handleSubmit`: `draft.trim()` 검사 → 비어 있으면 리턴. 그렇지 않으면 `sendMessage({ text })` 호출 후 `draft` 초기화.
-
-- **UX 포인트**
-  - **섹션 기반 렌더링**: ArcAIMessageList는 `UIMessage`를 섹션 단위(user + assistant)로 렌더링합니다.
-  - **스트리밍 응답**: `useChat`의 `messages`가 스트리밍에 따라 업데이트되므로, ArcAIMessageList는 즉시 부분 응답을 표시합니다.
-  - **스크롤 동작**: 히스토리 로딩 완료 시 한 번만 자동 스크롤, 그 외에는 StickToBottom의 기본 동작을 따름.
+- `useAIConversation(documentId)` 로 Redis → Postgres 순서로 이전 대화를 불러오고,  
+  `useAIChat` 의 `messages`, `status`, `stop`, `regenerate`, `setMessages` 를 사용합니다.
+- **입력 상태**
+  - `draft`: 현재 작성 중인 텍스트.
+  - `editingMessageId`, `editingText`: user 메시지 인라인 편집 모드.
+  - `isStoppable = status === 'submitted' || status === 'streaming'` 으로 응답 진행 여부 판별.
+- **핸들러 주요 흐름**
+  - `handleSubmit`: `draft`가 비었거나 `isStoppable`이면 전송하지 않고, 그렇지 않으면 `sendMessage({ text })`.
+  - `handleStart/Change/ConfirmEdit`: `setMessages` 로 대상 user 메시지를 수정하고 이후 assistant 메시지를 잘라낸 뒤 `regenerate({ messageId })`.
+  - `handleRetryAssistant`: 특정 assistant `messageId` 기준으로 `regenerate` 실행.
+  - `handleCancelEdit`: 편집 상태 초기화.
+  - `handleStop`: `stop()` 호출. ArcAIInput 전송 버튼과 통합되어 있다.
+- **스크롤 제어**
+  - `scrollTrigger`는 히스토리 로딩 완료 직후 한 번만 증가시켜 StickToBottom 컨텍스트를 트리거합니다.
+- **렌더 구성**
+  - `<ArcAIMessageList>`에 `editingMessageId`, `editingText`, `onStartEdit`, `onChangeEditText`, `onConfirmEdit`, `onCancelEdit`, `onRetryAssistant`, `aiStatus` 등을 전달해 툴 호출, 추론 보기, 메시지 액션(복사/수정/재시도)을 렌더링.
+  - `<ArcAIInput>`에는 `submitMode={isStoppable ? 'stop' : 'send'}`, `submitIcon`(StopCircle/ArrowUp), `onClickSubmitButton={handleStop}` 를 전달해 전송/중단 버튼을 하나로 통합합니다.
 
 ### 4.4 ArcAI UI 레이아웃 (ArcAIMessageList / ArcAIInput)
 
@@ -385,6 +327,10 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
 - **역할**
   - `UIMessage[]`를 **섹션(`user` + 여러 `assistant`) 단위**로 묶어 렌더링.
   - 각 섹션의 `user` 메시지는 sticky 헤더(`.sectionHeader`)로 올라가고, 아래에 `assistant` 메시지들이 쌓임.
+  - AI SDK `UIMessage.parts` 를 그대로 파싱하여 **툴 호출(`tool-call`, `tool-result`)을 ArcAIElements/tool** 컴포넌트로 인라인 렌더링.
+  - `messageMetadata.reasoningText` 가 있으면 `ArcAIReasoning`(Reasoning/ReasoningTrigger/ReasoningContent 조합)으로 표시하고, 스트리밍 중에도 애니메이션되는 Markdown(`useArcAIMarkdown`)을 공유.
+  - `ResponsePreparing` 컴포넌트로 “토큰이 아직 도착하지 않은 상태”를 표시 (`status === 'submitted'` & 마지막 메시지가 user).
+  - 각 메시지 하단에는 lucide 아이콘 기반 **복사/수정/재시도 액션 바**가 있으며, user 메시지는 복사+수정, assistant 메시지는 복사+재시도를 제공. 호버 시에만 노출되고 투명 배경을 사용.
 
 - **레이아웃 포인트**
   - `StickToBottom`(`Conversation`) + `ConversationContent` 조합으로 스크롤/오토스틱 관리.
@@ -405,7 +351,8 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
   - 자동 높이 조절되는 textarea + 도구 버튼들 + 전송 버튼을 하나의 `<form>`으로 묶은 입력 컴포넌트.
 
 - **UX 포인트**
-  - `Enter` → 전송 (`Shift+Enter`는 줄바꿈), 한글 조합(`isComposing`) 중에는 전송 안 함.
+  - `submitMode`: `'send' | 'stop'` 를 받아 한 버튼으로 전송/중단 UI를 공유. 스트리밍 중에는 `StopCircle`, 그 외에는 `ArrowUp` 아이콘(lucide-react)을 사용.
+  - `Enter` → 전송 (`Shift+Enter`는 줄바꿈), 한글 조합(`isComposing`) 중에는 전송 안 함. `submitMode === 'stop'` 인 동안에는 Enter 전송 자체를 막는다.
   - `dataset.expanded` / `dataset.empty`를 통해 placeholder 오버레이와 폼 확장 상태를 CSS로만 제어.
   - 상위에서 `value`/`onChange`로 제어되므로, ArcAI의 `draft` 상태와 자연스럽게 동기화됨.
 
@@ -491,8 +438,8 @@ if (component === 'arcai-session') {
 - 클라이언트는 `useAISessionCreate` + `useAIConversation` + `useAIChat` + `ArcAI` 조합으로:
   - 세션 생성 후 문서 ID를 주입받으면
   - 기존 히스토리 + 스트리밍 응답까지 포함한 **완전한 AI 채팅 UI**를 ArcWork 탭 안에서 구현할 수 있습니다.
-- 클라이언트 UI는 `ArcAIMessageList` + `ArcAIInput` 조합으로,
-  **사용자 메시지를 섹션 헤더로 올리고 마지막 섹션에만 min-height를 주는 sticky 레이아웃**을 사용해
-  입력 직후에도 헤더가 항상 상단에서 시작되도록 보장합니다.
+- `useAIChat` 은 이제 `UIMessage[]` 전체를 서버에 전송하며, `setMessages` + `regenerate` + `stop` 을 그대로 노출해 **인라인 편집/재시도/중단 UX**를 제공합니다.
+- `ArcAIMessageList` 는 tool-call/결과/Reasoning 파츠를 인라인 렌더링하고, `ResponsePreparing`·복사/수정/재시도 액션 등을 제공하여 최신 AI SDK UI 가이드와 동일한 경험을 구현합니다.
+- `ArcAIInput` 은 전송 버튼 하나로 전송/중단을 통합하고, 스트리밍 중에는 `StopCircle`, 대기 중에는 `ArrowUp` lucide 아이콘을 사용합니다. Sticky 레이아웃/자동 확장/placeholder 동작은 기존과 동일합니다.
 
 
