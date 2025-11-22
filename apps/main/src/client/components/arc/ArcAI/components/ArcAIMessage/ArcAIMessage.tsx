@@ -69,14 +69,24 @@ export const MessageContent = ({
   </div>
 );
 
-export type MessageActionsProps = ComponentProps<"div">;
+export type MessageActionsProps = ComponentProps<"div"> & {
+  from?: UIMessage["role"];
+};
 
 export const MessageActions = ({
   className,
+  from,
   children,
   ...props
 }: MessageActionsProps) => (
-  <div className={cn(styles.messageActions, className)} {...props}>
+  <div
+    className={cn(
+      styles.messageActions,
+      from === "user" && styles.isUser,
+      className
+    )}
+    {...props}
+  >
     {children}
   </div>
 );

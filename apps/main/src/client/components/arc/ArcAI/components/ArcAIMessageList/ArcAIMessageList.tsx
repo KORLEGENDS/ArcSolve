@@ -2,6 +2,7 @@
 
 import { cn } from "@/client/components/ui/utils";
 import type { UIMessage } from "ai";
+import { CopyIcon, PencilIcon, RotateCcwIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 import {
@@ -10,9 +11,11 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "../ArcAIElements/conversation";
-import { ResponsePreparing } from "../ArcAIElements/response-preparing";
+import { Shimmer } from "../ArcAIElements/shimmer";
 import {
   Message,
+  MessageAction,
+  MessageActions,
   MessageContent,
   MessageResponse,
   MessageToolCall,
@@ -125,6 +128,27 @@ export const ArcAIMessageList = ({
                             .join("\n\n")}
                         </MessageResponse>
                       </MessageContent>
+
+                      <MessageActions from="user">
+                        <MessageAction
+                          tooltip="메시지 복사"
+                          label="메시지 복사"
+                        >
+                          <CopyIcon className="size-4" />
+                        </MessageAction>
+                        <MessageAction
+                          tooltip="메시지 수정"
+                          label="메시지 수정"
+                        >
+                          <PencilIcon className="size-4" />
+                        </MessageAction>
+                        <MessageAction
+                          tooltip="다시 보내기"
+                          label="다시 보내기"
+                        >
+                          <RotateCcwIcon className="size-4" />
+                        </MessageAction>
+                      </MessageActions>
                     </Message>
                   </div>
                 )}
@@ -175,6 +199,27 @@ export const ArcAIMessageList = ({
                             | undefined
                         }
                       />
+
+                      <MessageActions>
+                        <MessageAction
+                          tooltip="응답 복사"
+                          label="응답 복사"
+                        >
+                          <CopyIcon className="size-4" />
+                        </MessageAction>
+                        <MessageAction
+                          tooltip="수정 후 다시 요청"
+                          label="수정 후 다시 요청"
+                        >
+                          <PencilIcon className="size-4" />
+                        </MessageAction>
+                        <MessageAction
+                          tooltip="다시 생성"
+                          label="다시 생성"
+                        >
+                          <RotateCcwIcon className="size-4" />
+                        </MessageAction>
+                      </MessageActions>
                     </Message>
                   ))}
 
@@ -183,8 +228,12 @@ export const ArcAIMessageList = ({
                   {isLast &&
                     isAwaitingFirstAssistant &&
                     section.assistants.length === 0 && (
-                      <div className={styles.preparing}>
-                        <ResponsePreparing />
+                      <div
+                        className={styles.preparing}
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <Shimmer as="span">생각 중</Shimmer>
                       </div>
                     )}
                 </div>

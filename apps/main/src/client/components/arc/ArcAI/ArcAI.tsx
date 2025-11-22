@@ -18,7 +18,7 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
     useAIConversation(documentId);
 
   // AI SDK useChat 기반 스트리밍 훅
-  const { messages, sendMessage, status } = useAIChat({
+  const { messages, sendMessage, status, stop } = useAIChat({
     documentId,
     initialMessages,
     // 현재는 스트림 재개(resume) 기능을 사용하지 않습니다.
@@ -29,6 +29,8 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
   const [draft, setDraft] = useState('');
   const [scrollTrigger, setScrollTrigger] = useState(0);
   const [didScrollAfterHistory, setDidScrollAfterHistory] = useState(false);
+
+  const isStoppable = status === 'submitted' || status === 'streaming';
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -74,6 +76,33 @@ export const ArcAI = ({ documentId }: ArcAIProps) => {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onSubmit={handleSubmit}
+          tools={[
+            {
+              children: (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="6" y="6" width="12" height="12" rx="1" />
+                </svg>
+              ),
+              'aria-label': '응답 중단',
+              onClick: () => {
+                if (isStoppable) {
+                  stop();
+                }
+              },
+              disabled: !isStoppable,
+              variant: 'ghost',
+            },
+          ]}
           submitDisabled={
             draft.trim().length === 0 || status === 'streaming'
           }
