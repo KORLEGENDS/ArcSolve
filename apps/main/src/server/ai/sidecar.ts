@@ -108,11 +108,11 @@ export async function callTreeListTool(args: {
   rootPath?: string;
   maxDepth?: number;
 }): Promise<TreeListItem[]> {
-  const { userId, rootPath = "root", maxDepth = 2 } = args;
+  const { userId, rootPath, maxDepth = 4 } = args;
 
   return callSidecar<TreeListItem[]>("/tools/tree-list", {
     user_id: userId,
-    root_path: rootPath,
+    root_path: rootPath || undefined, // 빈 문자열이면 undefined로 전달하여 사이드카가 모든 문서 조회
     max_depth: maxDepth,
   });
 }

@@ -13,6 +13,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding-bottom: 160px;
+  padding-inline: 32px;
 }
 
 .section {

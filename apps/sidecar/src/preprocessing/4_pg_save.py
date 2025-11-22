@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any, Dict, List
 
@@ -30,6 +31,8 @@ from sqlalchemy import func
 
 from src.schema.db import get_session
 from src.schema.document_schema import Document, DocumentContent, DocumentChunk
+
+logger = logging.getLogger(__name__)
 
 
 def save_to_pg_step(
@@ -54,6 +57,11 @@ def save_to_pg_step(
     session = get_session()
 
     try:
+        logger.info(
+            f"[save_to_pg] 시작: document_id={document_id}, user_id={user_id}, "
+            f"chunks={len(chunks)}, embeddings={len(embeddings)}"
+        )
+
         # 1) 기존 Document 조회 및 검증
         doc = (
             session.query(Document)
@@ -67,6 +75,8 @@ def save_to_pg_step(
             raise ValueError(
                 f"Document를 찾을 수 없습니다: document_id={document_id}, user_id={user_id}",
             )
+
+        logger.info(f"[save_to_pg] Document 조회 성공: document_id={doc.document_id}")
 
         # 2) DocumentContent 생성 (contents JSONB에 markdown/layout/metrics 저장)
         content_json = {
@@ -83,6 +93,8 @@ def save_to_pg_step(
             or 0
         )
 
+        logger.info(f"[save_to_pg] 최신 버전: {latest_version}, 새 버전: {latest_version + 1}")
+
         new_content = DocumentContent(
             document_content_id=uuid.uuid4(),
             document_id=doc.document_id,
@@ -93,10 +105,15 @@ def save_to_pg_step(
         session.add(new_content)
         session.flush()
 
+        logger.info(
+            f"[save_to_pg] DocumentContent 생성: content_id={new_content.document_content_id}"
+        )
+
         # latest_content_id 갱신
         doc.latest_content_id = new_content.document_content_id
 
         # 3) DocumentChunk 생성
+        chunk_count = 0
         for idx, (chunk_text, embed_vec) in enumerate(zip(chunks, embeddings)):
             new_chunk = DocumentChunk(
                 document_chunk_id=uuid.uuid4(),
@@ -106,8 +123,16 @@ def save_to_pg_step(
                 chunk_embedding=embed_vec,
             )
             session.add(new_chunk)
+            chunk_count += 1
+
+        logger.info(f"[save_to_pg] DocumentChunk {chunk_count}개 추가 완료, 커밋 시작")
 
         session.commit()
+
+        logger.info(
+            f"[save_to_pg] 커밋 완료: document_id={doc.document_id}, "
+            f"content_id={new_content.document_content_id}, chunk_count={chunk_count}"
+        )
 
         return {
             "document_id": doc.document_id,
@@ -115,7 +140,11 @@ def save_to_pg_step(
             "chunk_count": len(chunks),
         }
 
-    except Exception:
+    except Exception as exc:
+        logger.error(
+            f"[save_to_pg] 저장 실패: document_id={document_id}, error={exc}",
+            exc_info=True,
+        )
         session.rollback()
         raise
     finally:

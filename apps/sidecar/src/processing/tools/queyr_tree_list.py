@@ -63,21 +63,72 @@ class DocumentTreeItem:
 
 def query_tree_list(
     user_id: uuid.UUID | str,
-    root_path: str = "root",
-    max_depth: int = 2,
+    root_path: str | None = None,
+    max_depth: int = 4,
 ) -> List[Dict[str, Any]]:
     """
     특정 사용자/루트 경로 기준으로 Document 트리를 평탄 리스트로 조회한다.
 
-    - root_path: 포함하고 싶은 트리의 루트(l tree prefix). 기본값 'root'.
+    - root_path: 포함하고 싶은 트리의 루트(ltree prefix). None이거나 빈 문자열이면 모든 문서를 조회.
     - max_depth: root_path 기준으로 내려갈 최대 깊이 (0이면 바로 하위만).
     """
     if not isinstance(max_depth, int) or max_depth < 0:
         raise ValueError("max_depth는 0 이상의 정수여야 합니다.")
 
     normalized_user_id = _normalize_user_id(user_id)
-    root_path = root_path or "root"
+    
+    # root_path가 None이거나 빈 문자열이면 모든 문서 조회
+    if not root_path or root_path.strip() == "":
+        engine = _get_db_engine()
+        SessionLocal = sessionmaker(bind=engine)
 
+        stmt = text(
+            """
+            SELECT
+                d.document_id AS document_id,
+                d.name AS name,
+                d.path::text AS path,
+                d.kind::text AS kind,
+                nlevel(d.path) AS level,
+                d.path::text AS relative_path
+            FROM document AS d
+            WHERE
+                d.user_id = :user_id
+                AND d.deleted_at IS NULL
+                AND nlevel(d.path) <= :max_depth
+            ORDER BY d.path
+            """
+        )
+
+        with SessionLocal() as session:
+            rows = (
+                session.execute(
+                    stmt,
+                    {
+                        "user_id": normalized_user_id,
+                        "max_depth": max_depth,
+                    },
+                )
+                .mappings()
+                .all()
+            )
+
+        results: List[DocumentTreeItem] = []
+        for row in rows:
+            results.append(
+                DocumentTreeItem(
+                    document_id=row["document_id"],
+                    name=row.get("name"),
+                    path=row["path"],
+                    kind=row["kind"],
+                    level=row["level"],
+                    relative_path=row["relative_path"],
+                )
+            )
+
+        return [r.to_dict() for r in results]
+
+    # root_path가 지정된 경우 기존 로직 사용
     engine = _get_db_engine()
     SessionLocal = sessionmaker(bind=engine)
 

@@ -14,6 +14,7 @@ FastAPI 사이드카 서버 진입점.
 """
 
 import importlib
+import logging
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -42,6 +43,12 @@ _UPLOAD_ROOT = _BASE_DIR / "uploads"
 # 전처리 파이프라인 모듈 (0_pipeline.py) 동적 로드
 _PIPELINE_MOD = importlib.import_module("src.preprocessing.0_pipeline")
 
+# 로깅 설정
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 app = FastAPI(
     title="ArcYou Sidecar Tools API",
@@ -114,15 +121,15 @@ class TreeListRequest(BaseModel):
     """문서 트리 조회 요청 바디."""
 
     user_id: str = Field(..., description="대상 사용자 UUID (문자열)")
-    root_path: str = Field(
-        "root",
-        description="ltree 기반 Document.path prefix (예: 'root', 'root.folder')",
+    root_path: Optional[str] = Field(
+        default=None,
+        description="조회할 문서 트리의 시작 경로. None이거나 빈 문자열이면 모든 문서를 조회합니다. 경로는 점(.)으로 구분된 계층 구조입니다 (예: 'test', 'test.folder').",
     )
     max_depth: int = Field(
-        2,
+        4,
         ge=0,
         le=10,
-        description="root_path 기준으로 내려갈 최대 깊이 (0이면 바로 하위만)",
+        description="root_path 기준으로 내려갈 최대 깊이 (0이면 바로 하위만). root_path가 None이면 전체 트리의 최대 깊이를 의미합니다.",
     )
 
 
@@ -225,17 +232,30 @@ def parse_document(
 
     # 4) 전처리 파이프라인 실행 (동기)
     try:
+        logger.info(
+            f"[parse] 파이프라인 시작: document_id={document_id}, "
+            f"user_id={payload.user_id}, storage_key={storage_key}"
+        )
         result: Dict[str, Any] = _PIPELINE_MOD.run_pipeline_for_file(
             str(tmp_path),
             user_uuid,
             document_uuid,
         )
+        logger.info(
+            f"[parse] 파이프라인 완료: document_id={document_id}, "
+            f"content_id={result.get('content_id')}, chunk_count={result.get('chunk_count')}"
+        )
     except ValueError as exc:
         # 예: 지원하지 않는 파일 형식 등 사용자 입력 문제
+        logger.warning(f"[parse] 입력 검증 실패: document_id={document_id}, error={exc}")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - FastAPI에서 공통 에러로 처리
         import traceback
         error_detail = f"파일 전처리 파이프라인 처리에 실패했습니다: {str(exc)}\n{traceback.format_exc()}"
+        logger.error(
+            f"[parse] 파이프라인 실패: document_id={document_id}, error={exc}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
             detail=error_detail,
@@ -266,6 +286,10 @@ async def embed_search_endpoint(payload: EmbedSearchRequest) -> List[Dict[str, A
 
     - 내부적으로 `query_embed_search` 를 호출합니다.
     """
+    logger.info(
+        f"[embed-search] 요청: user_id={payload.user_id}, query={payload.query[:100]}, "
+        f"top_k={payload.top_k}, path_prefix={payload.path_prefix}"
+    )
     try:
         results = query_embed_search(
             user_id=payload.user_id,
@@ -273,8 +297,20 @@ async def embed_search_endpoint(payload: EmbedSearchRequest) -> List[Dict[str, A
             top_k=payload.top_k,
             path_prefix=payload.path_prefix,
         )
+        result_count = len(results)
+        if result_count > 0:
+            first_result = results[0]
+            logger.info(
+                f"[embed-search] 응답: 결과 {result_count}개, "
+                f"첫 결과 - document_id={first_result.get('document_id')}, "
+                f"similarity={first_result.get('similarity', 0):.4f}, "
+                f"chunk_content_preview={first_result.get('chunk_content', '')[:100]}"
+            )
+        else:
+            logger.info("[embed-search] 응답: 결과 없음")
         return results
     except Exception as exc:  # pragma: no cover - FastAPI에서 공통 에러로 처리
+        logger.error(f"[embed-search] 오류: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -285,6 +321,10 @@ async def text_search_endpoint(payload: TextSearchRequest) -> List[Dict[str, Any
 
     - 내부적으로 `query_text_search` 를 호출합니다.
     """
+    logger.info(
+        f"[text-search] 요청: user_id={payload.user_id}, query={payload.query[:100]}, "
+        f"top_k={payload.top_k}, path_prefix={payload.path_prefix}"
+    )
     try:
         results = query_text_search(
             user_id=payload.user_id,
@@ -292,8 +332,20 @@ async def text_search_endpoint(payload: TextSearchRequest) -> List[Dict[str, Any
             top_k=payload.top_k,
             path_prefix=payload.path_prefix,
         )
+        result_count = len(results)
+        if result_count > 0:
+            first_result = results[0]
+            logger.info(
+                f"[text-search] 응답: 결과 {result_count}개, "
+                f"첫 결과 - document_id={first_result.get('document_id')}, "
+                f"rank={first_result.get('rank', 0):.4f}, "
+                f"chunk_content_preview={first_result.get('chunk_content', '')[:100]}"
+            )
+        else:
+            logger.info("[text-search] 응답: 결과 없음")
         return results
     except Exception as exc:  # pragma: no cover
+        logger.error(f"[text-search] 오류: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -304,14 +356,30 @@ async def tree_list_endpoint(payload: TreeListRequest) -> List[Dict[str, Any]]:
 
     - 내부적으로 `query_tree_list` 를 호출합니다.
     """
+    logger.info(
+        f"[tree-list] 요청: user_id={payload.user_id}, "
+        f"root_path={payload.root_path}, max_depth={payload.max_depth}"
+    )
     try:
         results = query_tree_list(
             user_id=payload.user_id,
             root_path=payload.root_path,
             max_depth=payload.max_depth,
         )
+        result_count = len(results)
+        if result_count > 0:
+            first_result = results[0]
+            logger.info(
+                f"[tree-list] 응답: 결과 {result_count}개, "
+                f"첫 결과 - document_id={first_result.get('document_id')}, "
+                f"name={first_result.get('name')}, path={first_result.get('path')}, "
+                f"kind={first_result.get('kind')}"
+            )
+        else:
+            logger.info("[tree-list] 응답: 결과 없음")
         return results
     except Exception as exc:  # pragma: no cover
+        logger.error(f"[tree-list] 오류: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

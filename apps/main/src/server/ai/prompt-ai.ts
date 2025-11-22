@@ -30,5 +30,6 @@ export const SYSTEM_PROMPT = `
 export const TOOL_DESCRIPTIONS = {
   embedSearch: '사용자의 문서에서 의미(임베딩) 기반 검색을 수행합니다.',
   textSearch: '사용자의 문서에서 키워드/문구 기반 텍스트 검색을 수행합니다.',
-  treeList: '사용자의 문서 트리 구조를 조회합니다.',
+  treeList:
+    '사용자의 문서 트리 구조를 조회합니다. 경로는 점(.)으로 구분된 계층 구조이며, 빈 경로를 지정하면 모든 문서를 조회합니다.',
 } as const;

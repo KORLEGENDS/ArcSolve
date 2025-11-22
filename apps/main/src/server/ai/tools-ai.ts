@@ -41,15 +41,17 @@ export const textSearchInputSchema = z.object({
 export const treeListInputSchema = z.object({
   rootPath: z
     .string()
-    .default('root')
-    .describe("문서 트리의 루트 경로 (예: 'root', 'root.folder')"),
+    .default('')
+    .describe(
+      "조회할 문서 트리의 시작 경로. 빈 문자열이면 모든 문서를 조회합니다. 경로는 점(.)으로 구분된 계층 구조입니다 (예: 'test', 'test.folder'). 'root' 같은 가상 루트는 사용하지 않습니다.",
+    ),
   maxDepth: z
     .number()
     .int()
     .min(0)
     .max(10)
-    .default(2)
-    .describe('rootPath 기준으로 내려갈 최대 깊이'),
+    .default(4)
+    .describe('rootPath 기준으로 내려갈 최대 깊이. 0이면 rootPath 바로 하위만 조회합니다.'),
 });
 
 /**

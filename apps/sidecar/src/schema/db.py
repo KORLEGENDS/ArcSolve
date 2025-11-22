@@ -17,6 +17,9 @@ from sqlalchemy.orm import sessionmaker
 def _build_database_url() -> str:
     database_url = os.getenv("DATABASE_URL")
     if database_url:
+        # Ensure postgresql:// scheme (not postgres://) for SQLAlchemy 2.0
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
         return database_url
 
     db_user = os.getenv("POSTGRES_USER", "postgres")
@@ -25,7 +28,7 @@ def _build_database_url() -> str:
     db_host = os.getenv("POSTGRES_HOST", "localhost")
     db_port = os.getenv("POSTGRES_PORT", "5432")
 
-    return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 
 DATABASE_URL = _build_database_url()

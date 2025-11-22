@@ -178,12 +178,19 @@ async function loopOnce(): Promise<void> {
         documentId,
       )}/parse`;
 
+      // 타임아웃 설정: 문서 파싱은 시간이 오래 걸릴 수 있으므로 10분으로 설정
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10분
+
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ userId }),
+        signal: controller.signal,
+      }).finally(() => {
+        clearTimeout(timeoutId);
       });
 
       if (!res.ok) {

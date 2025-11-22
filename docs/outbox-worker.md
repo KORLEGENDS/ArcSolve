@@ -99,7 +99,9 @@ ArcSolve의 Outbox Worker는 **DB Outbox 테이블**에 쌓인 이벤트/잡을 
 
 1. 환경 변수
    - `DATABASE_URL` (PgBouncer 경유)
-   - `SIDECAR_BASE_URL` 또는 `DOCUMENT_SIDECAR_BASE_URL`: 사이드카 서버 기본 URL (예: `http://localhost:8000`)
+   - `SIDECAR_BASE_URL` 또는 `DOCUMENT_SIDECAR_BASE_URL`: 사이드카 서버 기본 URL
+     - Docker Compose 환경: `http://sidecar:8000` (컨테이너 간 통신)
+     - 로컬 실행 환경: `http://localhost:8000` (호스트 포트)
    - `POLL_INTERVAL_MS`, `BATCH_SIZE`, `LOCK_SECONDS`, `MAX_ATTEMPTS` 등
 2. 루프 내 `claimBatch(...)` 호출:
    ```ts
@@ -131,6 +133,11 @@ ArcSolve의 Outbox Worker는 **DB Outbox 테이블**에 쌓인 이벤트/잡을 
 
 - 파일: `apps/docker-compose.dev.yml`
 - 관련 서비스:
+  - `sidecar`
+    - 이미지: `apps/sidecar/Dockerfile`
+    - 포트: `8000:8000` (호스트:컨테이너)
+    - FastAPI 서버로 문서 전처리(파싱/임베딩) API 제공
+    - 엔트리포인트: `uvicorn main:app --host 0.0.0.0 --port 8000`
   - `outbox-worker`
     - 이미지: `apps/outbox-worker/Dockerfile`
     - 엔트리포인트: `node dist/worker.js`
@@ -138,6 +145,7 @@ ArcSolve의 Outbox Worker는 **DB Outbox 테이블**에 쌓인 이벤트/잡을 
   - `outbox-worker-document`
     - 동일 이미지 재사용
     - 엔트리포인트: `["node", "dist/worker-document.js"]`
+    - 사이드카 서버(`sidecar:8000`)를 호출하여 문서 전처리 수행
 
 #### 재빌드 & 재기동 예시
 
@@ -149,6 +157,9 @@ docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker up -d 
 
 # 문서 워커만 재빌드/재기동
 docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker up -d --build outbox-worker-document
+
+# 사이드카 서버만 재빌드/재기동
+docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker up -d --build sidecar
 ```
 
 로그 확인:
@@ -156,6 +167,7 @@ docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker up -d 
 ```bash
 docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker logs outbox-worker --tail=50
 docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker logs outbox-worker-document --tail=50
+docker compose -f apps/docker-compose.dev.yml --env-file apps/.env.docker logs sidecar --tail=50
 ```
 
 ### 로컬 단독 실행 (pnpm)
